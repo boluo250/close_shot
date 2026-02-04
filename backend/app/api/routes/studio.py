@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -52,6 +54,8 @@ def update_me(
     data = payload.model_dump(exclude_unset=True)
     for k, v in data.items():
         setattr(p, k, v)
+    # 作为“活跃度”的输入：摄影师主动维护资料/接单范围时更新活跃时间
+    p.last_active_at = datetime.now(timezone.utc)
     db.add(p)
     db.commit()
     db.refresh(p)

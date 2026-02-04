@@ -60,3 +60,68 @@
 - `POST /photographers/{id}/reviews` / `GET /photographers/{id}/reviews`
 - `POST /upload/presign`（返回直传信息）
 
+---
+
+## PRD：附近摄影师展示（非实时位置，不误导）
+
+### 核心原则（必须满足）
+- [ ] “附近”=可为我服务（覆盖能力），不是摄影师实时定位
+- [ ] 明确区分：常驻城市 / 服务中心点（地图选点）/ 服务半径 / 接单状态
+- [ ] 距离仅用于“通勤成本估算”，文案必须避免暗示实时位置
+- [ ] 排序不是纯距离：距离权重 + 活跃度 + 评分/成交量（可解释、可扩展）
+
+### 数据模型（后端）
+- [ ] 摄影师位置语义重命名（不做实时定位）：
+  - [ ] `service_center_lat/lng`（映射现有 `lat/lng`）
+  - [ ] `service_radius_m`（已有）
+  - [ ] `is_accepting_orders`（映射现有 `is_online`，语义改为“接单中/暂停接单”）
+  - [ ] `last_active_at`（先用 `updated_at` 兜底；后续可单独字段）
+- [ ] 指标字段（可先计算、后续可落库做反范式）：
+  - [ ] `rating_avg` / `rating_count`（来自 reviews 聚合）
+  - [ ] `orders_count`（MVP 可先不做，后续接订单）
+  - [ ] `starting_price_cents`（从 active 套餐取最小值用于列表展示）
+
+### 查询与排序（后端）
+- [ ] Nearby 查询输入：用户 `lat/lng`（可选 `city` / `limit/offset` / `tag`）
+- [ ] Nearby 硬条件：
+  - [ ] `is_accepting_orders = true`
+  - [ ] `distance(user, service_center) <= service_radius_m`
+  - [ ] `service_center_lat/lng` 非空
+- [ ] Nearby 输出字段（给小程序直接用）：
+  - [ ] 摄影师基础信息（id、昵称/头像、tags、city）
+  - [ ] `service_center_lat/lng`、`service_radius_m`
+  - [ ] `distance_m` / `distance_km`
+  - [ ] `distance_copy`（后端生成：如“覆盖你所在区域 / 服务于你附近 · 约 X km / 工作室约 X km”）
+  - [ ] `is_accepting_orders`（用于状态展示）
+- [ ] 排序（示例，可调权重）：
+  - [ ] `score = 0.35*f_distance + 0.25*f_activity + 0.25*f_rating + 0.15*f_volume`
+  - [ ] 距离：`f_distance = exp(-d_km/8)`
+  - [ ] 活跃：`f_activity = exp(-days_since_active/14)`
+  - [ ] 评分：`f_rating = clamp((rating_avg-4.0)/1.0,0,1)`
+  - [ ] 成交：`f_volume = clamp(log(1+orders_count)/log(1+200),0,1)`（MVP 可先置 0）
+
+### 地理实现（技术）
+- [ ] 优先：PostGIS（可选）：
+  - [ ] `ST_DWithin` 做覆盖判断，`ST_Distance` 计算距离
+  - [ ] GIST 索引（若引入 geography）
+- [ ] 兜底：Haversine SQL（当前 `services/geo.py` 已有）+ bounding box（后续优化）
+
+### 小程序展示规范（C端）
+- [ ] 地图：
+  - [ ] marker 固定在“服务中心点”（头像点位）
+  - [ ] 点击 marker 展示服务半径圈（circle）与说明文案：“可在 X km 范围内接拍”
+  - [ ] 地图角落常驻提示：“摄影师位置为服务范围，并非实时位置”
+- [ ] 列表卡片字段：
+  - [ ] 头像 / 昵称（或临时占位）
+  - [ ] 距离文案（用 `distance_copy`，禁止直接展示“距离你Xkm”）
+  - [ ] 接单状态（接单中/暂停接单）
+  - [ ] 起步价（从最便宜套餐或 `starting_price_cents`）
+  - [ ] 风格标签
+
+### 摄影师侧（B端 / Studio）
+- [ ] 表单字段与文案改名：
+  - [ ] “在线状态”→“接单状态”
+  - [ ] “定位 lat/lng”→“服务中心点 lat/lng（非实时）”
+  - [ ] “接单半径（米）”→“服务半径（米）”
+
+

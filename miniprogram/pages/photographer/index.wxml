@@ -5,6 +5,12 @@
       <button class="cs-btn cs-btn-primary" size="mini" bindtap="toggleFav">{{fav ? '取消收藏' : '收藏'}}</button>
     </view>
     <view class="cs-muted" style="padding-top: 10rpx;">{{p.tags}}</view>
+    <view class="cs-muted" style="padding-top: 8rpx;">
+      {{p.is_accepting_orders ? '接单中' : '暂停接单'}} · 可在 {{Math.round(p.service_radius_m/1000)}} km 范围内接拍
+    </view>
+    <view class="cs-muted" style="padding-top: 6rpx;">
+      摄影师位置为服务范围，并非实时位置
+    </view>
     <view style="padding-top: 10rpx;">{{p.bio || ''}}</view>
     <view class="cs-muted" style="padding-top: 10rpx;">评分：{{ratingText}}</view>
   </view>
@@ -28,7 +34,7 @@
     <view wx:for="{{packages}}" wx:key="id" class="cs-divider" style="padding: 14rpx 0;">
       <view class="cs-row">
         <view>{{item.name}}</view>
-        <view><b>¥{{(item.price_cents/100).toFixed(0)}}</b></view>
+        <view><b>¥{{item.price_yuan || '-'}}</b></view>
       </view>
       <view class="cs-muted" style="padding-top: 6rpx;">{{item.description || ''}}</view>
     </view>

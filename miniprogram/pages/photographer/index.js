@@ -30,10 +30,20 @@ Page({
       }
       const ratingText =
         data.rating_count > 0 ? `${data.rating_avg.toFixed(1)}（${data.rating_count}）` : "-";
+
+      // WXML 表达式不支持方法调用（如 toFixed），这里先把价格格式化好
+      const packages = Array.isArray(data.packages)
+        ? data.packages.map((x) => ({
+            ...x,
+            price_yuan:
+              typeof x.price_cents === "number" ? (x.price_cents / 100).toFixed(0) : ""
+          }))
+        : [];
+
       this.setData({
         p: data,
         portfolio: data.portfolio_items || [],
-        packages: data.packages || [],
+        packages,
         ratingText
       });
     } catch (e) {

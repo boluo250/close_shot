@@ -4,9 +4,13 @@ Page({
   data: {
     lat: 31.2304,
     lng: 121.4737,
+    cityText: "定位中",
     loading: false,
     list: [],
-    markers: []
+    markers: [],
+    circles: [],
+    selected: null,
+    activeTag: ""
   },
 
   async onLoad() {
@@ -28,19 +32,72 @@ Page({
       this.setData({ lat, lng });
 
       const list = await request("/photographers/nearby", {
-        params: { lat, lng, radius_m: 8000, limit: 30 }
+        params: {
+          lat,
+          lng,
+          max_distance_m: 50000,
+          limit: 20,
+          tag: this.data.activeTag || undefined
+        }
       });
 
-      const markers = (list || []).map((p) => ({
+      const app = getApp();
+      const base = app.globalData.apiBaseUrl;
+
+      const fixed = (list || []).map((p) => {
+        const tagsArr = String(p.tags || "")
+          .split(/[,，、\s]+/g)
+          .map((x) => x.trim())
+          .filter(Boolean)
+          .slice(0, 3);
+
+        const displayName = p.display_name || `摄影师 #${p.id}`;
+        const avatarUrl =
+          p.avatar_url && p.avatar_url.startsWith("/") ? base + p.avatar_url : p.avatar_url || "";
+        const preview = Array.isArray(p.preview_image_urls) ? p.preview_image_urls : [];
+        const previewFixed = preview.map((u) => (u && u.startsWith("/") ? base + u : u)).filter(Boolean);
+
+        return {
+          ...p,
+          display_name: displayName,
+          avatar_url: avatarUrl,
+          tagsArr,
+          rating_avg_text: typeof p.rating_avg === "number" ? p.rating_avg.toFixed(1) : "",
+          starting_price_yuan:
+            typeof p.starting_price_cents === "number" ? Math.round(p.starting_price_cents / 100) : "",
+          preview_image_urls: previewFixed,
+          preview_count: previewFixed.length,
+          preview_empty: previewFixed.length === 0
+        };
+      });
+
+      const markers = fixed.map((p) => ({
         id: p.id,
-        latitude: p.lat,
-        longitude: p.lng,
-        title: `#${p.id}`,
-        width: 24,
-        height: 24
+        latitude: p.service_center_lat,
+        longitude: p.service_center_lng,
+        title: p.display_name || `#${p.id}`,
+        width: 18,
+        height: 18,
+        label: {
+          content: (p.display_name || "摄影师").slice(0, 1),
+          color: "#111827",
+          bgColor: "#ffffff",
+          borderRadius: 999,
+          padding: 6,
+          textAlign: "center",
+          anchorX: 0,
+          anchorY: -42
+        }
       }));
 
-      this.setData({ list: list || [], markers });
+      // 城市文案：MVP 先给“已定位”语义（无地理编码就不猜城市）
+      this.setData({
+        cityText: "已定位",
+        list: fixed,
+        markers,
+        circles: [],
+        selected: null
+      });
     } catch (e) {
       wx.showToast({ title: "加载失败", icon: "none" });
     } finally {
@@ -50,12 +107,52 @@ Page({
 
   onMarkerTap(e) {
     const id = e.markerId;
-    wx.navigateTo({ url: `/pages/photographer/index?id=${id}` });
+    const p = (this.data.list || []).find((x) => x.id === id);
+    if (!p) return;
+    const circles = [
+      {
+        latitude: p.service_center_lat,
+        longitude: p.service_center_lng,
+        radius: p.service_radius_m,
+        color: "#11182715",
+        fillColor: "#11182708",
+        strokeWidth: 2
+      }
+    ];
+    this.setData({ selected: p, circles });
+    wx.showToast({
+      title: `可在 ${(p.service_radius_m / 1000).toFixed(0)} km 范围内接拍`,
+      icon: "none"
+    });
   },
 
   goDetail(e) {
     const id = e.currentTarget.dataset.id;
     wx.navigateTo({ url: `/pages/photographer/index?id=${id}` });
+  },
+
+  onTapCity() {
+    wx.showModal({
+      title: "定位/切换城市",
+      content: "MVP：这里后续可接入城市选择或重新定位。",
+      showCancel: false
+    });
+  },
+
+  onTapSearch() {
+    wx.showToast({ title: "搜索入口后续接入", icon: "none" });
+  },
+
+  onShootCTA() {
+    wx.showActionSheet({
+      itemList: ["情侣", "闺蜜", "个人", "清空筛选"],
+      success: async (res) => {
+        const idx = res.tapIndex;
+        const tag = idx === 0 ? "情侣" : idx === 1 ? "闺蜜" : idx === 2 ? "个人" : "";
+        this.setData({ activeTag: tag });
+        await this.refresh();
+      }
+    });
   }
 });
 

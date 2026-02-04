@@ -1,4 +1,7 @@
 {
+  "description": "close-shot mini program",
+  "miniprogramRoot": "miniprogram/",
+  "projectname": "close-shot",
   "setting": {
     "es6": true,
     "postcss": true,

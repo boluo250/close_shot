@@ -46,12 +46,20 @@ class Photographer(TimestampMixin, Base):
 
     bio: Mapped[str | None] = mapped_column(Text)
     tags: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    is_online: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # 接单状态（非实时在线）：映射历史列名 is_online，避免破坏已有数据库
+    is_accepting_orders: Mapped[bool] = mapped_column("is_online", Boolean, nullable=False, default=False)
+    # 常驻城市（用于筛选/展示）
     city: Mapped[str | None] = mapped_column(String(64))
 
-    lat: Mapped[float | None] = mapped_column(Float)
-    lng: Mapped[float | None] = mapped_column(Float)
+    # 服务中心点（非实时定位）：映射历史列名 lat/lng
+    service_center_lat: Mapped[float | None] = mapped_column("lat", Float)
+    service_center_lng: Mapped[float | None] = mapped_column("lng", Float)
     service_radius_m: Mapped[int] = mapped_column(Integer, nullable=False, default=5000)
+
+    # 最近活跃时间（用于排序；MVP 由业务写入/或后续用触发器维护）
+    last_active_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     user: Mapped[User] = relationship(back_populates="photographer")
     portfolio_items: Mapped[list["PortfolioItem"]] = relationship(back_populates="photographer")

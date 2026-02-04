@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import delete, func, select
+from sqlalchemy import Float, delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_user
-from app.db.models import Favorite, Photographer, Review, User
+from app.db.models import Favorite, Package, Photographer, PortfolioItem, Review, User
 from app.db.session import get_db
 from app.schemas.photographer import (
     NearbyQuery,
@@ -25,35 +25,130 @@ router = APIRouter()
 def nearby(
     lat: float,
     lng: float,
-    radius_m: int = 5000,
+    max_distance_m: int = 50000,
     limit: int = 20,
     offset: int = 0,
-    is_online: bool | None = None,
+    is_accepting_orders: bool | None = None,
+    include_paused: bool = False,
     tag: str | None = None,
     db: Session = Depends(get_db),
 ) -> list[PhotographerNearbyOut]:
     # 参数校验复用 schema 的约束
-    _ = NearbyQuery(lat=lat, lng=lng, radius_m=radius_m, limit=limit, offset=offset, is_online=is_online, tag=tag)
+    _ = NearbyQuery(
+        lat=lat,
+        lng=lng,
+        max_distance_m=max_distance_m,
+        limit=limit,
+        offset=offset,
+        is_accepting_orders=is_accepting_orders,
+        tag=tag,
+    )
 
-    dist = haversine_distance_m(lat_col=Photographer.lat, lng_col=Photographer.lng, lat=lat, lng=lng).label("distance_m")
+    dist = haversine_distance_m(
+        lat_col=Photographer.service_center_lat,
+        lng_col=Photographer.service_center_lng,
+        lat=lat,
+        lng=lng,
+    ).label("distance_m")
+
+    rating_sq = (
+        select(
+            Review.photographer_id.label("pid"),
+            func.avg(Review.rating).label("rating_avg"),
+            func.count(Review.id).label("rating_count"),
+        )
+        .group_by(Review.photographer_id)
+        .subquery()
+    )
+    price_sq = (
+        select(Package.photographer_id.label("pid"), func.min(Package.price_cents).label("starting_price_cents"))
+        .where(Package.is_active.is_(True))
+        .group_by(Package.photographer_id)
+        .subquery()
+    )
+
+    # 排序：距离权重 + 活跃度 + 评分（成交量后续接订单再加）
+    d_km = (dist / 1000.0).cast(Float)
+    f_distance = func.exp(-(d_km / 8.0))
+    days_since_active = (func.extract("epoch", func.now() - Photographer.last_active_at) / 86400.0).cast(Float)
+    f_activity = func.exp(-(days_since_active / 14.0))
+    rating_avg = func.coalesce(rating_sq.c.rating_avg, 0.0).cast(Float)
+    f_rating = func.least(func.greatest((rating_avg - 4.0) / 1.0, 0.0), 1.0)
+    score = (0.35 * f_distance + 0.25 * f_activity + 0.25 * f_rating).label("score")
+
     stmt = (
-        select(Photographer, dist)
-        .where(Photographer.lat.is_not(None), Photographer.lng.is_not(None))
-        .where(dist <= radius_m)
-        .order_by(dist.asc())
+        select(
+            Photographer,
+            User.display_name,
+            User.avatar_url,
+            dist,
+            score,
+            rating_sq.c.rating_avg,
+            rating_sq.c.rating_count,
+            price_sq.c.starting_price_cents,
+        )
+        .join(User, User.id == Photographer.user_id)
+        .outerjoin(rating_sq, rating_sq.c.pid == Photographer.id)
+        .outerjoin(price_sq, price_sq.c.pid == Photographer.id)
+        .where(Photographer.service_center_lat.is_not(None), Photographer.service_center_lng.is_not(None))
+        # “可为我服务”：用户点位需落在摄影师服务半径内
+        .where(dist <= Photographer.service_radius_m)
+        # 额外的性能保护上限（避免扫太远）
+        .where(dist <= max_distance_m)
+        .order_by(score.desc(), dist.asc())
         .limit(limit)
         .offset(offset)
     )
-    if is_online is not None:
-        stmt = stmt.where(Photographer.is_online == is_online)
+
+    if is_accepting_orders is not None:
+        stmt = stmt.where(Photographer.is_accepting_orders == is_accepting_orders)
+    elif not include_paused:
+        stmt = stmt.where(Photographer.is_accepting_orders.is_(True))
     if tag:
         # MVP：tags 字段为逗号分隔文本，简单 contains
         stmt = stmt.where(Photographer.tags.ilike(f"%{tag}%"))
 
     rows = db.execute(stmt).all()
+
+    # 一次性取出这些摄影师的前 3 张作品，用于首页卡片预览（避免 N+1）
+    pids = [p.id for (p, _display_name, _avatar_url, _distance_m, _score, _ra, _rc, _sp) in rows]
+    preview_map: dict[int, list[str]] = {pid: [] for pid in pids}
+    if pids:
+        items = db.execute(
+            select(PortfolioItem.photographer_id, PortfolioItem.image_url)
+            .where(PortfolioItem.photographer_id.in_(pids))
+            .order_by(PortfolioItem.photographer_id.asc(), PortfolioItem.sort_order.asc(), PortfolioItem.id.asc())
+        ).all()
+        for pid, image_url in items:
+            if pid in preview_map and len(preview_map[pid]) < 3:
+                preview_map[pid].append(image_url)
+
     out: list[PhotographerNearbyOut] = []
-    for p, distance_m in rows:
-        out.append(PhotographerNearbyOut(**PhotographerOut.model_validate(p).model_dump(), distance_m=float(distance_m)))
+    for p, display_name, avatar_url, distance_m, _score, _rating_avg, _rating_count, starting_price_cents in rows:
+        distance_m_f = float(distance_m)
+        distance_km = distance_m_f / 1000.0
+
+        # 距离文案：明确是“服务中心点/服务范围”语义，避免暗示实时位置
+        if p.service_radius_m >= 20000:
+            distance_copy = "覆盖你所在区域"
+        else:
+            km = 1 if distance_km < 1 else round(distance_km, 1)
+            distance_copy = f"服务于你附近 · 约 {km} km"
+
+        out.append(
+            PhotographerNearbyOut(
+                **PhotographerOut.model_validate(p).model_dump(),
+                display_name=display_name,
+                avatar_url=avatar_url,
+                distance_m=distance_m_f,
+                distance_km=float(distance_km),
+                distance_copy=distance_copy,
+                starting_price_cents=int(starting_price_cents) if starting_price_cents is not None else None,
+                rating_avg=float(_rating_avg) if _rating_avg is not None else None,
+                rating_count=int(_rating_count) if _rating_count is not None else None,
+                preview_image_urls=preview_map.get(p.id, []),
+            )
+        )
     return out
 
 
@@ -75,6 +170,8 @@ def get_detail(photographer_id: int, db: Session = Depends(get_db)) -> Photograp
     packages = [x for x in p.packages if x.is_active]
     return PhotographerDetailOut(
         **PhotographerOut.model_validate(p).model_dump(),
+        display_name=p.user.display_name if p.user else None,
+        avatar_url=p.user.avatar_url if p.user else None,
         portfolio_items=[PortfolioItemOut.model_validate(i) for i in portfolio],
         packages=[PackageOut.model_validate(i) for i in packages],
         rating_avg=float(rating_avg) if rating_avg is not None else None,

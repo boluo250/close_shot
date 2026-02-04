@@ -75,7 +75,7 @@ def dev_create_photographer(username: str, password: str, db: Session = Depends(
     db.flush()
     from app.db.models import Photographer  # 避免循环导入
 
-    db.add(Photographer(user_id=user.id, tags="", is_online=False, service_radius_m=5000))
+    db.add(Photographer(user_id=user.id, tags="", is_accepting_orders=False, service_radius_m=5000))
     db.commit()
     db.refresh(user)
     token = create_access_token(subject=str(user.id))

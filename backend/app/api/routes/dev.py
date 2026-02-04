@@ -46,10 +46,10 @@ def seed(
             user_id=u.id,
             bio="擅长人像/情侣/旅拍",
             tags="人像,旅拍,写真",
-            is_online=bool(i % 2),
+            is_accepting_orders=bool(i % 2),
             city="上海",
-            lat=lat + dlat,
-            lng=lng + dlng,
+            service_center_lat=lat + dlat,
+            service_center_lng=lng + dlng,
             service_radius_m=8000,
         )
         db.add(p)

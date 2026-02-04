@@ -9,9 +9,9 @@ class PhotographerUpdateIn(BaseModel):
     bio: str | None = Field(default=None, max_length=5000)
     tags: str | None = Field(default=None, max_length=2000)
     city: str | None = Field(default=None, max_length=64)
-    is_online: bool | None = None
-    lat: float | None = None
-    lng: float | None = None
+    is_accepting_orders: bool | None = None
+    service_center_lat: float | None = None
+    service_center_lng: float | None = None
     service_radius_m: int | None = Field(default=None, ge=100, le=50000)
 
 
