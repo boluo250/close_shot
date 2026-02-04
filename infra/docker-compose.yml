@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: close-shot-db
+    environment:
+      POSTGRES_USER: close_shot
+      POSTGRES_PASSWORD: close_shot
+      POSTGRES_DB: close_shot
+    ports:
+      - "5432:5432"
+    volumes:
+      - close_shot_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U close_shot -d close_shot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2025-01-20T00-00-00Z
+    container_name: close-shot-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - close_shot_minio:/data
+
+volumes:
+  close_shot_pgdata:
+  close_shot_minio:
+

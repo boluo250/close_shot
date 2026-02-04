@@ -1,0 +1,108 @@
+from __future__ import annotations
+
+import enum
+from datetime import datetime
+
+from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base
+
+
+class UserRole(str, enum.Enum):
+    customer = "customer"
+    photographer = "photographer"
+    admin = "admin"
+
+
+class TimestampMixin:
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class User(TimestampMixin, Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    role: Mapped[str] = mapped_column(String(32), nullable=False, default=UserRole.customer.value)
+
+    wechat_openid: Mapped[str | None] = mapped_column(String(64), unique=True)
+    username: Mapped[str | None] = mapped_column(String(64), unique=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255))
+
+    display_name: Mapped[str | None] = mapped_column(String(128))
+    avatar_url: Mapped[str | None] = mapped_column(String(512))
+
+    photographer: Mapped["Photographer | None"] = relationship(back_populates="user", uselist=False)
+
+
+class Photographer(TimestampMixin, Base):
+    __tablename__ = "photographers"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), unique=True)
+
+    bio: Mapped[str | None] = mapped_column(Text)
+    tags: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    is_online: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    city: Mapped[str | None] = mapped_column(String(64))
+
+    lat: Mapped[float | None] = mapped_column(Float)
+    lng: Mapped[float | None] = mapped_column(Float)
+    service_radius_m: Mapped[int] = mapped_column(Integer, nullable=False, default=5000)
+
+    user: Mapped[User] = relationship(back_populates="photographer")
+    portfolio_items: Mapped[list["PortfolioItem"]] = relationship(back_populates="photographer")
+    packages: Mapped[list["Package"]] = relationship(back_populates="photographer")
+
+
+class PortfolioItem(TimestampMixin, Base):
+    __tablename__ = "portfolio_items"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    photographer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("photographers.id", ondelete="CASCADE"))
+
+    title: Mapped[str | None] = mapped_column(String(128))
+    image_url: Mapped[str] = mapped_column(String(512), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    tags: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    photographer: Mapped[Photographer] = relationship(back_populates="portfolio_items")
+
+
+class Package(TimestampMixin, Base):
+    __tablename__ = "packages"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    photographer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("photographers.id", ondelete="CASCADE"))
+
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    duration_minutes: Mapped[int | None] = mapped_column(Integer)
+    description: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    photographer: Mapped[Photographer] = relationship(back_populates="packages")
+
+
+class Favorite(TimestampMixin, Base):
+    __tablename__ = "favorites"
+    __table_args__ = (UniqueConstraint("user_id", "photographer_id", name="uq_favorites_user_photographer"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
+    photographer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("photographers.id", ondelete="CASCADE"))
+
+
+class Review(TimestampMixin, Base):
+    __tablename__ = "reviews"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"))
+    photographer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("photographers.id", ondelete="CASCADE"))
+
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[str | None] = mapped_column(Text)
+

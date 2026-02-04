@@ -1,0 +1,15 @@
+@import "styles/tokens.wxss";
+
+page {
+  background: var(--cs-color-bg);
+  font-size: var(--cs-font-md);
+  color: var(--cs-color-text);
+}
+
+/* 兼容旧类名：逐步迁移 */
+.card {
+  background: var(--cs-color-surface);
+  border-radius: var(--cs-radius-lg);
+  padding: var(--cs-space-6);
+}
+

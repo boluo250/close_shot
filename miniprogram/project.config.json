@@ -1,0 +1,10 @@
+{
+  "description": "close-shot mini program",
+  "miniprogramRoot": "./",
+  "projectname": "close-shot",
+  "appid": "touristappid",
+  "setting": {
+    "urlCheck": false
+  }
+}
+

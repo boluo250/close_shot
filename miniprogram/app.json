@@ -1,0 +1,15 @@
+{
+  "pages": [
+    "pages/map/index",
+    "pages/photographer/index",
+    "pages/favorites/index",
+    "pages/studio/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "Close Shot",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundTextStyle": "light"
+  }
+}
+

@@ -1,0 +1,33 @@
+:root {
+  /* ==== Close Shot Design Tokens（统一 UI 入口）==== */
+  /* 参考图风格：浅灰底 + 荧光黄绿主色 + 大圆角 */
+  --cs-color-bg: #f7f7f8;
+  --cs-color-surface: #ffffff;
+  --cs-color-text: #111827;
+  --cs-color-muted: #8a8f98;
+  --cs-color-border: #eef0f3;
+
+  --cs-color-primary: #bfe84a;
+  --cs-color-primary-600: #a8d63c;
+
+  --cs-radius-sm: 10px;
+  --cs-radius-md: 14px;
+  --cs-radius-lg: 20px;
+
+  --cs-space-1: 4px;
+  --cs-space-2: 8px;
+  --cs-space-3: 12px;
+  --cs-space-4: 16px;
+  --cs-space-5: 20px;
+  --cs-space-6: 24px;
+
+  --cs-font-sm: 12px;
+  --cs-font-md: 14px;
+  --cs-font-lg: 16px;
+
+  /* Element Plus 主题桥接（你改 cs tokens，全站跟随） */
+  --el-color-primary: var(--cs-color-primary);
+  --el-color-primary-light-3: color-mix(in srgb, var(--cs-color-primary) 70%, #ffffff 30%);
+  --el-border-radius-base: var(--cs-radius-md);
+}
+

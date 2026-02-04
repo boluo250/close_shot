@@ -1,0 +1,47 @@
+<view class="cs-page">
+  <view class="cs-card">
+    <view class="cs-row">
+      <view><text style="font-weight: 600">摄影师 #{{p.id}}</text></view>
+      <button class="cs-btn cs-btn-primary" size="mini" bindtap="toggleFav">{{fav ? '取消收藏' : '收藏'}}</button>
+    </view>
+    <view class="cs-muted" style="padding-top: 10rpx;">{{p.tags}}</view>
+    <view style="padding-top: 10rpx;">{{p.bio || ''}}</view>
+    <view class="cs-muted" style="padding-top: 10rpx;">评分：{{ratingText}}</view>
+  </view>
+
+  <view style="height: 16rpx;"></view>
+
+  <view class="cs-card">
+    <view><text style="font-weight: 600">作品</text></view>
+    <view wx:if="{{portfolio.length===0}}" class="cs-muted" style="padding-top: 10rpx;">暂无</view>
+    <view wx:for="{{portfolio}}" wx:key="id" style="padding-top: 12rpx;">
+      <image mode="aspectFill" src="{{item.image_url}}" style="width:100%; height: 320rpx; border-radius: 12rpx; background:#eee;" />
+      <view class="cs-muted" style="padding-top: 6rpx;">{{item.title || ''}} {{item.tags}}</view>
+    </view>
+  </view>
+
+  <view style="height: 16rpx;"></view>
+
+  <view class="cs-card">
+    <view><text style="font-weight: 600">套餐</text></view>
+    <view wx:if="{{packages.length===0}}" class="cs-muted" style="padding-top: 10rpx;">暂无</view>
+    <view wx:for="{{packages}}" wx:key="id" class="cs-divider" style="padding: 14rpx 0;">
+      <view class="cs-row">
+        <view>{{item.name}}</view>
+        <view><b>¥{{(item.price_cents/100).toFixed(0)}}</b></view>
+      </view>
+      <view class="cs-muted" style="padding-top: 6rpx;">{{item.description || ''}}</view>
+    </view>
+  </view>
+
+  <view style="height: 16rpx;"></view>
+
+  <view class="cs-card">
+    <view><text style="font-weight: 600">联系/咨询</text></view>
+    <view class="cs-muted" style="padding-top: 10rpx;">
+      MVP 先做入口（可后续接：拨打电话/加微信/留资 Lead）
+    </view>
+    <button class="cs-btn cs-btn-primary" style="margin-top: 12rpx;" bindtap="contact">联系摄影师</button>
+  </view>
+</view>
+

@@ -1,0 +1,41 @@
+<view class="container">
+  <map
+    id="map"
+    longitude="{{lng}}"
+    latitude="{{lat}}"
+    scale="14"
+    markers="{{markers}}"
+    show-location
+    style="width: 100%; height: 60vh;"
+    bindmarkertap="onMarkerTap"
+  />
+
+  <view class="cs-page">
+    <view class="cs-card">
+      <view class="cs-row">
+        <view><text style="font-weight: 600">附近摄影师</text></view>
+        <button class="cs-btn" size="mini" bindtap="refresh">刷新</button>
+      </view>
+      <view wx:if="{{loading}}" class="cs-muted" style="padding-top: 12rpx;">加载中...</view>
+      <view
+        wx:for="{{list}}"
+        wx:key="id"
+        class="cs-divider"
+        style="padding: 16rpx 0;"
+        bindtap="goDetail"
+        data-id="{{item.id}}"
+      >
+        <view class="cs-row">
+          <view>
+            摄影师 #{{item.id}}
+            <text class="cs-muted">{{item.city || ''}}</text>
+          </view>
+          <view class="cs-muted">{{Math.round(item.distance_m)}}m</view>
+        </view>
+        <view class="cs-muted" style="padding-top: 6rpx;">{{item.tags}}</view>
+      </view>
+      <view wx:if="{{!loading && list.length===0}}" class="cs-muted" style="padding-top: 12rpx;">附近暂无摄影师</view>
+    </view>
+  </view>
+</view>
+

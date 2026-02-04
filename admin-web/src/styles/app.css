@@ -1,0 +1,40 @@
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--cs-color-bg);
+  color: var(--cs-color-text);
+  font-size: var(--cs-font-md);
+}
+
+/* 卡片更贴近参考图：更大圆角 + 柔和阴影 */
+.el-card {
+  border-radius: var(--cs-radius-lg);
+  border-color: var(--cs-color-border);
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.06);
+}
+
+.el-menu--horizontal {
+  border-bottom: 1px solid var(--cs-color-border);
+}
+
+.cs-page {
+  padding: var(--cs-space-4);
+}
+
+.cs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--cs-space-4);
+}
+
+.cs-hint {
+  margin: -6px 0 var(--cs-space-4);
+  color: var(--cs-color-muted);
+  font-size: var(--cs-font-sm);
+}
+
