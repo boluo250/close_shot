@@ -1,0 +1,93 @@
+:host {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+}
+
+.tabbar {
+  background: #ffffff;
+  border-top: 1px solid var(--cs-color-border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tabbar-inner {
+  height: 110rpx;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: #ffffff;
+}
+
+.item {
+  width: 33.33%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 6rpx;
+}
+
+.icon-wrap {
+  position: relative;
+  width: 64rpx;
+  height: 52rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon {
+  font-size: 40rpx;
+  line-height: 40rpx;
+}
+
+.user-icon {
+  width: 44rpx;
+  height: 44rpx;
+  position: relative;
+}
+
+.user-head {
+  width: 18rpx;
+  height: 18rpx;
+  border-radius: 999rpx;
+  border: 3rpx solid #8a8f98;
+  position: absolute;
+  left: 50%;
+  top: 2rpx;
+  transform: translateX(-50%);
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.user-body {
+  width: 34rpx;
+  height: 20rpx;
+  border-radius: 999rpx;
+  border: 3rpx solid #8a8f98;
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.dot {
+  position: absolute;
+  bottom: -4rpx;
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 999rpx;
+  background: var(--cs-color-primary);
+  border: 2rpx solid #ffffff;
+}
+
+.label {
+  font-size: 22rpx;
+  line-height: 22rpx;
+  margin-top: 6rpx;
+}
+

@@ -17,6 +17,11 @@ Page({
     await this.refresh();
   },
 
+  onShow() {
+    const tab = this.getTabBar && this.getTabBar();
+    if (tab && tab.setData) tab.setData({ selected: 0 });
+  },
+
   async refresh() {
     this.setData({ loading: true });
     try {

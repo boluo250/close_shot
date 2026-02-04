@@ -1,4 +1,4 @@
 .cs-page {
-  /* 复用全局 tokens 样式；这里先留空扩展位 */
+  padding-bottom: calc(160rpx + env(safe-area-inset-bottom)); /* 避免内容被自定义 TabBar 遮挡 */
 }
 

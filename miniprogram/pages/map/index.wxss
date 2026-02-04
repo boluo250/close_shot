@@ -1,6 +1,6 @@
 .page {
   min-height: 100vh;
-  padding-bottom: 140rpx; /* 给悬浮 CTA 预留空间 */
+  padding-bottom: calc(220rpx + env(safe-area-inset-bottom)); /* CTA + TabBar 预留空间 */
 }
 
 .top {
@@ -195,7 +195,7 @@
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 26rpx;
+  bottom: calc(110rpx + 26rpx + env(safe-area-inset-bottom)); /* 贴底 TabBar 之上 */
   display: flex;
   justify-content: center;
   z-index: 10;

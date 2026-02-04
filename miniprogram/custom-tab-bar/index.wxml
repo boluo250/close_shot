@@ -1,0 +1,30 @@
+<view class="tabbar">
+  <view class="tabbar-inner">
+    <view
+      wx:for="{{list}}"
+      wx:key="pagePath"
+      wx:for-item="t"
+      class="item {{selected===index ? 'active' : ''}}"
+      data-index="{{index}}"
+      data-path="{{t.pagePath}}"
+      bindtap="onChange"
+    >
+      <view class="icon-wrap">
+        <view wx:if="{{t.key==='mine'}}" class="user-icon">
+          <view
+            class="user-head"
+            style="border-color: {{selected===index ? selectedColor : color}};"
+          ></view>
+          <view
+            class="user-body"
+            style="border-color: {{selected===index ? selectedColor : color}};"
+          ></view>
+        </view>
+        <text wx:else class="icon" style="color: {{selected===index ? selectedColor : color}};">{{t.icon}}</text>
+        <view wx:if="{{selected===index}}" class="dot"></view>
+      </view>
+      <text class="label" style="color: {{selected===index ? selectedColor : color}};">{{t.text}}</text>
+    </view>
+  </view>
+</view>
+

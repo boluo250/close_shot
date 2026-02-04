@@ -7,6 +7,7 @@
     "pages/studio/index"
   ],
   "tabBar": {
+    "custom": true,
     "color": "#8a8f98",
     "selectedColor": "#bfe84a",
     "backgroundColor": "#ffffff",
@@ -25,6 +26,11 @@
         "text": "我的"
       }
     ]
+  },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于定位你附近的摄影师与服务范围展示"
+    }
   },
   "window": {
     "navigationBarTitleText": "Close Shot",
