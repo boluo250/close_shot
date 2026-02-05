@@ -91,10 +91,7 @@ def nearby(
         .outerjoin(rating_sq, rating_sq.c.pid == Photographer.id)
         .outerjoin(price_sq, price_sq.c.pid == Photographer.id)
         .where(Photographer.service_center_lat.is_not(None), Photographer.service_center_lng.is_not(None))
-        # “可为我服务”：用户点位需落在摄影师服务半径内
-        .where(dist <= Photographer.service_radius_m)
-        # 额外的性能保护上限（避免扫太远）
-        .where(dist <= max_distance_m)
+        # 临时放宽距离限制：不做服务半径和最大距离过滤
         .order_by(score.desc(), dist.asc())
         .limit(limit)
         .offset(offset)
@@ -137,7 +134,10 @@ def nearby(
 
         out.append(
             PhotographerNearbyOut(
-                **PhotographerOut.model_validate(p).model_dump(),
+                # `PhotographerOut` 里包含 display_name/avatar_url（来自 users 表），
+                # 但 `p` 是 Photographer ORM，本身没有这两个字段。
+                # 这里需要排除，避免再显式传入时出现重复关键字错误。
+                **PhotographerOut.model_validate(p).model_dump(exclude={"display_name", "avatar_url"}),
                 display_name=display_name,
                 avatar_url=avatar_url,
                 distance_m=distance_m_f,
@@ -169,7 +169,7 @@ def get_detail(photographer_id: int, db: Session = Depends(get_db)) -> Photograp
     portfolio = sorted(p.portfolio_items, key=lambda x: (x.sort_order, x.id))
     packages = [x for x in p.packages if x.is_active]
     return PhotographerDetailOut(
-        **PhotographerOut.model_validate(p).model_dump(),
+        **PhotographerOut.model_validate(p).model_dump(exclude={"display_name", "avatar_url"}),
         display_name=p.user.display_name if p.user else None,
         avatar_url=p.user.avatar_url if p.user else None,
         portfolio_items=[PortfolioItemOut.model_validate(i) for i in portfolio],

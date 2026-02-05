@@ -6,6 +6,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from app.core.config import settings
 from app.db.base import Base  # noqa: F401
 from app.db.models import (  # noqa: F401
     Favorite,
@@ -25,10 +26,9 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
-    url = os.environ.get("DATABASE_URL")
-    if not url:
-        raise RuntimeError("DATABASE_URL is not set")
-    return url
+    # 运行 alembic 时，优先使用环境变量 DATABASE_URL；
+    # 否则回落到 `backend/.env`（由 pydantic-settings 自动加载）。
+    return os.environ.get("DATABASE_URL") or settings.database_url
 
 
 def run_migrations_offline() -> None:

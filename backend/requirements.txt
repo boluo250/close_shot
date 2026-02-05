@@ -13,7 +13,7 @@ geoalchemy2>=0.15.2
 
 # Auth
 python-jose[cryptography]>=3.3.0
-passlib[bcrypt]>=1.7.4
+passlib>=1.7.4
 
 # S3 compatible storage (MinIO/OSS/COS)
 boto3>=1.34.0

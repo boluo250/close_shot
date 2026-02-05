@@ -18,7 +18,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute("CREATE EXTENSION IF NOT EXISTS postgis")
+    # NOTE:
+    # PostGIS 在生产/容器环境中很有用（空间索引/地理查询等），但本项目 MVP 阶段的“附近摄影师”
+    # 已使用 Haversine 公式在普通 float(lat/lng) 上计算距离，因此不强制要求本机安装 PostGIS。
     op.create_table(
         "users",
         sa.Column("id", sa.BigInteger(), primary_key=True),

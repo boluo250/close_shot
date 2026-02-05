@@ -7,7 +7,10 @@ from passlib.context import CryptContext
 
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# NOTE:
+# 早期开发环境中，passlib + bcrypt 版本组合在 macOS 上容易出现兼容性问题（seed/login 会直接 500）。
+# 这里改用纯 Python 的 pbkdf2_sha256，避免对 bcrypt 本地扩展的依赖。
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
