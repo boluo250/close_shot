@@ -37,6 +37,7 @@
     </view>
 
     <view wx:if="{{loading}}" class="cs-muted" style="padding-top: 10rpx;">加载中...</view>
+  <view wx:if="{{errorText}}" class="cs-muted" style="padding-top: 10rpx;">{{errorText}}</view>
 
     <view wx:for="{{list}}" wx:key="id" class="p-card" bindtap="goDetail" data-id="{{item.id}}">
       <view class="p-top">
@@ -58,6 +59,11 @@
 
           <view class="tag-row" wx:if="{{item.tagsArr.length}}">
             <view wx:for="{{item.tagsArr}}" wx:key="*this" class="tag">{{item}}</view>
+          </view>
+
+          <view class="p-brief">
+            <text class="cs-muted">作品集 {{item.portfolio_count || 0}} 张</text>
+            <text class="cs-muted" wx:if="{{item.rate_copy}}"> · {{item.rate_copy}}</text>
           </view>
 
           <view class="p-subrow">

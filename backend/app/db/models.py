@@ -46,6 +46,12 @@ class Photographer(TimestampMixin, Base):
 
     bio: Mapped[str | None] = mapped_column(Text)
     tags: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # 设备清单（逗号分隔文本）
+    equipment_list: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # 无人机型号（逗号分隔文本）
+    drone_models: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # 服务报价单（JSON 文本）
+    rate_card_json: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # 接单状态（非实时在线）：映射历史列名 is_online，避免破坏已有数据库
     is_accepting_orders: Mapped[bool] = mapped_column("is_online", Boolean, nullable=False, default=False)
     # 常驻城市（用于筛选/展示）

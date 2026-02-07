@@ -6,6 +6,7 @@ Page({
     lng: 121.4737,
     cityText: "定位中",
     loading: false,
+    errorText: "",
     list: [],
     markers: [],
     circles: [],
@@ -20,16 +21,41 @@ Page({
   onShow() {
     const tab = this.getTabBar && this.getTabBar();
     if (tab && tab.setData) tab.setData({ selected: 0 });
+    // 返回或切回页面时刷新附近摄影师
+    if (!this.data.loading) {
+      this.refresh();
+    }
+  },
+
+  async onPullDownRefresh() {
+    await this.refresh();
+    wx.stopPullDownRefresh();
   },
 
   async refresh() {
-    this.setData({ loading: true });
+    this.setData({ loading: true, errorText: "" });
     try {
       const loc = await new Promise((resolve) => {
+        let done = false;
+        const timer = setTimeout(() => {
+          if (done) return;
+          done = true;
+          resolve(null);
+        }, 2000);
         wx.getLocation({
           type: "gcj02",
-          success: resolve,
-          fail: () => resolve(null)
+          success: (res) => {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            resolve(res);
+          },
+          fail: () => {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            resolve(null);
+          }
         });
       });
       const lat = loc?.latitude || this.data.lat;
@@ -45,6 +71,8 @@ Page({
           tag: this.data.activeTag || undefined
         }
       });
+      console.log("[nearby] params", { lat, lng, tag: this.data.activeTag || "" });
+      console.log("[nearby] response length", Array.isArray(list) ? list.length : "not-array", list);
 
       const app = getApp();
       const base = app.globalData.apiBaseUrl;
@@ -61,6 +89,15 @@ Page({
           p.avatar_url && p.avatar_url.startsWith("/") ? base + p.avatar_url : p.avatar_url || "";
         const preview = Array.isArray(p.preview_image_urls) ? p.preview_image_urls : [];
         const previewFixed = preview.map((u) => (u && u.startsWith("/") ? base + u : u)).filter(Boolean);
+        const portfolioCount =
+          typeof p.portfolio_count === "number" ? p.portfolio_count : previewFixed.length;
+        const rateHourMin =
+          typeof p.rate_hour_min_cents === "number" ? Math.round(p.rate_hour_min_cents / 100) : "";
+        const rateItemMin =
+          typeof p.rate_item_min_cents === "number" ? Math.round(p.rate_item_min_cents / 100) : "";
+        const rateParts = [];
+        if (rateHourMin) rateParts.push(`¥${rateHourMin}/小时起`);
+        if (rateItemMin) rateParts.push(`¥${rateItemMin}/张起`);
 
         return {
           ...p,
@@ -72,7 +109,11 @@ Page({
             typeof p.starting_price_cents === "number" ? Math.round(p.starting_price_cents / 100) : "",
           preview_image_urls: previewFixed,
           preview_count: previewFixed.length,
-          preview_empty: previewFixed.length === 0
+          preview_empty: previewFixed.length === 0,
+          portfolio_count: portfolioCount,
+          rate_hour_min_yuan: rateHourMin,
+          rate_item_min_yuan: rateItemMin,
+          rate_copy: rateParts.join(" · ")
         };
       });
 
@@ -104,7 +145,10 @@ Page({
         selected: null
       });
     } catch (e) {
-      wx.showToast({ title: "加载失败", icon: "none" });
+      console.error("[nearby] failed", e);
+      const msg = e?.message || "加载失败";
+      this.setData({ errorText: msg });
+      wx.showToast({ title: msg.slice(0, 15), icon: "none" });
     } finally {
       this.setData({ loading: false });
     }

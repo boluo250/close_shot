@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import random
 from datetime import datetime, timedelta, timezone
 
@@ -122,9 +123,34 @@ def seed(
         "准时、耐心、出片快，体验很好。",
         "非常懂光线，现场就能拍出氛围感。",
     ]
+    customer_names = ["可可", "小麦", "阿七", "小宇", "小鹿", "阿宁", "Mia", "Evan", "Sunny", "小桃"]
+    equipment_pools = [
+        ["Sony A7M4", "GM 24-70", "GM 85", "Godox V1"],
+        ["Canon R6", "RF 28-70", "RF 85", "AD200Pro"],
+        ["Nikon Z6II", "Z 24-70", "Z 35", "LED常亮灯"],
+        ["Fujifilm X-T5", "XF 16-55", "XF 56", "反光板"],
+    ]
+    drone_pools = [
+        ["DJI Air 3"],
+        ["DJI Mini 4 Pro"],
+        ["DJI Mavic 3 Classic"],
+        [],
+    ]
     created = 0
     usernames: list[str] = []
     now = datetime.now(timezone.utc)
+    customers: list[User] = []
+    for i, name in enumerate(customer_names):
+        u = User(
+            role=UserRole.customer.value,
+            display_name=name,
+            username=f"c{rng.randint(100000, 999999)}",
+            password_hash=hash_password("123456"),
+            avatar_url=picsum_seed_url(f"cust-{i}", 120, 120),
+        )
+        db.add(u)
+        customers.append(u)
+    db.flush()
     for i in range(n):
         username = f"p{rng.randint(100000, 999999)}"
         u = User(
@@ -143,10 +169,30 @@ def seed(
         dlng = rng.uniform(-0.05, 0.05)
         tags = rng.choice(tag_pools)
         style_label, _style_seed = rng.choice(portrait_style_seeds)
+        equipment_list = rng.choice(equipment_pools)
+        drone_models = rng.choice(drone_pools)
+        hour_price = rng.choice([19900, 24900, 29900, 34900])
+        item_price = rng.choice([4900, 6900, 9900, 12900])
+        rate_card = [
+            {"name": "人像拍摄", "mode": "hour", "price_cents": hour_price, "unit": "小时"},
+            {"name": "精修照片", "mode": "item", "price_cents": item_price, "unit": "张"},
+        ]
+        if drone_models:
+            rate_card.append(
+                {
+                    "name": "航拍补充",
+                    "mode": "hour",
+                    "price_cents": hour_price + rng.choice([8000, 12000, 16000]),
+                    "unit": "小时",
+                }
+            )
         p = Photographer(
             user_id=u.id,
             bio=rng.choice(bios),
             tags=tags,
+            equipment_list=",".join(equipment_list),
+            drone_models=",".join(drone_models),
+            rate_card_json=json.dumps(rate_card, ensure_ascii=False),
             is_accepting_orders=rng.random() < 0.85,
             city=city,
             service_center_lat=lat + dlat,
@@ -203,14 +249,15 @@ def seed(
             ]
         )
 
-        # 评价：用于星级展示（MVP 允许 user_id 为空）
+        # 评价：用于星级展示（绑定真实用户）
         review_n = rng.randint(0, 18)
         reviews: list[Review] = []
         for _ in range(review_n):
             r = rng.random()
             rating = 5 if r < 0.65 else 4 if r < 0.93 else 3
             content = rng.choice(review_contents) if rng.random() < 0.8 else None
-            reviews.append(Review(user_id=None, photographer_id=p.id, rating=rating, content=content))
+            reviewer = rng.choice(customers)
+            reviews.append(Review(user_id=reviewer.id, photographer_id=p.id, rating=rating, content=content))
         if reviews:
             db.add_all(reviews)
         created += 1

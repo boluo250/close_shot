@@ -8,8 +8,14 @@
       <el-form-item label="lng">
         <el-input v-model.number="form.lng" style="width: 140px" />
       </el-form-item>
+      <el-form-item label="city">
+        <el-input v-model="form.city" style="width: 140px" />
+      </el-form-item>
       <el-form-item label="数量">
         <el-input v-model.number="form.n" style="width: 120px" />
+      </el-form-item>
+      <el-form-item label="seed">
+        <el-input v-model.number="form.seed" style="width: 120px" />
       </el-form-item>
       <el-form-item>
         <el-button type="primary" :loading="loading" @click="onSeed">生成</el-button>
@@ -31,7 +37,7 @@ import { api } from "../lib/api";
 
 const loading = ref(false);
 const result = ref<string | null>(null);
-const form = reactive({ lat: 31.2304, lng: 121.4737, n: 10 });
+const form = reactive({ lat: 31.2304, lng: 121.4737, city: "上海", n: 10, seed: 42 });
 
 async function onSeed() {
   loading.value = true;

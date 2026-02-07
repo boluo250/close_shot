@@ -1,1 +1,160 @@
  
+.p-header {
+  display: flex;
+  gap: 18rpx;
+}
+
+.p-avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 28rpx;
+  background: #eef0f3;
+}
+
+.p-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.p-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.p-name {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--cs-color-text);
+  max-width: 380rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.p-tags {
+  padding-top: 10rpx;
+  color: var(--cs-color-text-muted);
+  font-size: 24rpx;
+}
+
+.p-status {
+  padding-top: 8rpx;
+  color: var(--cs-color-text-muted);
+  font-size: 24rpx;
+}
+
+.p-bio {
+  padding-top: 10rpx;
+  color: var(--cs-color-text);
+}
+
+.p-rating {
+  padding-top: 10rpx;
+  color: var(--cs-color-text-muted);
+  font-size: 24rpx;
+}
+
+.section-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.portfolio-grid {
+  padding-top: 12rpx;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16rpx;
+}
+
+.portfolio-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.portfolio-img {
+  width: 100%;
+  height: 240rpx;
+  border-radius: 12rpx;
+  background: #eef0f3;
+}
+
+.portfolio-meta {
+  font-size: 22rpx;
+  color: var(--cs-color-text-muted);
+}
+
+.rate-name {
+  font-weight: 600;
+}
+
+.rate-mode {
+  padding-left: 6rpx;
+  font-size: 22rpx;
+  color: var(--cs-color-text-muted);
+}
+
+.pill-row {
+  padding-top: 10rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.pill {
+  padding: 8rpx 14rpx;
+  border-radius: 999rpx;
+  background: #f3f4f6;
+  color: #111827;
+  font-size: 24rpx;
+}
+
+.review-card {
+  padding-top: 14rpx;
+  display: flex;
+  gap: 12rpx;
+}
+
+.review-avatar {
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 999rpx;
+  background: #eef0f3;
+}
+
+.review-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.review-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10rpx;
+}
+
+.review-name {
+  font-weight: 600;
+  color: var(--cs-color-text);
+  font-size: 26rpx;
+}
+
+.review-date {
+  color: var(--cs-color-text-muted);
+  font-size: 22rpx;
+}
+
+.review-stars {
+  padding-top: 6rpx;
+  font-size: 24rpx;
+}
+
+.review-content {
+  padding-top: 6rpx;
+  color: var(--cs-color-text);
+  font-size: 24rpx;
+}

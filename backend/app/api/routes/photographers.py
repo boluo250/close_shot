@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import Float, delete, func, select
 from sqlalchemy.orm import Session, selectinload
@@ -19,6 +21,47 @@ from app.schemas.review import ReviewCreateIn, ReviewOut
 from app.services.geo import haversine_distance_m
 
 router = APIRouter()
+
+
+def _parse_csv(text: str | None) -> list[str]:
+    return [x.strip() for x in (text or "").split(",") if x.strip()]
+
+
+def _parse_rate_card(text: str | None) -> list[dict]:
+    if not text:
+        return []
+    try:
+        items = json.loads(text)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(items, list):
+        return []
+    out: list[dict] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip()
+        mode = str(item.get("mode") or "").strip()
+        price_cents = item.get("price_cents")
+        unit = item.get("unit")
+        if not name or mode not in {"hour", "item"}:
+            continue
+        if not isinstance(price_cents, int):
+            continue
+        out.append(
+            {
+                "name": name,
+                "mode": mode,
+                "price_cents": price_cents,
+                "unit": str(unit).strip() if unit else None,
+            }
+        )
+    return out
+
+
+def _rate_min(items: list[dict], mode: str) -> int | None:
+    prices = [x["price_cents"] for x in items if x.get("mode") == mode and isinstance(x.get("price_cents"), int)]
+    return min(prices) if prices else None
 
 
 @router.get("/nearby", response_model=list[PhotographerNearbyOut])
@@ -66,6 +109,14 @@ def nearby(
         .group_by(Package.photographer_id)
         .subquery()
     )
+    portfolio_count_sq = (
+        select(
+            PortfolioItem.photographer_id.label("pid"),
+            func.count(PortfolioItem.id).label("portfolio_count"),
+        )
+        .group_by(PortfolioItem.photographer_id)
+        .subquery()
+    )
 
     # 排序：距离权重 + 活跃度 + 评分（成交量后续接订单再加）
     d_km = (dist / 1000.0).cast(Float)
@@ -86,10 +137,12 @@ def nearby(
             rating_sq.c.rating_avg,
             rating_sq.c.rating_count,
             price_sq.c.starting_price_cents,
+            portfolio_count_sq.c.portfolio_count,
         )
         .join(User, User.id == Photographer.user_id)
         .outerjoin(rating_sq, rating_sq.c.pid == Photographer.id)
         .outerjoin(price_sq, price_sq.c.pid == Photographer.id)
+        .outerjoin(portfolio_count_sq, portfolio_count_sq.c.pid == Photographer.id)
         .where(Photographer.service_center_lat.is_not(None), Photographer.service_center_lng.is_not(None))
         # 临时放宽距离限制：不做服务半径和最大距离过滤
         .order_by(score.desc(), dist.asc())
@@ -108,7 +161,20 @@ def nearby(
     rows = db.execute(stmt).all()
 
     # 一次性取出这些摄影师的前 3 张作品，用于首页卡片预览（避免 N+1）
-    pids = [p.id for (p, _display_name, _avatar_url, _distance_m, _score, _ra, _rc, _sp) in rows]
+    pids = [
+        p.id
+        for (
+            p,
+            _display_name,
+            _avatar_url,
+            _distance_m,
+            _score,
+            _ra,
+            _rc,
+            _sp,
+            _pc,
+        ) in rows
+    ]
     preview_map: dict[int, list[str]] = {pid: [] for pid in pids}
     if pids:
         items = db.execute(
@@ -121,9 +187,22 @@ def nearby(
                 preview_map[pid].append(image_url)
 
     out: list[PhotographerNearbyOut] = []
-    for p, display_name, avatar_url, distance_m, _score, _rating_avg, _rating_count, starting_price_cents in rows:
+    for (
+        p,
+        display_name,
+        avatar_url,
+        distance_m,
+        _score,
+        _rating_avg,
+        _rating_count,
+        starting_price_cents,
+        _portfolio_count,
+    ) in rows:
         distance_m_f = float(distance_m)
         distance_km = distance_m_f / 1000.0
+        rate_card = _parse_rate_card(p.rate_card_json)
+        rate_hour_min = _rate_min(rate_card, "hour")
+        rate_item_min = _rate_min(rate_card, "item")
 
         # 距离文案：明确是“服务中心点/服务范围”语义，避免暗示实时位置
         if p.service_radius_m >= 20000:
@@ -137,9 +216,14 @@ def nearby(
                 # `PhotographerOut` 里包含 display_name/avatar_url（来自 users 表），
                 # 但 `p` 是 Photographer ORM，本身没有这两个字段。
                 # 这里需要排除，避免再显式传入时出现重复关键字错误。
-                **PhotographerOut.model_validate(p).model_dump(exclude={"display_name", "avatar_url"}),
+                **PhotographerOut.model_validate(p).model_dump(
+                    exclude={"display_name", "avatar_url", "equipment_list", "drone_models", "rate_card"}
+                ),
                 display_name=display_name,
                 avatar_url=avatar_url,
+                equipment_list=_parse_csv(p.equipment_list),
+                drone_models=_parse_csv(p.drone_models),
+                rate_card=rate_card,
                 distance_m=distance_m_f,
                 distance_km=float(distance_km),
                 distance_copy=distance_copy,
@@ -147,6 +231,9 @@ def nearby(
                 rating_avg=float(_rating_avg) if _rating_avg is not None else None,
                 rating_count=int(_rating_count) if _rating_count is not None else None,
                 preview_image_urls=preview_map.get(p.id, []),
+                portfolio_count=int(_portfolio_count or 0),
+                rate_hour_min_cents=rate_hour_min,
+                rate_item_min_cents=rate_item_min,
             )
         )
     return out
@@ -168,10 +255,16 @@ def get_detail(photographer_id: int, db: Session = Depends(get_db)) -> Photograp
 
     portfolio = sorted(p.portfolio_items, key=lambda x: (x.sort_order, x.id))
     packages = [x for x in p.packages if x.is_active]
+    rate_card = _parse_rate_card(p.rate_card_json)
     return PhotographerDetailOut(
-        **PhotographerOut.model_validate(p).model_dump(exclude={"display_name", "avatar_url"}),
+        **PhotographerOut.model_validate(p).model_dump(
+            exclude={"display_name", "avatar_url", "equipment_list", "drone_models", "rate_card"}
+        ),
         display_name=p.user.display_name if p.user else None,
         avatar_url=p.user.avatar_url if p.user else None,
+        equipment_list=_parse_csv(p.equipment_list),
+        drone_models=_parse_csv(p.drone_models),
+        rate_card=rate_card,
         portfolio_items=[PortfolioItemOut.model_validate(i) for i in portfolio],
         packages=[PackageOut.model_validate(i) for i in packages],
         rating_avg=float(rating_avg) if rating_avg is not None else None,
@@ -230,12 +323,20 @@ def list_reviews(
     db: Session = Depends(get_db),
 ) -> list[ReviewOut]:
     stmt = (
-        select(Review)
+        select(Review, User.display_name, User.avatar_url)
+        .outerjoin(User, User.id == Review.user_id)
         .where(Review.photographer_id == photographer_id)
         .order_by(Review.created_at.desc())
         .limit(min(max(limit, 1), 100))
         .offset(max(offset, 0))
     )
-    rs = db.scalars(stmt).all()
-    return [ReviewOut.model_validate(r) for r in rs]
+    rows = db.execute(stmt).all()
+    out: list[ReviewOut] = []
+    for r, display_name, avatar_url in rows:
+        out.append(
+            ReviewOut.model_validate(r).model_copy(
+                update={"user_display_name": display_name, "user_avatar_url": avatar_url}
+            )
+        )
+    return out
 

@@ -146,6 +146,11 @@
   font-size: 24rpx;
 }
 
+.p-brief {
+  padding-top: 10rpx;
+  font-size: 24rpx;
+}
+
 .p-subrow {
   display: flex;
   justify-content: space-between;

@@ -16,4 +16,6 @@ class ReviewOut(TimestampOut):
     photographer_id: int
     rating: int
     content: str | None = None
+    user_display_name: str | None = None
+    user_avatar_url: str | None = None
 

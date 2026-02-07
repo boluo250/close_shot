@@ -2,7 +2,7 @@
 
 ## 本地启动（推荐）
 
-### 1）启动数据库（Postgres + PostGIS）与对象存储（MinIO）
+### 1）启动数据库（Postgres，可选 PostGIS）与对象存储（MinIO）
 
 ```bash
 cd infra
@@ -20,12 +20,12 @@ source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env  # 按需修改 DATABASE_URL/JWT_SECRET 等
 alembic upgrade head
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8001
 ```
 
 打开：
-- 健康检查：`http://localhost:8000/health`
-- API 文档：`http://localhost:8000/docs`
+- 健康检查：`http://localhost:8001/health`
+- API 文档：`http://localhost:8001/docs`
 
 ### 3）启动后台 Web（Vue3）
 
