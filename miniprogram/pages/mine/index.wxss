@@ -2,3 +2,30 @@
   padding-bottom: calc(160rpx + env(safe-area-inset-bottom)); /* 避免内容被自定义 TabBar 遮挡 */
 }
 
+.cs-studio-entry {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.cs-badge {
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  color: #666;
+  background: #f5f5f5;
+  border: 1px solid #eee;
+}
+
+.cs-badge.pending {
+  color: #7a4e00;
+  background: #ffe58f;
+  border-color: #ffe58f;
+}
+
+.cs-badge.rejected {
+  color: #a8071a;
+  background: #ffccc7;
+  border-color: #ffccc7;
+}
+

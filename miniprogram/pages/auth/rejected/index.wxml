@@ -1,0 +1,15 @@
+<view class="cs-page">
+  <view class="cs-card">
+    <view class="cs-title">资料被驳回</view>
+    <view class="cs-muted" style="padding-top: 10rpx;">
+      驳回原因：{{reason || '暂无说明'}}
+    </view>
+    <view class="cs-muted" style="padding-top: 6rpx;">
+      请根据提示完善资料后重新提交。
+    </view>
+    <button class="cs-btn cs-btn-primary" style="margin-top: 16rpx;" bindtap="resubmit" disabled="{{submitting}}">
+      {{submitting ? '提交中...' : '重新提交'}}
+    </button>
+    <button class="cs-btn" style="margin-top: 10rpx;" bindtap="onBackMine">返回我的</button>
+  </view>
+</view>

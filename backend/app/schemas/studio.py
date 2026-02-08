@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from datetime import date
+
 from pydantic import BaseModel, Field
 
 from app.schemas.photographer import PackageOut, PhotographerOut, PortfolioItemOut
 
 
 class PhotographerUpdateIn(BaseModel):
+    avatar_url: str | None = Field(default=None, max_length=512)
+    avatar_object_key: str | None = Field(default=None, max_length=512)
+    cover_url: str | None = Field(default=None, max_length=512)
+    cover_object_key: str | None = Field(default=None, max_length=512)
     bio: str | None = Field(default=None, max_length=5000)
     tags: str | None = Field(default=None, max_length=2000)
     city: str | None = Field(default=None, max_length=64)
@@ -22,15 +28,25 @@ class StudioMeOut(BaseModel):
 class PortfolioCreateIn(BaseModel):
     title: str | None = Field(default=None, max_length=128)
     image_url: str = Field(min_length=1, max_length=512)
+    image_object_key: str | None = Field(default=None, max_length=512)
+    watermark_url: str | None = Field(default=None, max_length=512)
+    watermark_object_key: str | None = Field(default=None, max_length=512)
     sort_order: int = 0
     tags: str = ""
+    category: str = ""
+    is_pinned: bool = False
 
 
 class PortfolioUpdateIn(BaseModel):
     title: str | None = Field(default=None, max_length=128)
     image_url: str | None = Field(default=None, max_length=512)
+    image_object_key: str | None = Field(default=None, max_length=512)
+    watermark_url: str | None = Field(default=None, max_length=512)
+    watermark_object_key: str | None = Field(default=None, max_length=512)
     sort_order: int | None = None
     tags: str | None = Field(default=None, max_length=2000)
+    category: str | None = Field(default=None, max_length=64)
+    is_pinned: bool | None = None
 
 
 class PackageCreateIn(BaseModel):
@@ -55,4 +71,18 @@ class PortfolioListOut(BaseModel):
 
 class PackageListOut(BaseModel):
     items: list[PackageOut]
+
+
+class ScheduleUpsertIn(BaseModel):
+    date: date
+    status: str = Field(min_length=1, max_length=16)
+
+
+class ScheduleItemOut(BaseModel):
+    date: date
+    status: str
+
+
+class ScheduleListOut(BaseModel):
+    items: list[ScheduleItemOut]
 

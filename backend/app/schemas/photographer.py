@@ -12,8 +12,11 @@ class PortfolioItemOut(TimestampOut):
     id: int
     title: str | None = None
     image_url: str
+    watermark_url: str | None = None
     sort_order: int
     tags: str
+    category: str
+    is_pinned: bool
 
 
 class PackageOut(TimestampOut):
@@ -38,6 +41,7 @@ class PhotographerOut(TimestampOut):
     # 来自 users 表（用于前端展示）
     display_name: str | None = None
     avatar_url: str | None = None
+    cover_url: str | None = None
     bio: str | None = None
     tags: str
     equipment_list: list[str] = Field(default_factory=list, description="设备清单")
@@ -49,6 +53,8 @@ class PhotographerOut(TimestampOut):
     service_center_lng: float | None = None
     service_radius_m: int
     last_active_at: datetime
+    status: str
+    reject_reason: str | None = None
 
     @field_validator("equipment_list", "drone_models", mode="before")
     @classmethod

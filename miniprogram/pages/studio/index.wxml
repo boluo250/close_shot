@@ -1,54 +1,187 @@
 <view class="cs-page">
   <view class="cs-card">
-    <view><b>摄影师工作台（MVP）</b></view>
-    <view class="cs-muted" style="padding-top: 8rpx;">
-      用后台账号登录（/auth/login），然后可上传作品并写入 /studio/portfolio。
+    <view><b>摄影师工作台</b></view>
+    <view class="cs-muted" style="padding-top: 8rpx;">用于管理资料、作品、报价与档期。</view>
+    <view wx:if="{{checkingIdentity}}" class="cs-muted" style="padding-top: 12rpx;">身份校验中...</view>
+  </view>
+
+  <view style="height: 16rpx;"></view>
+
+  <view class="cs-card" wx:if="{{authorized}}">
+    <view class="cs-row">
+      <view><b>个人资料管理</b></view>
+      <button class="cs-btn" size="mini" bindtap="saveProfile" loading="{{profileSaving}}">保存</button>
     </view>
 
-    <view style="height: 16rpx;"></view>
-    <view wx:if="{{!token}}">
-      <view style="display:flex; gap: 12rpx;">
-        <input class="input" placeholder="用户名" value="{{username}}" bindinput="onUser" />
-        <input class="input" placeholder="密码" password value="{{password}}" bindinput="onPass" />
+    <view class="cs-profile">
+      <view class="cs-profile-block">
+        <image wx:if="{{profile.avatar_url}}" class="cs-avatar" mode="aspectFill" src="{{profile.avatar_url}}" />
+        <view wx:else class="cs-placeholder">未上传头像</view>
+        <button class="cs-btn" size="mini" data-type="avatar" bindtap="chooseProfileImage">上传头像</button>
       </view>
-      <button class="cs-btn cs-btn-primary" style="margin-top: 12rpx;" bindtap="login">登录</button>
+      <view class="cs-profile-block">
+        <image wx:if="{{profile.cover_url}}" class="cs-cover" mode="aspectFill" src="{{profile.cover_url}}" />
+        <view wx:else class="cs-placeholder">未上传背景图</view>
+        <button class="cs-btn" size="mini" data-type="cover" bindtap="chooseProfileImage">上传背景图</button>
+      </view>
     </view>
 
-    <view wx:else>
-      <view class="cs-muted">已登录</view>
-      <button class="cs-btn" style="margin-top: 12rpx;" bindtap="logout">退出</button>
+    <textarea class="textarea" placeholder="个人简介" value="{{profile.bio}}" bindinput="onBio"></textarea>
+
+    <view class="cs-muted" style="padding-top: 10rpx;">风格标签</view>
+    <view class="cs-tags">
+      <view
+        wx:for="{{profileTagOptions}}"
+        wx:key="item"
+        data-tag="{{item}}"
+        bindtap="toggleProfileTag"
+        class="cs-tag {{profileTagSelected.includes(item) ? 'active' : ''}}"
+      >
+        {{item}}
+      </view>
     </view>
   </view>
 
   <view style="height: 16rpx;"></view>
 
-  <view class="cs-card">
+  <view class="cs-card" wx:if="{{authorized}}">
     <view class="cs-row">
-      <view><b>上传作品</b></view>
-      <button class="cs-btn" size="mini" bindtap="refresh">刷新列表</button>
+      <view><b>作品集管理</b></view>
+      <button class="cs-btn" size="mini" bindtap="loadPortfolio">刷新列表</button>
     </view>
     <view style="padding-top: 12rpx;">
-      <input class="input" placeholder="标题（可选）" value="{{form.title}}" bindinput="onTitle" />
-      <input class="input" style="margin-top: 10rpx;" placeholder="标签（逗号）" value="{{form.tags}}" bindinput="onTags" />
+      <input class="input" placeholder="标题（可选）" value="{{portfolioForm.title}}" bindinput="onTitle" />
+      <input class="input" style="margin-top: 10rpx;" placeholder="标签（逗号）" value="{{portfolioForm.tags}}" bindinput="onTags" />
+      <input class="input" style="margin-top: 10rpx;" placeholder="分类（如：婚纱 / 旅拍）" value="{{portfolioForm.category}}" bindinput="onCategory" />
+      <view class="cs-row" style="margin-top: 8rpx;">
+        <view class="cs-muted">上传后置顶</view>
+        <switch checked="{{portfolioForm.is_pinned}}" bindchange="onPinSwitch" />
+      </view>
     </view>
-    <button class="cs-btn cs-btn-primary" style="margin-top: 12rpx;" bindtap="chooseAndUpload" disabled="{{!token || uploading}}">
-      {{uploading ? '上传中...' : '选择图片并上传'}}
+    <button class="cs-btn cs-btn-primary" style="margin-top: 12rpx;" bindtap="chooseAndUpload" disabled="{{!token || portfolioUploading}}">
+      {{portfolioUploading ? '上传中...' : '选择多图并上传'}}
     </button>
     <view wx:if="{{lastUrl}}" class="cs-muted" style="padding-top: 10rpx;">
-      最新图片：{{lastUrl}}
+      {{lastUrl}}
     </view>
+
+    <view style="height: 10rpx;"></view>
+    <view><b>作品列表</b></view>
+    <view wx:if="{{portfolioLoading}}" class="cs-muted" style="padding-top: 12rpx;">加载中...</view>
+    <view wx:for="{{items}}" wx:key="id" class="cs-portfolio-item">
+      <image mode="aspectFill" src="{{item.display_url}}" class="cs-portfolio-image" />
+      <view class="cs-row">
+        <view class="cs-muted">#{{item.id}} {{item.title || ''}}</view>
+        <button class="cs-btn" size="mini" data-id="{{item.id}}" bindtap="togglePin">
+          {{item.is_pinned ? '取消置顶' : '置顶'}}
+        </button>
+        <button class="cs-btn cs-btn-danger" size="mini" data-id="{{item.id}}" bindtap="deleteItem">删除</button>
+      </view>
+      <view class="cs-row" style="margin-top: 6rpx;">
+        <input class="input cs-input-inline" placeholder="分类" value="{{item.category}}" data-index="{{index}}" bindinput="onItemCategory" />
+        <button class="cs-btn" size="mini" data-index="{{index}}" bindtap="saveItemCategory">保存分类</button>
+      </view>
+      <view class="cs-muted" style="padding-top: 6rpx;">标签：{{item.tags}}</view>
+    </view>
+    <view wx:if="{{!portfolioLoading && items.length===0}}" class="cs-muted" style="padding-top: 12rpx;">暂无作品</view>
   </view>
 
   <view style="height: 16rpx;"></view>
 
-  <view class="cs-card">
-    <view><b>作品列表</b></view>
-    <view wx:if="{{loading}}" class="cs-muted" style="padding-top: 12rpx;">加载中...</view>
-    <view wx:for="{{items}}" wx:key="id" style="padding-top: 12rpx;">
-      <image mode="aspectFill" src="{{item.image_url}}" style="width:100%; height: 280rpx; border-radius: 12rpx; background:#eee;" />
-      <view class="cs-muted" style="padding-top: 6rpx;">#{{item.id}} {{item.title || ''}} {{item.tags}}</view>
+  <view class="cs-card" wx:if="{{authorized}}">
+    <view class="cs-row">
+      <view><b>报价规格设置</b></view>
+      <button class="cs-btn" size="mini" bindtap="loadPackages">刷新</button>
     </view>
-    <view wx:if="{{!loading && items.length===0}}" class="cs-muted" style="padding-top: 12rpx;">暂无</view>
+    <view class="cs-muted" style="padding-top: 6rpx;">价格单位：元</view>
+
+    <view wx:for="{{packages}}" wx:key="id" class="cs-package">
+      <input class="input" placeholder="套餐名称" value="{{item.name}}" data-index="{{index}}" data-field="name" bindinput="onPackageField" />
+      <view class="cs-row" style="margin-top: 8rpx;">
+        <input class="input cs-input-inline" placeholder="价格" value="{{item.price_yuan}}" data-index="{{index}}" data-field="price_yuan" bindinput="onPackageField" />
+        <input
+          class="input cs-input-inline"
+          placeholder="时长(分钟)"
+          value="{{item.duration_minutes}}"
+          data-index="{{index}}"
+          data-field="duration_minutes"
+          bindinput="onPackageField"
+        />
+      </view>
+      <textarea
+        class="textarea"
+        placeholder="套餐描述"
+        value="{{item.description}}"
+        data-index="{{index}}"
+        data-field="description"
+        bindinput="onPackageField"
+      ></textarea>
+      <view class="cs-row" style="margin-top: 6rpx;">
+        <view class="cs-muted">是否上架</view>
+        <switch checked="{{item.is_active}}" data-index="{{index}}" data-field="is_active" bindchange="onPackageField" />
+      </view>
+      <view class="cs-row" style="margin-top: 6rpx;">
+        <button class="cs-btn" size="mini" data-index="{{index}}" bindtap="savePackage">保存</button>
+        <button class="cs-btn cs-btn-danger" size="mini" data-id="{{item.id}}" bindtap="deletePackage">删除</button>
+      </view>
+    </view>
+
+    <view class="cs-divider"></view>
+    <view><b>新增套餐</b></view>
+    <input class="input" placeholder="套餐名称" value="{{newPackage.name}}" data-field="name" bindinput="onNewPackageField" />
+    <view class="cs-row" style="margin-top: 8rpx;">
+      <input class="input cs-input-inline" placeholder="价格" value="{{newPackage.price_yuan}}" data-field="price_yuan" bindinput="onNewPackageField" />
+      <input
+        class="input cs-input-inline"
+        placeholder="时长(分钟)"
+        value="{{newPackage.duration_minutes}}"
+        data-field="duration_minutes"
+        bindinput="onNewPackageField"
+      />
+    </view>
+    <textarea
+      class="textarea"
+      placeholder="套餐描述"
+      value="{{newPackage.description}}"
+      data-field="description"
+      bindinput="onNewPackageField"
+    ></textarea>
+    <view class="cs-row" style="margin-top: 6rpx;">
+      <view class="cs-muted">是否上架</view>
+      <switch checked="{{newPackage.is_active}}" data-field="is_active" bindchange="onNewPackageField" />
+    </view>
+    <button class="cs-btn cs-btn-primary" style="margin-top: 8rpx;" bindtap="addPackage">添加套餐</button>
+  </view>
+
+  <view style="height: 16rpx;"></view>
+
+  <view class="cs-card" wx:if="{{authorized}}">
+    <view class="cs-row">
+      <view><b>档期管理</b></view>
+      <view class="cs-row">
+        <button class="cs-btn" size="mini" data-delta="-1" bindtap="changeMonth">上月</button>
+        <view class="cs-muted" style="padding: 0 8rpx;">{{scheduleYear}}-{{scheduleMonth}}</view>
+        <button class="cs-btn" size="mini" data-delta="1" bindtap="changeMonth">下月</button>
+      </view>
+    </view>
+    <view class="cs-week">
+      <view>日</view><view>一</view><view>二</view><view>三</view><view>四</view><view>五</view><view>六</view>
+    </view>
+    <view class="cs-calendar">
+      <view
+        wx:for="{{scheduleCells}}"
+        wx:key="index"
+        class="cs-day {{item.status}}"
+        data-date="{{item.date}}"
+        bindtap="tapDay"
+      >
+        {{item.day}}
+      </view>
+    </view>
+    <view class="cs-legend">
+      <view class="cs-legend-item busy">忙碌</view>
+      <view class="cs-legend-item blocked">不可约</view>
+    </view>
   </view>
 </view>
 

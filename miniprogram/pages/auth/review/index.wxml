@@ -1,0 +1,12 @@
+<view class="cs-page">
+  <view class="cs-card">
+    <view class="cs-title">审核中</view>
+    <view class="cs-muted" style="padding-top: 10rpx;">
+      你的入驻资料已提交，预计 24 小时内完成审核。
+    </view>
+    <view class="cs-muted" style="padding-top: 6rpx;">
+      如需加急，请联系平台客服。
+    </view>
+    <button class="cs-btn" style="margin-top: 16rpx;" bindtap="onBackMine">返回我的</button>
+  </view>
+</view>

@@ -1,9 +1,21 @@
 from __future__ import annotations
 
 import enum
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -13,6 +25,12 @@ class UserRole(str, enum.Enum):
     customer = "customer"
     photographer = "photographer"
     admin = "admin"
+
+
+class PhotographerStatus(str, enum.Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
 
 
 class TimestampMixin:
@@ -46,6 +64,7 @@ class Photographer(TimestampMixin, Base):
 
     bio: Mapped[str | None] = mapped_column(Text)
     tags: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    cover_url: Mapped[str | None] = mapped_column(String(512))
     # 设备清单（逗号分隔文本）
     equipment_list: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # 无人机型号（逗号分隔文本）
@@ -54,6 +73,10 @@ class Photographer(TimestampMixin, Base):
     rate_card_json: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # 接单状态（非实时在线）：映射历史列名 is_online，避免破坏已有数据库
     is_accepting_orders: Mapped[bool] = mapped_column("is_online", Boolean, nullable=False, default=False)
+    # 认证状态
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default=PhotographerStatus.approved.value)
+    # 驳回原因
+    reject_reason: Mapped[str | None] = mapped_column(Text)
     # 常驻城市（用于筛选/展示）
     city: Mapped[str | None] = mapped_column(String(64))
 
@@ -70,6 +93,7 @@ class Photographer(TimestampMixin, Base):
     user: Mapped[User] = relationship(back_populates="photographer")
     portfolio_items: Mapped[list["PortfolioItem"]] = relationship(back_populates="photographer")
     packages: Mapped[list["Package"]] = relationship(back_populates="photographer")
+    schedule_blocks: Mapped[list["ScheduleBlock"]] = relationship(back_populates="photographer")
 
 
 class PortfolioItem(TimestampMixin, Base):
@@ -80,8 +104,13 @@ class PortfolioItem(TimestampMixin, Base):
 
     title: Mapped[str | None] = mapped_column(String(128))
     image_url: Mapped[str] = mapped_column(String(512), nullable=False)
+    image_object_key: Mapped[str | None] = mapped_column(String(512))
+    watermark_url: Mapped[str | None] = mapped_column(String(512))
+    watermark_object_key: Mapped[str | None] = mapped_column(String(512))
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     tags: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    category: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    is_pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     photographer: Mapped[Photographer] = relationship(back_populates="portfolio_items")
 
@@ -99,6 +128,17 @@ class Package(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     photographer: Mapped[Photographer] = relationship(back_populates="packages")
+
+
+class ScheduleBlock(TimestampMixin, Base):
+    __tablename__ = "schedule_blocks"
+    __table_args__ = (UniqueConstraint("photographer_id", "date", name="uq_schedule_photographer_date"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    photographer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("photographers.id", ondelete="CASCADE"))
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    photographer: Mapped[Photographer] = relationship(back_populates="schedule_blocks")
 
 
 class Favorite(TimestampMixin, Base):

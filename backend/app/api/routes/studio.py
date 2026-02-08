@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from pathlib import PurePosixPath
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.db.models import Package, Photographer, PortfolioItem, User, UserRole
+from app.core.config import settings
+from app.db.models import Package, Photographer, PortfolioItem, ScheduleBlock, User, UserRole
 from app.db.session import get_db
 from app.schemas.photographer import PackageOut, PhotographerOut, PortfolioItemOut
 from app.schemas.studio import (
@@ -18,8 +20,14 @@ from app.schemas.studio import (
     PortfolioCreateIn,
     PortfolioListOut,
     PortfolioUpdateIn,
+    ScheduleItemOut,
+    ScheduleListOut,
+    ScheduleUpsertIn,
     StudioMeOut,
 )
+from app.services.image_watermark import add_text_watermark
+from app.services.storage import s3_get_object_stream, s3_put_object_bytes
+from app.services.wechat_security import ensure_image_safe_bytes, ensure_text_safe
 
 router = APIRouter()
 
@@ -36,11 +44,38 @@ def _get_my_photographer(db: Session, me: User) -> Photographer:
     return p
 
 
+def _object_key_from_url(url: str) -> str | None:
+    if url.startswith("/media/"):
+        return url.replace("/media/", "", 1)
+    if "/media/" in url:
+        return url.split("/media/", 1)[1]
+    public_base = settings.s3_public_base_url
+    if public_base and url.startswith(public_base.rstrip("/") + "/"):
+        return url[len(public_base.rstrip("/") + "/") :]
+    return None
+
+
+def _object_key_to_url(object_key: str) -> str:
+    public_base = settings.s3_public_base_url
+    if public_base:
+        return f"{public_base.rstrip('/')}/{object_key}"
+    return f"/media/{object_key}"
+
+
+def _ensure_texts_safe(values: list[str | None]) -> None:
+    for text in values:
+        if text and text.strip():
+            ensure_text_safe(text.strip())
+
+
 @router.get("/me", response_model=StudioMeOut)
 def get_me(me: User = Depends(get_current_user), db: Session = Depends(get_db)) -> StudioMeOut:
     _require_photographer_user(me)
     p = _get_my_photographer(db, me)
-    return StudioMeOut(photographer=PhotographerOut.model_validate(p))
+    payload = PhotographerOut.model_validate(p).model_dump()
+    payload["display_name"] = p.user.display_name if p.user else None
+    payload["avatar_url"] = p.user.avatar_url if p.user else None
+    return StudioMeOut(photographer=PhotographerOut(**payload))
 
 
 @router.put("/me", response_model=StudioMeOut)
@@ -52,6 +87,17 @@ def update_me(
     _require_photographer_user(me)
     p = _get_my_photographer(db, me)
     data = payload.model_dump(exclude_unset=True)
+    _ensure_texts_safe([data.get("bio"), data.get("tags"), data.get("city")])
+    if data.get("avatar_object_key"):
+        stream, _ = s3_get_object_stream(data["avatar_object_key"])
+        ensure_image_safe_bytes(stream.read())
+    if data.get("cover_object_key"):
+        stream, _ = s3_get_object_stream(data["cover_object_key"])
+        ensure_image_safe_bytes(stream.read())
+    if data.get("avatar_url") is not None and p.user:
+        p.user.avatar_url = data.pop("avatar_url")
+    data.pop("avatar_object_key", None)
+    data.pop("cover_object_key", None)
     for k, v in data.items():
         setattr(p, k, v)
     # 作为“活跃度”的输入：摄影师主动维护资料/接单范围时更新活跃时间
@@ -59,7 +105,10 @@ def update_me(
     db.add(p)
     db.commit()
     db.refresh(p)
-    return StudioMeOut(photographer=PhotographerOut.model_validate(p))
+    payload = PhotographerOut.model_validate(p).model_dump()
+    payload["display_name"] = p.user.display_name if p.user else None
+    payload["avatar_url"] = p.user.avatar_url if p.user else None
+    return StudioMeOut(photographer=PhotographerOut(**payload))
 
 
 @router.get("/portfolio", response_model=PortfolioListOut)
@@ -69,7 +118,7 @@ def list_portfolio(me: User = Depends(get_current_user), db: Session = Depends(g
     items = db.scalars(
         select(PortfolioItem)
         .where(PortfolioItem.photographer_id == p.id)
-        .order_by(PortfolioItem.sort_order.asc(), PortfolioItem.id.asc())
+        .order_by(PortfolioItem.is_pinned.desc(), PortfolioItem.sort_order.asc(), PortfolioItem.id.asc())
     ).all()
     return PortfolioListOut(items=[PortfolioItemOut.model_validate(i) for i in items])
 
@@ -82,7 +131,21 @@ def create_portfolio(
 ) -> PortfolioItemOut:
     _require_photographer_user(me)
     p = _get_my_photographer(db, me)
-    item = PortfolioItem(photographer_id=p.id, **payload.model_dump())
+    data = payload.model_dump()
+    _ensure_texts_safe([data.get("title"), data.get("tags"), data.get("category")])
+    image_object_key = data.get("image_object_key") or _object_key_from_url(data["image_url"])
+    if not image_object_key:
+        raise HTTPException(status_code=400, detail="image_object_key required for security checks")
+    stream, _ = s3_get_object_stream(image_object_key)
+    image_bytes = stream.read()
+    ensure_image_safe_bytes(image_bytes)
+    watermark_key = str(PurePosixPath("watermark") / PurePosixPath(image_object_key))
+    watermark_bytes, watermark_content_type = add_text_watermark(image_bytes, watermark_text="边拍")
+    s3_put_object_bytes(object_key=watermark_key, data=watermark_bytes, content_type=watermark_content_type)
+    data["image_object_key"] = image_object_key
+    data["watermark_object_key"] = watermark_key
+    data["watermark_url"] = _object_key_to_url(watermark_key)
+    item = PortfolioItem(photographer_id=p.id, **data)
     db.add(item)
     db.commit()
     db.refresh(item)
@@ -101,7 +164,22 @@ def update_portfolio(
     item = db.scalar(select(PortfolioItem).where(PortfolioItem.id == item_id, PortfolioItem.photographer_id == p.id))
     if not item:
         raise HTTPException(status_code=404, detail="portfolio item not found")
-    for k, v in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    _ensure_texts_safe([data.get("title"), data.get("tags"), data.get("category")])
+    if data.get("image_object_key") or data.get("image_url"):
+        image_object_key = data.get("image_object_key") or _object_key_from_url(data.get("image_url") or "")
+        if not image_object_key:
+            raise HTTPException(status_code=400, detail="image_object_key required for security checks")
+        stream, _ = s3_get_object_stream(image_object_key)
+        image_bytes = stream.read()
+        ensure_image_safe_bytes(image_bytes)
+        watermark_key = str(PurePosixPath("watermark") / PurePosixPath(image_object_key))
+        watermark_bytes, watermark_content_type = add_text_watermark(image_bytes, watermark_text="边拍")
+        s3_put_object_bytes(object_key=watermark_key, data=watermark_bytes, content_type=watermark_content_type)
+        data["image_object_key"] = image_object_key
+        data["watermark_object_key"] = watermark_key
+        data["watermark_url"] = _object_key_to_url(watermark_key)
+    for k, v in data.items():
         setattr(item, k, v)
     db.add(item)
     db.commit()
@@ -140,6 +218,7 @@ def create_package(
 ) -> PackageOut:
     _require_photographer_user(me)
     p = _get_my_photographer(db, me)
+    _ensure_texts_safe([payload.name, payload.description])
     item = Package(photographer_id=p.id, **payload.model_dump())
     db.add(item)
     db.commit()
@@ -159,7 +238,9 @@ def update_package(
     item = db.scalar(select(Package).where(Package.id == package_id, Package.photographer_id == p.id))
     if not item:
         raise HTTPException(status_code=404, detail="package not found")
-    for k, v in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    _ensure_texts_safe([data.get("name"), data.get("description")])
+    for k, v in data.items():
         setattr(item, k, v)
     db.add(item)
     db.commit()
@@ -176,6 +257,59 @@ def delete_package(
     _require_photographer_user(me)
     p = _get_my_photographer(db, me)
     db.execute(delete(Package).where(Package.id == package_id, Package.photographer_id == p.id))
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/schedule", response_model=ScheduleListOut)
+def list_schedule(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ScheduleListOut:
+    _require_photographer_user(me)
+    p = _get_my_photographer(db, me)
+    q = select(ScheduleBlock).where(ScheduleBlock.photographer_id == p.id)
+    if start_date:
+        q = q.where(ScheduleBlock.date >= start_date)
+    if end_date:
+        q = q.where(ScheduleBlock.date <= end_date)
+    items = db.scalars(q.order_by(ScheduleBlock.date.asc())).all()
+    return ScheduleListOut(items=[ScheduleItemOut(date=i.date, status=i.status) for i in items])
+
+
+@router.put("/schedule", response_model=ScheduleItemOut)
+def upsert_schedule(
+    payload: ScheduleUpsertIn,
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ScheduleItemOut:
+    _require_photographer_user(me)
+    p = _get_my_photographer(db, me)
+    item = db.scalar(
+        select(ScheduleBlock).where(ScheduleBlock.photographer_id == p.id, ScheduleBlock.date == payload.date)
+    )
+    if item:
+        item.status = payload.status
+    else:
+        item = ScheduleBlock(photographer_id=p.id, date=payload.date, status=payload.status)
+    db.add(item)
+    db.commit()
+    return ScheduleItemOut(date=item.date, status=item.status)
+
+
+@router.delete("/schedule/{item_date}")
+def delete_schedule(
+    item_date: date,
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    _require_photographer_user(me)
+    p = _get_my_photographer(db, me)
+    db.execute(
+        delete(ScheduleBlock).where(ScheduleBlock.photographer_id == p.id, ScheduleBlock.date == item_date)
+    )
     db.commit()
     return {"ok": True}
 

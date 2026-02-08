@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     s3_region: str | None = None
     s3_public_base_url: str | None = None
 
+    wechat_appid: str | None = None
+    wechat_secret: str | None = None
+
 
 settings = Settings()  # type: ignore[call-arg]
 

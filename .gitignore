@@ -62,6 +62,9 @@ build/
 .parcel-cache/
 
 .vite/
+.playwright/
+playwright-report/
+test-results/
 .next/
 .nuxt/
 .svelte-kit/

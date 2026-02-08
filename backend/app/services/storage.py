@@ -84,3 +84,14 @@ def s3_get_object_stream(object_key: str):
     content_type = obj.get("ContentType")
     return body, content_type
 
+
+def s3_put_object_bytes(*, object_key: str, data: bytes, content_type: str | None = None) -> None:
+    if settings.storage_backend != "s3":
+        raise RuntimeError("Only s3 backend implemented for upload in MVP")
+    s3 = _s3_client()
+    bucket = settings.s3_bucket  # type: ignore[assignment]
+    params: dict[str, object] = {"Bucket": bucket, "Key": object_key, "Body": data}
+    if content_type:
+        params["ContentType"] = content_type
+    s3.put_object(**params)
+

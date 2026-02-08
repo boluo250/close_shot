@@ -7,8 +7,9 @@ from sqlalchemy import Float, delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_user
-from app.db.models import Favorite, Package, Photographer, PortfolioItem, Review, User
+from app.db.models import Favorite, Package, Photographer, PhotographerStatus, PortfolioItem, Review, User, UserRole
 from app.db.session import get_db
+from app.schemas.me import MeIdentityOut
 from app.schemas.photographer import (
     NearbyQuery,
     PhotographerDetailOut,
@@ -57,6 +58,49 @@ def _parse_rate_card(text: str | None) -> list[dict]:
             }
         )
     return out
+
+
+@router.post("/apply", response_model=MeIdentityOut)
+def apply_photographer(me: User = Depends(get_current_user), db: Session = Depends(get_db)) -> MeIdentityOut:
+    if me.role == UserRole.admin.value:
+        return MeIdentityOut(
+            role=me.role,
+            photographer_status=PhotographerStatus.approved.value,
+            photographer_reject_reason=None,
+        )
+
+    photographer = db.scalar(select(Photographer).where(Photographer.user_id == me.id))
+    if photographer and photographer.status == PhotographerStatus.approved.value:
+        return MeIdentityOut(
+            role=me.role,
+            photographer_status=photographer.status,
+            photographer_reject_reason=photographer.reject_reason,
+        )
+
+    if not photographer:
+        photographer = Photographer(
+            user_id=me.id,
+            tags="",
+            is_accepting_orders=False,
+            service_radius_m=5000,
+            status=PhotographerStatus.pending.value,
+        )
+        db.add(photographer)
+    else:
+        photographer.status = PhotographerStatus.pending.value
+        photographer.reject_reason = None
+
+    if me.role != UserRole.photographer.value:
+        me.role = UserRole.photographer.value
+
+    db.commit()
+    db.refresh(me)
+    db.refresh(photographer)
+    return MeIdentityOut(
+        role=me.role,
+        photographer_status=photographer.status,
+        photographer_reject_reason=photographer.reject_reason,
+    )
 
 
 def _rate_min(items: list[dict], mode: str) -> int | None:

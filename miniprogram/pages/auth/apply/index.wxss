@@ -1,0 +1,57 @@
+.cs-title {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.cs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  color: #666;
+  font-size: 26rpx;
+}
+
+.cs-item {
+  line-height: 1.6;
+}
+.cs-page {
+  padding: 24rpx;
+  background: #f6f7fb;
+  min-height: 100vh;
+}
+
+.cs-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  box-shadow: 0 6rpx 18rpx rgba(0, 0, 0, 0.04);
+}
+
+.cs-title {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.cs-muted {
+  color: #999;
+  font-size: 24rpx;
+}
+
+.cs-list {
+  color: #555;
+  font-size: 26rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.cs-btn {
+  border-radius: 10rpx;
+  padding: 12rpx 18rpx;
+  font-size: 28rpx;
+}
+
+.cs-btn-primary {
+  background: #111;
+  color: #fff;
+}

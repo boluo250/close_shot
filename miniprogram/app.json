@@ -4,7 +4,10 @@
     "pages/favorites/index",
     "pages/mine/index",
     "pages/photographer/index",
-    "pages/studio/index"
+    "pages/studio/index",
+    "pages/auth/apply/index",
+    "pages/auth/review/index",
+    "pages/auth/rejected/index"
   ],
   "tabBar": {
     "custom": true,

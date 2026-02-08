@@ -30,7 +30,15 @@
     <view style="height: 12rpx;"></view>
     <view style="display:flex; gap: 12rpx; flex-wrap: wrap;">
       <button class="cs-btn" bindtap="goFavorites">我的收藏</button>
-      <button class="cs-btn" bindtap="goStudio">摄影师工作台</button>
+      <view class="cs-studio-entry">
+        <button class="cs-btn" bindtap="goStudio">摄影师工作台</button>
+        <view
+          wx:if="{{photographerStatus !== 'approved'}}"
+          class="cs-badge {{photographerStatus}}"
+        >
+          {{identityLoading ? '查询中' : (photographerStatus === 'pending' ? '待认证' : photographerStatus === 'rejected' ? '已驳回' : '申请入驻')}}
+        </view>
+      </view>
     </view>
     <view class="cs-muted" style="padding-top: 10rpx;">
       工作台用于摄影师上传作品（偏内部工具，先放在这里不进主 Tab）。

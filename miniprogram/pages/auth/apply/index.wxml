@@ -1,0 +1,17 @@
+<view class="cs-page">
+  <view class="cs-card">
+    <view class="cs-title">摄影师入驻</view>
+    <view class="cs-muted" style="padding-top: 10rpx;">
+      完成入驻后即可管理作品、报价与档期，并获得平台曝光。
+    </view>
+    <view style="height: 16rpx;"></view>
+    <view class="cs-list">
+      <view class="cs-item">- 作品展示与获客</view>
+      <view class="cs-item">- 订单管理与档期安排</view>
+      <view class="cs-item">- 专属摄影师工作台</view>
+    </view>
+    <button class="cs-btn cs-btn-primary" style="margin-top: 16rpx;" bindtap="submitApply" disabled="{{submitting}}">
+      {{submitting ? '提交中...' : '提交入驻申请'}}
+    </button>
+  </view>
+</view>

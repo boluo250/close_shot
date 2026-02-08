@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, hash_password, verify_password
-from app.db.models import User, UserRole
+from app.db.models import PhotographerStatus, User, UserRole
 from app.db.session import get_db
 from app.schemas.auth import AdminLoginIn, TokenOut, WechatLoginIn
 
@@ -36,6 +36,41 @@ def wechat_login(payload: WechatLoginIn, db: Session = Depends(get_db)) -> Token
         db.add(user)
         db.commit()
         db.refresh(user)
+    else:
+        if user.photographer and user.photographer.status == PhotographerStatus.approved.value:
+            if user.role != UserRole.photographer.value:
+                user.role = UserRole.photographer.value
+                db.commit()
+    token = create_access_token(subject=str(user.id))
+    return TokenOut(access_token=token)
+
+
+@router.post("/wechat/studio", response_model=TokenOut)
+def wechat_studio_login(payload: WechatLoginIn, db: Session = Depends(get_db)) -> TokenOut:
+    """
+    摄影师工作台微信登录 mock。
+    真实实现：用 code 换取 openid/session_key，然后绑定摄影师账号。
+    """
+    openid = f"mock_{payload.code}"
+    user = db.scalar(select(User).where(User.wechat_openid == openid))
+    if not user:
+        user = User(role=UserRole.photographer.value, wechat_openid=openid, display_name="微信摄影师")
+        db.add(user)
+        db.flush()
+        from app.db.models import Photographer  # 避免循环导入
+
+        db.add(Photographer(user_id=user.id, tags="", is_accepting_orders=False, service_radius_m=5000))
+        db.commit()
+        db.refresh(user)
+    else:
+        if user.role != UserRole.photographer.value:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="当前微信账号未绑定摄影师")
+        if not user.photographer:
+            from app.db.models import Photographer  # 避免循环导入
+
+            db.add(Photographer(user_id=user.id, tags="", is_accepting_orders=False, service_radius_m=5000))
+            db.commit()
+            db.refresh(user)
     token = create_access_token(subject=str(user.id))
     return TokenOut(access_token=token)
 
