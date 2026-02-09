@@ -1,15 +1,32 @@
-<view class="cs-page">
+<view class="cs-page rejected-page">
   <view class="cs-card">
-    <view class="cs-title">资料被驳回</view>
-    <view class="cs-muted" style="padding-top: 10rpx;">
-      驳回原因：{{reason || '暂无说明'}}
+    <!-- 状态图标 -->
+    <view class="status-icon">
+      <text class="icon-emoji">😔</text>
     </view>
-    <view class="cs-muted" style="padding-top: 6rpx;">
-      请根据提示完善资料后重新提交。
+
+    <view class="status-title">认证未通过</view>
+
+    <view class="reason-box" wx:if="{{reason}}">
+      <view class="reason-label">驳回原因</view>
+      <view class="reason-text">{{reason}}</view>
     </view>
-    <button class="cs-btn cs-btn-primary" style="margin-top: 16rpx;" bindtap="resubmit" disabled="{{submitting}}">
-      {{submitting ? '提交中...' : '重新提交'}}
+    <view class="reason-box" wx:else>
+      <view class="reason-text">暂无具体说明，请根据提示完善资料后重新提交。</view>
+    </view>
+
+    <view class="tips">
+      <view class="tip-title">常见驳回原因：</view>
+      <view class="tip-item">• 身份证照片不清晰或信息被遮挡</view>
+      <view class="tip-item">• 上传的作品非本人拍摄</view>
+      <view class="tip-item">• 联系方式无法验证</view>
+    </view>
+  </view>
+
+  <view class="btn-group">
+    <button class="cs-btn cs-btn-primary flex-btn" bindtap="reApply">
+      重新提交认证
     </button>
-    <button class="cs-btn" style="margin-top: 10rpx;" bindtap="onBackMine">返回我的</button>
+    <button class="cs-btn" bindtap="onBackMine">返回我的</button>
   </view>
 </view>

@@ -1,57 +1,286 @@
-.cs-title {
-  font-size: 32rpx;
-  font-weight: 600;
+.apply-page {
+  padding-bottom: 60rpx;
 }
 
-.cs-list {
+/* ========== 进度条 ========== */
+.progress-bar {
+  padding: 30rpx 24rpx 20rpx;
+}
+
+.progress-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.progress-step {
   display: flex;
   flex-direction: column;
-  gap: 6rpx;
-  color: #666;
-  font-size: 26rpx;
-}
-
-.cs-item {
-  line-height: 1.6;
-}
-.cs-page {
-  padding: 24rpx;
-  background: #f6f7fb;
-  min-height: 100vh;
-}
-
-.cs-card {
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 24rpx;
-  box-shadow: 0 6rpx 18rpx rgba(0, 0, 0, 0.04);
-}
-
-.cs-title {
-  font-size: 32rpx;
-  font-weight: 600;
-}
-
-.cs-muted {
-  color: #999;
-  font-size: 24rpx;
-}
-
-.cs-list {
-  color: #555;
-  font-size: 26rpx;
-  display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 8rpx;
 }
 
-.cs-btn {
-  border-radius: 10rpx;
-  padding: 12rpx 18rpx;
+.step-dot {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: var(--cs-color-border, #eef0f3);
+  color: var(--cs-color-muted, #8a8f98);
+  font-size: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.progress-step.active .step-dot {
+  background: var(--cs-color-primary, #bfe84a);
+  color: #111;
+}
+
+.step-dot.done {
+  background: var(--cs-color-primary, #bfe84a);
+  color: #111;
+}
+
+.step-label {
+  font-size: 22rpx;
+  color: var(--cs-color-muted, #8a8f98);
+  white-space: nowrap;
+}
+
+.progress-step.active .step-label {
+  color: var(--cs-color-text, #111827);
+  font-weight: 500;
+}
+
+.progress-line {
+  width: 80rpx;
+  height: 4rpx;
+  background: var(--cs-color-border, #eef0f3);
+  margin: 0 16rpx;
+  margin-bottom: 30rpx;
+  border-radius: 2rpx;
+  transition: background 0.3s;
+}
+
+.progress-line.active {
+  background: var(--cs-color-primary, #bfe84a);
+}
+
+/* ========== 步骤内容 ========== */
+.step-content {
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10rpx); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========== 区块标题 ========== */
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--cs-color-text, #111827);
+  margin-bottom: 8rpx;
+}
+
+.section-desc {
+  font-size: 24rpx;
+  color: var(--cs-color-muted, #8a8f98);
+  margin-bottom: 28rpx;
+}
+
+/* ========== 表单 ========== */
+.form-group {
+  margin-bottom: 28rpx;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  font-size: 26rpx;
+  color: var(--cs-color-text, #111827);
+  font-weight: 500;
+  margin-bottom: 12rpx;
+}
+
+.required {
+  color: #e74c3c;
+  margin-left: 4rpx;
+}
+
+.optional {
+  color: var(--cs-color-muted, #8a8f98);
+  font-size: 22rpx;
+  font-weight: 400;
+}
+
+.form-input {
+  width: 100%;
+  height: 80rpx;
+  background: #f8f9fb;
+  border-radius: 14rpx;
+  padding: 0 24rpx;
   font-size: 28rpx;
+  color: var(--cs-color-text, #111827);
+  box-sizing: border-box;
+  border: 2rpx solid transparent;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus {
+  border-color: var(--cs-color-primary, #bfe84a);
+  background: #fff;
+}
+
+.form-tip {
+  font-size: 22rpx;
+  color: var(--cs-color-muted, #8a8f98);
+  margin-top: 8rpx;
+}
+
+/* ========== Picker ========== */
+.picker-input {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  line-height: 80rpx;
+}
+
+.picker-input.placeholder {
+  color: #c0c4cc;
+}
+
+.picker-arrow {
+  font-size: 32rpx;
+  color: #c0c4cc;
+  transform: rotate(0deg);
+}
+
+/* ========== 身份证上传 ========== */
+.id-card-upload {
+  display: flex;
+  gap: 20rpx;
+}
+
+.id-card-item {
+  flex: 1;
+  height: 200rpx;
+  border-radius: 16rpx;
+  overflow: hidden;
+  position: relative;
+}
+
+.id-card-placeholder {
+  width: 100%;
+  height: 100%;
+  background: #f8f9fb;
+  border: 2rpx dashed #d0d3d9;
+  border-radius: 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  box-sizing: border-box;
+}
+
+.upload-icon {
+  font-size: 48rpx;
+  color: #c0c4cc;
+  line-height: 1;
+}
+
+.upload-text {
+  font-size: 22rpx;
+  color: var(--cs-color-muted, #8a8f98);
+}
+
+.id-card-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 16rpx;
+}
+
+/* ========== 标签选择 ========== */
+.tag-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.tag-item {
+  padding: 12rpx 28rpx;
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  background: #f8f9fb;
+  color: var(--cs-color-text, #111827);
+  border: 2rpx solid transparent;
+  transition: all 0.2s;
+}
+
+.tag-item.selected {
+  background: rgba(191, 232, 74, 0.15);
+  border-color: var(--cs-color-primary, #bfe84a);
+  color: #5a7a00;
+  font-weight: 500;
+}
+
+/* ========== 按钮区域 ========== */
+.btn-area {
+  padding: 30rpx 0 0;
+}
+
+.btn-area-row {
+  display: flex;
+  gap: 20rpx;
+}
+
+.full-btn {
+  width: 100%;
+}
+
+.flex-btn {
+  flex: 1;
+}
+
+.back-btn {
+  width: 200rpx;
+  background: #fff;
+  border: 2rpx solid var(--cs-color-border, #eef0f3);
+  color: var(--cs-color-text, #111827);
 }
 
 .cs-btn-primary {
-  background: #111;
-  color: #fff;
+  background: var(--cs-color-primary, #bfe84a);
+  border-color: var(--cs-color-primary, #bfe84a);
+  color: #111;
+  font-weight: 600;
+}
+
+.cs-btn-primary.disabled {
+  opacity: 0.5;
+}
+
+.cs-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx 0;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+  border: none;
+  line-height: 1.4;
+}
+
+.submit-tip {
+  text-align: center;
+  font-size: 22rpx;
+  color: var(--cs-color-muted, #8a8f98);
+  padding-top: 20rpx;
 }

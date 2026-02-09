@@ -33,6 +33,13 @@ class PhotographerStatus(str, enum.Enum):
     rejected = "rejected"
 
 
+class CertificationLevel(int, enum.Enum):
+    none = 0       # 未认证
+    basic = 1      # Lv1 基础认证（实名 + 作品）
+    advanced = 2   # Lv2 进阶认证（+ 历史订单/好评）
+    premium = 3    # Lv3 优选摄影师（+ 押金/平台成交）
+
+
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
@@ -74,11 +81,29 @@ class Photographer(TimestampMixin, Base):
     # 接单状态（非实时在线）：映射历史列名 is_online，避免破坏已有数据库
     is_accepting_orders: Mapped[bool] = mapped_column("is_online", Boolean, nullable=False, default=False)
     # 认证状态
-    status: Mapped[str] = mapped_column(String(16), nullable=False, default=PhotographerStatus.approved.value)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default=PhotographerStatus.pending.value)
     # 驳回原因
     reject_reason: Mapped[str | None] = mapped_column(Text)
     # 常驻城市（用于筛选/展示）
     city: Mapped[str | None] = mapped_column(String(64))
+
+    # ---- 认证字段 ----
+    # Step 1: 实名认证
+    real_name: Mapped[str | None] = mapped_column(String(64))
+    id_card_number: Mapped[str | None] = mapped_column(String(18))
+    id_card_front_url: Mapped[str | None] = mapped_column(String(512))
+    id_card_back_url: Mapped[str | None] = mapped_column(String(512))
+    # Step 2: 摄影师身份
+    shooting_types: Mapped[str] = mapped_column(Text, nullable=False, default="")  # 逗号分隔：人像,情侣,亲子,商拍,活动
+    experience_years: Mapped[str | None] = mapped_column(String(16))  # "1年内" / "1-3年" / "3年以上"
+    portfolio_link: Mapped[str | None] = mapped_column(String(512))  # 个人主页链接（可选）
+    # Step 3: 联系方式
+    phone: Mapped[str | None] = mapped_column(String(20))
+    wechat_id: Mapped[str | None] = mapped_column(String(64))
+    # 可选字段
+    price_range: Mapped[str | None] = mapped_column(String(32))  # "199-399" / "399-699" / "699+"
+    # 认证等级
+    certification_level: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # 服务中心点（非实时定位）：映射历史列名 lat/lng
     service_center_lat: Mapped[float | None] = mapped_column("lat", Float)
