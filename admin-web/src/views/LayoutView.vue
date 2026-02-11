@@ -9,6 +9,7 @@
       <el-menu-item index="/studio/profile">资料</el-menu-item>
       <el-menu-item index="/studio/portfolio">作品</el-menu-item>
       <el-menu-item index="/studio/packages">套餐</el-menu-item>
+      <el-menu-item index="/admin/certifications">认证审核</el-menu-item>
       <el-menu-item index="/seed">开发 Seed</el-menu-item>
     </el-menu>
 

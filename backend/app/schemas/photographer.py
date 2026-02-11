@@ -114,3 +114,57 @@ class NearbyQuery(BaseModel):
     is_accepting_orders: bool | None = None
     tag: str | None = None
 
+
+# ---- 管理后台认证审核 Schema ----
+
+class CertificationDetailOut(TimestampOut):
+    """管理端查看的摄影师认证详情"""
+    id: int
+    user_id: int
+    display_name: str | None = None
+    avatar_url: str | None = None
+    status: str
+    reject_reason: str | None = None
+    certification_level: int = 0
+
+    # 实名信息
+    real_name: str | None = None
+    id_card_number: str | None = None
+    id_card_front_url: str | None = None
+    id_card_back_url: str | None = None
+
+    # 摄影师身份
+    shooting_types: list[str] = Field(default_factory=list)
+    experience_years: str | None = None
+    portfolio_link: str | None = None
+
+    # 联系方式
+    phone: str | None = None
+    wechat_id: str | None = None
+
+    # 可选
+    city: str | None = None
+    price_range: str | None = None
+
+    @field_validator("shooting_types", mode="before")
+    @classmethod
+    def _parse_shooting_types(cls, value: object) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            return [x.strip() for x in value.split(",") if x.strip()]
+        return []
+
+
+class CertificationReviewIn(BaseModel):
+    """管理端审核操作"""
+    action: str = Field(description="approve 或 reject")
+    reject_reason: str | None = Field(default=None, max_length=500, description="驳回原因（reject 时必填）")
+
+
+class CertificationListOut(BaseModel):
+    items: list[CertificationDetailOut]
+    total: int
+

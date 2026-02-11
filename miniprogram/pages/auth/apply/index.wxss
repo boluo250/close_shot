@@ -162,51 +162,6 @@
   transform: rotate(0deg);
 }
 
-/* ========== 身份证上传 ========== */
-.id-card-upload {
-  display: flex;
-  gap: 20rpx;
-}
-
-.id-card-item {
-  flex: 1;
-  height: 200rpx;
-  border-radius: 16rpx;
-  overflow: hidden;
-  position: relative;
-}
-
-.id-card-placeholder {
-  width: 100%;
-  height: 100%;
-  background: #f8f9fb;
-  border: 2rpx dashed #d0d3d9;
-  border-radius: 16rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8rpx;
-  box-sizing: border-box;
-}
-
-.upload-icon {
-  font-size: 48rpx;
-  color: #c0c4cc;
-  line-height: 1;
-}
-
-.upload-text {
-  font-size: 22rpx;
-  color: var(--cs-color-muted, #8a8f98);
-}
-
-.id-card-img {
-  width: 100%;
-  height: 100%;
-  border-radius: 16rpx;
-}
-
 /* ========== 标签选择 ========== */
 .tag-grid {
   display: flex;
@@ -229,6 +184,10 @@
   border-color: var(--cs-color-primary, #bfe84a);
   color: #5a7a00;
   font-weight: 500;
+}
+
+.tag-item.disabled {
+  opacity: 0.45;
 }
 
 /* ========== 按钮区域 ========== */

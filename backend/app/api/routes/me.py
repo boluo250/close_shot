@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -7,7 +9,13 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.models import Favorite, Photographer, PhotographerStatus, PortfolioItem, User, UserRole
 from app.db.session import get_db
-from app.schemas.me import CertificationStatusOut, MeIdentityOut, PhotographerApplyIn
+from app.schemas.me import (
+    CertificationStatusOut,
+    MeIdentityOut,
+    PhotographerApplyIn,
+    TencentRealPersonVerifyIn,
+    TencentRealPersonVerifyOut,
+)
 from app.schemas.photographer import PhotographerOut
 
 router = APIRouter()
@@ -16,6 +24,7 @@ router = APIRouter()
 VALID_SHOOTING_TYPES = {"人像", "情侣", "亲子", "商拍", "活动", "婚礼", "旅拍", "宠物", "美食", "建筑"}
 VALID_EXPERIENCE_YEARS = {"1年内", "1-3年", "3年以上"}
 VALID_PRICE_RANGES = {"199-399", "399-699", "699+"}
+ID_CARD_PATTERN = re.compile(r"^\d{15}$|^\d{17}[\dXx]$")
 
 
 def _build_certification_status(p: Photographer | None, db: Session) -> CertificationStatusOut:
@@ -23,7 +32,7 @@ def _build_certification_status(p: Photographer | None, db: Session) -> Certific
     if not p:
         return CertificationStatusOut(status="not_applied")
 
-    identity_verified = bool(p.real_name and p.id_card_number and p.id_card_front_url and p.id_card_back_url)
+    identity_verified = bool(p.real_name and p.id_card_number)
     portfolio_count = db.scalar(
         select(PortfolioItem.id).where(PortfolioItem.photographer_id == p.id).limit(1)
     )
@@ -92,6 +101,9 @@ def apply_photographer(
     db: Session = Depends(get_db),
 ) -> CertificationStatusOut:
     """提交摄影师入驻认证"""
+    if not ID_CARD_PATTERN.match(payload.id_card_number):
+        raise HTTPException(status_code=400, detail="身份证号格式不正确")
+
     if me.role == UserRole.admin.value:
         return CertificationStatusOut(
             status=PhotographerStatus.approved.value,
@@ -102,11 +114,14 @@ def apply_photographer(
         )
 
     # 校验拍摄类型
+    if len(payload.shooting_types) > 3:
+        raise HTTPException(status_code=400, detail="拍摄类型最多选择3个")
+
     for st in payload.shooting_types:
         if st not in VALID_SHOOTING_TYPES:
             raise HTTPException(status_code=400, detail=f"不支持的拍摄类型：{st}")
 
-    if payload.experience_years not in VALID_EXPERIENCE_YEARS:
+    if payload.experience_years and payload.experience_years not in VALID_EXPERIENCE_YEARS:
         raise HTTPException(status_code=400, detail=f"不支持的从业年限选项：{payload.experience_years}")
 
     if payload.price_range and payload.price_range not in VALID_PRICE_RANGES:
@@ -125,8 +140,10 @@ def apply_photographer(
     # 写入认证字段
     p.real_name = payload.real_name
     p.id_card_number = payload.id_card_number
-    p.id_card_front_url = payload.id_card_front_url
-    p.id_card_back_url = payload.id_card_back_url
+    if payload.id_card_front_url is not None:
+        p.id_card_front_url = payload.id_card_front_url
+    if payload.id_card_back_url is not None:
+        p.id_card_back_url = payload.id_card_back_url
     p.shooting_types = ",".join(payload.shooting_types)
     p.experience_years = payload.experience_years
     p.portfolio_link = payload.portfolio_link
@@ -143,4 +160,19 @@ def apply_photographer(
     db.refresh(p)
 
     return _build_certification_status(p, db)
+
+
+@router.post("/photographer/tencent-realname/verify", response_model=TencentRealPersonVerifyOut)
+def verify_tencent_real_person(
+    payload: TencentRealPersonVerifyIn,
+    me: User = Depends(get_current_user),
+) -> TencentRealPersonVerifyOut:
+    """
+    腾讯云实名实人认证预留接口（占位）。
+    当前仅做基础参数校验，后续在此处接入腾讯云官方 API。
+    """
+    _ = me  # 触发登录校验
+    if not ID_CARD_PATTERN.match(payload.id_card_number):
+        raise HTTPException(status_code=400, detail="身份证号格式不正确")
+    return TencentRealPersonVerifyOut()
 

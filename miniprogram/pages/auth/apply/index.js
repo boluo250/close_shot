@@ -2,7 +2,6 @@ const { request } = require("../../../utils/request");
 const { ensureLogin } = require("../../../utils/auth");
 
 const SHOOTING_TYPES = ["人像", "情侣", "亲子", "商拍", "活动", "婚礼", "旅拍", "宠物", "美食", "建筑"];
-const EXPERIENCE_OPTIONS = ["1年内", "1-3年", "3年以上"];
 const PRICE_RANGES = ["199-399", "399-699", "699+"];
 
 Page({
@@ -14,15 +13,12 @@ Page({
     // Step 1: 实名认证
     realName: "",
     idCardNumber: "",
-    idCardFrontUrl: "",
-    idCardBackUrl: "",
 
     // Step 2: 摄影师身份
     shootingTypes: SHOOTING_TYPES,
     selectedTypes: [],     // 选中的拍摄类型
-    experienceOptions: EXPERIENCE_OPTIONS,
-    experienceIndex: -1,   // picker 选中索引
-    experienceYears: "",
+    selectedTypeMap: {},   // 用于模板判断选中态
+    typeDisabledMap: {},   // 已达到上限时，未选项置灰
     portfolioLink: "",
 
     // Step 3: 联系方式
@@ -43,6 +39,7 @@ Page({
 
   onLoad() {
     // 尝试获取手机号自动填充
+    this._syncSelectedTypeState([]);
     this._loadCertificationStatus();
   },
 
@@ -77,23 +74,9 @@ Page({
     this._validateStep1();
   },
 
-  chooseIdCardFront() {
-    this._chooseAndUploadImage("id_card", (url) => {
-      this.setData({ idCardFrontUrl: url });
-      this._validateStep1();
-    });
-  },
-
-  chooseIdCardBack() {
-    this._chooseAndUploadImage("id_card", (url) => {
-      this.setData({ idCardBackUrl: url });
-      this._validateStep1();
-    });
-  },
-
   _validateStep1() {
-    const { realName, idCardNumber, idCardFrontUrl, idCardBackUrl } = this.data;
-    const valid = realName.length >= 2 && this._isValidIdCard(idCardNumber) && idCardFrontUrl && idCardBackUrl;
+    const { realName, idCardNumber } = this.data;
+    const valid = realName.length >= 2 && this._isValidIdCard(idCardNumber);
     this.setData({ step1Valid: valid });
   },
 
@@ -104,24 +87,39 @@ Page({
   // ========== Step 2: 摄影师身份 ==========
   toggleShootingType(e) {
     const type = e.currentTarget.dataset.type;
+    if (!type) return;
     let selected = [...this.data.selectedTypes];
     const idx = selected.indexOf(type);
     if (idx > -1) {
       selected.splice(idx, 1);
     } else {
+      if (selected.length >= 3) {
+        wx.showToast({ title: "拍摄类型最多选择 3 个", icon: "none" });
+        return;
+      }
       selected.push(type);
     }
-    this.setData({ selectedTypes: selected });
+    this._syncSelectedTypeState(selected);
     this._validateStep2();
   },
 
-  onExperienceChange(e) {
-    const idx = Number(e.detail.value);
-    this.setData({
-      experienceIndex: idx,
-      experienceYears: EXPERIENCE_OPTIONS[idx],
+  _syncSelectedTypeState(selectedTypes) {
+    const selectedTypeMap = {};
+    selectedTypes.forEach((type) => {
+      selectedTypeMap[type] = true;
     });
-    this._validateStep2();
+
+    const typeDisabledMap = {};
+    const isMaxSelected = selectedTypes.length >= 3;
+    this.data.shootingTypes.forEach((type) => {
+      typeDisabledMap[type] = isMaxSelected && !selectedTypeMap[type];
+    });
+
+    this.setData({
+      selectedTypes,
+      selectedTypeMap,
+      typeDisabledMap,
+    });
   },
 
   onPortfolioLinkInput(e) {
@@ -129,8 +127,8 @@ Page({
   },
 
   _validateStep2() {
-    const { selectedTypes, experienceYears } = this.data;
-    const valid = selectedTypes.length > 0 && experienceYears.length > 0;
+    const { selectedTypes } = this.data;
+    const valid = selectedTypes.length > 0;
     this.setData({ step2Valid: valid });
   },
 
@@ -171,7 +169,7 @@ Page({
       return;
     }
     if (step === 2 && !this.data.step2Valid) {
-      wx.showToast({ title: "请选择拍摄类型和从业年限", icon: "none" });
+      wx.showToast({ title: "请至少选择1个拍摄类型", icon: "none" });
       return;
     }
     if (step < 3) {
@@ -201,10 +199,7 @@ Page({
       const data = {
         real_name: this.data.realName,
         id_card_number: this.data.idCardNumber,
-        id_card_front_url: this.data.idCardFrontUrl,
-        id_card_back_url: this.data.idCardBackUrl,
         shooting_types: this.data.selectedTypes,
-        experience_years: this.data.experienceYears,
         portfolio_link: this.data.portfolioLink || null,
         phone: this.data.phone,
         wechat_id: this.data.wechatId,
@@ -218,64 +213,6 @@ Page({
       wx.showToast({ title: e.message || "提交失败，请稍后重试", icon: "none" });
     } finally {
       this.setData({ submitting: false });
-    }
-  },
-
-  // ========== 图片上传工具 ==========
-  _chooseAndUploadImage(prefix, callback) {
-    wx.chooseMedia({
-      count: 1,
-      mediaType: ["image"],
-      sourceType: ["album", "camera"],
-      success: (res) => {
-        const tempPath = res.tempFiles[0].tempFilePath;
-        const filename = tempPath.split("/").pop();
-        wx.showLoading({ title: "上传中..." });
-        this._uploadFile(tempPath, filename, prefix, callback);
-      },
-    });
-  },
-
-  async _uploadFile(filePath, filename, prefix, callback) {
-    try {
-      // 1) 获取预签名 URL
-      const presign = await request("/upload/presign", {
-        method: "POST",
-        data: { filename, prefix, content_type: "image/jpeg" },
-        auth: true,
-      });
-
-      // 2) 上传到 S3/MinIO
-      await new Promise((resolve, reject) => {
-        wx.uploadFile({
-          url: presign.url,
-          filePath,
-          name: "file",
-          header: presign.headers || {},
-          formData: {},
-          success: (res) => {
-            if (res.statusCode >= 200 && res.statusCode < 400) resolve(res);
-            else reject(new Error("上传失败"));
-          },
-          fail: reject,
-        });
-      });
-
-      wx.hideLoading();
-      // 使用代理 URL
-      const imageUrl = presign.proxy_url || presign.public_url || `/media/${presign.object_key}`;
-      callback(imageUrl);
-    } catch (e) {
-      wx.hideLoading();
-      wx.showToast({ title: "图片上传失败", icon: "none" });
-    }
-  },
-
-  // 预览图片
-  previewImage(e) {
-    const url = e.currentTarget.dataset.url;
-    if (url) {
-      wx.previewImage({ urls: [url], current: url });
     }
   },
 

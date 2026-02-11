@@ -17,7 +17,7 @@
 
     <view class="tips">
       <view class="tip-title">常见驳回原因：</view>
-      <view class="tip-item">• 身份证照片不清晰或信息被遮挡</view>
+      <view class="tip-item">• 实名信息填写有误（姓名/身份证号不一致）</view>
       <view class="tip-item">• 上传的作品非本人拍摄</view>
       <view class="tip-item">• 联系方式无法验证</view>
     </view>

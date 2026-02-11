@@ -7,6 +7,7 @@ import SeedView from "./views/SeedView.vue";
 import StudioProfileView from "./views/StudioProfileView.vue";
 import StudioPortfolioView from "./views/StudioPortfolioView.vue";
 import StudioPackagesView from "./views/StudioPackagesView.vue";
+import AdminCertificationsView from "./views/AdminCertificationsView.vue";
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -20,7 +21,8 @@ export const router = createRouter({
         { path: "seed", component: SeedView },
         { path: "studio/profile", component: StudioProfileView },
         { path: "studio/portfolio", component: StudioPortfolioView },
-        { path: "studio/packages", component: StudioPackagesView }
+        { path: "studio/packages", component: StudioPackagesView },
+        { path: "admin/certifications", component: AdminCertificationsView }
       ]
     }
   ]

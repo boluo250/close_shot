@@ -16,12 +16,12 @@ class PhotographerApplyIn(BaseModel):
     # Step 1: 实名认证（必填）
     real_name: str = Field(min_length=2, max_length=64, description="真实姓名")
     id_card_number: str = Field(min_length=15, max_length=18, description="身份证号")
-    id_card_front_url: str = Field(min_length=1, max_length=512, description="身份证正面照片")
-    id_card_back_url: str = Field(min_length=1, max_length=512, description="身份证反面照片")
+    id_card_front_url: str | None = Field(default=None, max_length=512, description="身份证正面照片（预留）")
+    id_card_back_url: str | None = Field(default=None, max_length=512, description="身份证反面照片（预留）")
 
     # Step 2: 摄影师身份（必填）
-    shooting_types: list[str] = Field(min_length=1, description="拍摄类型，至少选一种")
-    experience_years: str = Field(min_length=1, max_length=16, description="从业年限")
+    shooting_types: list[str] = Field(min_length=1, max_length=3, description="拍摄类型，至少选一种，最多三种")
+    experience_years: str | None = Field(default=None, max_length=16, description="从业年限（可选）")
     portfolio_link: str | None = Field(default=None, max_length=512, description="个人摄影主页链接（可选）")
 
     # Step 3: 联系方式（必填）
@@ -31,6 +31,22 @@ class PhotographerApplyIn(BaseModel):
     # 可选字段
     city: str | None = Field(default=None, max_length=64, description="常驻城市")
     price_range: str | None = Field(default=None, max_length=32, description="报价区间")
+
+
+class TencentRealPersonVerifyIn(BaseModel):
+    """腾讯云实名实人认证请求（占位接口）"""
+
+    real_name: str = Field(min_length=2, max_length=64, description="真实姓名")
+    id_card_number: str = Field(min_length=15, max_length=18, description="身份证号")
+
+
+class TencentRealPersonVerifyOut(BaseModel):
+    """腾讯云实名实人认证返回（占位）"""
+
+    provider: str = "tencent_cloud"
+    verified: bool = False
+    code: str = "NOT_IMPLEMENTED"
+    message: str = "腾讯云实名实人认证接口预留中，后续版本接入"
 
 
 class CertificationStatusOut(BaseModel):

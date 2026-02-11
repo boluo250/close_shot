@@ -194,6 +194,8 @@ def seed(
             drone_models=",".join(drone_models),
             rate_card_json=json.dumps(rate_card, ensure_ascii=False),
             is_accepting_orders=rng.random() < 0.85,
+            status="approved",
+            certification_level=1,
             city=city,
             service_center_lat=lat + dlat,
             service_center_lng=lng + dlng,

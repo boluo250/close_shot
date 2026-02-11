@@ -30,7 +30,7 @@
   <view class="step-content" wx:if="{{step === 1}}">
     <view class="cs-card">
       <view class="section-title">实名认证</view>
-      <view class="section-desc">用于身份核实，信息仅平台内部可见</view>
+      <view class="section-desc">用于身份核实，后续将接入腾讯云实名实人认证</view>
 
       <view class="form-group">
         <view class="form-label">真实姓名 <text class="required">*</text></view>
@@ -51,36 +51,7 @@
                type="idcard" />
       </view>
 
-      <view class="form-group">
-        <view class="form-label">身份证照片 <text class="required">*</text></view>
-        <view class="id-card-upload">
-          <view class="id-card-item" bindtap="chooseIdCardFront">
-            <image wx:if="{{idCardFrontUrl}}"
-                   src="{{idCardFrontUrl}}"
-                   mode="aspectFill"
-                   class="id-card-img"
-                   bindtap="previewImage"
-                   data-url="{{idCardFrontUrl}}" />
-            <view wx:else class="id-card-placeholder">
-              <text class="upload-icon">+</text>
-              <text class="upload-text">人像面</text>
-            </view>
-          </view>
-          <view class="id-card-item" bindtap="chooseIdCardBack">
-            <image wx:if="{{idCardBackUrl}}"
-                   src="{{idCardBackUrl}}"
-                   mode="aspectFill"
-                   class="id-card-img"
-                   bindtap="previewImage"
-                   data-url="{{idCardBackUrl}}" />
-            <view wx:else class="id-card-placeholder">
-              <text class="upload-icon">+</text>
-              <text class="upload-text">国徽面</text>
-            </view>
-          </view>
-        </view>
-        <view class="form-tip">请确保照片清晰完整，信息不被遮挡</view>
-      </view>
+      <view class="form-tip">当前版本暂不上传身份证照片</view>
     </view>
 
     <view class="btn-area">
@@ -99,9 +70,10 @@
 
       <view class="form-group">
         <view class="form-label">拍摄类型 <text class="required">*</text></view>
+        <view class="form-tip">最多选择 3 个（已选 {{selectedTypes.length}}/3）</view>
         <view class="tag-grid">
           <view wx:for="{{shootingTypes}}" wx:key="*this"
-                class="tag-item {{selectedTypes.indexOf(item) > -1 ? 'selected' : ''}}"
+                class="tag-item {{selectedTypeMap[item] ? 'selected' : ''}} {{typeDisabledMap[item] ? 'disabled' : ''}}"
                 bindtap="toggleShootingType"
                 data-type="{{item}}">
             {{item}}
@@ -110,22 +82,9 @@
       </view>
 
       <view class="form-group">
-        <view class="form-label">从业年限 <text class="required">*</text></view>
-        <picker mode="selector"
-                range="{{experienceOptions}}"
-                value="{{experienceIndex}}"
-                bindchange="onExperienceChange">
-          <view class="form-input picker-input {{experienceYears ? '' : 'placeholder'}}">
-            {{experienceYears || '请选择从业年限'}}
-            <text class="picker-arrow">›</text>
-          </view>
-        </picker>
-      </view>
-
-      <view class="form-group">
         <view class="form-label">个人摄影主页 <text class="optional">（选填）</text></view>
         <input class="form-input"
-               placeholder="小红书/站酷/Instagram 链接"
+               placeholder="抖音/小红书/Instagram 链接"
                value="{{portfolioLink}}"
                bindinput="onPortfolioLinkInput"
                maxlength="200" />
