@@ -1,0 +1,5 @@
+<view class="cs-theme-switch {{size==='lg' ? 'lg' : ''}}">
+  <view class="seg {{value==='classic' ? 'active' : ''}}" data-value="classic" bindtap="onPick">经典</view>
+  <view class="seg {{value==='soda' ? 'active' : ''}}" data-value="soda" bindtap="onPick">汽水</view>
+</view>
+

@@ -1,4 +1,8 @@
-<view class="cs-page">
+<view class="cs-page {{themeClass}}">
+  <view class="theme-bar">
+    <theme-switch value="{{theme}}" bind:change="onThemeChange" />
+  </view>
+  <!-- 头部：头像 + 名字 + 简介 -->
   <view class="cs-card">
     <view class="p-header">
       <image
@@ -10,91 +14,110 @@
       <view class="p-main">
         <view class="p-name-row">
           <text class="p-name">{{p.display_name || ('摄影师 #' + p.id)}}</text>
-          <button class="cs-btn cs-btn-primary" size="mini" bindtap="toggleFav">{{fav ? '取消收藏' : '收藏'}}</button>
+          <button class="fav-btn {{fav ? 'fav-active' : ''}}" size="mini" bindtap="toggleFav">
+            {{fav ? '已收藏' : '收藏'}}
+          </button>
         </view>
-        <view class="p-tags">{{p.tags}}</view>
-        <view class="p-status">
-          {{p.is_accepting_orders ? '接单中' : '暂停接单'}} · 可在 {{Math.round(p.service_radius_m/1000)}} km 范围内接拍
-        </view>
-        <view class="cs-muted" style="padding-top: 6rpx;">
-          摄影师位置为服务范围，并非实时位置
-        </view>
-        <view class="p-bio">{{p.bio || ''}}</view>
-        <view class="p-rating">评分：{{ratingText}}</view>
+        <view class="p-bio" wx:if="{{p.bio}}">{{p.bio}}</view>
       </view>
     </view>
   </view>
 
-  <view style="height: 16rpx;"></view>
-
+  <!-- 标签 + 状态 -->
   <view class="cs-card">
-    <view class="section-title-row">
-      <text style="font-weight: 600">作品集</text>
-      <text class="cs-muted">点击图片可大图预览</text>
+    <view class="tag-row" wx:if="{{p.tags}}">
+      <view wx:for="{{tagList}}" wx:key="*this" class="style-tag">{{item}}</view>
     </view>
-    <view wx:if="{{portfolio.length===0}}" class="cs-muted" style="padding-top: 10rpx;">暂无</view>
-    <view class="portfolio-grid">
+    <view class="info-row">
+      <view class="status-dot {{p.is_accepting_orders ? 'dot-active' : 'dot-inactive'}}"></view>
+      <text class="info-text">{{p.is_accepting_orders ? '接单中' : '暂停接单'}}</text>
+      <text class="info-sep">·</text>
+      <text class="info-text">服务范围 {{serviceRadiusKm}} km</text>
+      <text class="info-sep" wx:if="{{ratingText !== '-'}}">·</text>
+      <text class="info-text" wx:if="{{ratingText !== '-'}}">{{ratingText}}</text>
+    </view>
+  </view>
+
+  <!-- 作品集 - 三列瀑布流 -->
+  <view class="cs-card" wx:if="{{portfolio.length > 0}}">
+    <view class="section-header">
+      <text class="section-title">作品集</text>
+      <text class="section-count">{{portfolio.length}} 张</text>
+    </view>
+    <view class="gallery-grid">
       <view
         wx:for="{{portfolio}}"
         wx:key="id"
-        class="portfolio-item"
+        class="gallery-item"
         bindtap="previewPortfolio"
         data-idx="{{index}}"
       >
-        <image class="portfolio-img" mode="aspectFill" src="{{item.image_url}}" />
-        <view class="portfolio-meta">{{item.title || ''}} {{item.tags}}</view>
+        <image class="gallery-img" mode="aspectFill" src="{{item.image_url}}" />
       </view>
     </view>
   </view>
 
-  <view style="height: 16rpx;"></view>
+  <!-- 服务套餐 -->
+  <view class="cs-card" wx:if="{{packages.length > 0}}">
+    <view class="section-header">
+      <text class="section-title">服务套餐</text>
+    </view>
+    <view wx:for="{{packages}}" wx:key="id" class="pkg-item">
+      <view class="pkg-row">
+        <text class="pkg-name">{{item.name}}</text>
+        <text class="pkg-price">¥{{item.price_yuan}}</text>
+      </view>
+      <view class="pkg-detail" wx:if="{{item.duration_minutes}}">
+        <text class="pkg-duration">{{item.duration_minutes}} 分钟</text>
+      </view>
+      <view class="pkg-desc" wx:if="{{item.description}}">{{item.description}}</view>
+    </view>
+  </view>
 
-  <view class="cs-card">
-    <view><text style="font-weight: 600">服务报价单</text></view>
-    <view wx:if="{{rateCard.length===0}}" class="cs-muted" style="padding-top: 10rpx;">暂无</view>
-    <view wx:for="{{rateCard}}" wx:key="name" class="cs-divider" style="padding: 14rpx 0;">
-      <view class="cs-row">
-        <view>
+  <!-- 服务报价单（按小时/按件） -->
+  <view class="cs-card" wx:if="{{rateCard.length > 0}}">
+    <view class="section-header">
+      <text class="section-title">报价明细</text>
+    </view>
+    <view wx:for="{{rateCard}}" wx:key="name" class="rate-item">
+      <view class="rate-row">
+        <view class="rate-left">
           <text class="rate-name">{{item.name}}</text>
-          <text class="rate-mode">· {{item.mode_label}}</text>
+          <text class="rate-mode">{{item.mode_label}}</text>
         </view>
-        <view><b>¥{{item.price_yuan || '-'}}</b></view>
+        <text class="rate-price">¥{{item.price_yuan}}</text>
       </view>
-      <view class="cs-muted" style="padding-top: 6rpx;">{{item.unit ? ('单位：' + item.unit) : ''}}</view>
+      <view class="rate-unit" wx:if="{{item.unit}}">单位：{{item.unit}}</view>
     </view>
   </view>
 
-  <view style="height: 16rpx;"></view>
-
-  <view class="cs-card">
-    <view><text style="font-weight: 600">设备清单</text></view>
-    <view wx:if="{{equipmentList.length===0}}" class="cs-muted" style="padding-top: 10rpx;">暂无</view>
-    <view class="pill-row">
-      <view wx:for="{{equipmentList}}" wx:key="*this" class="pill">{{item}}</view>
+  <!-- 装备信息 - 直接展示，不折叠 -->
+  <view class="cs-card" wx:if="{{hasEquipment}}">
+    <view class="section-header">
+      <text class="section-title">装备信息</text>
+    </view>
+    <view wx:if="{{equipmentList.length > 0}}" class="equip-group">
+      <view class="equip-label">相机 / 镜头</view>
+      <view class="pill-row">
+        <view wx:for="{{equipmentList}}" wx:key="*this" class="pill">{{item}}</view>
+      </view>
+    </view>
+    <view wx:if="{{droneModels.length > 0}}" class="equip-group">
+      <view class="equip-label">无人机</view>
+      <view class="pill-row">
+        <view wx:for="{{droneModels}}" wx:key="*this" class="pill">{{item}}</view>
+      </view>
     </view>
   </view>
 
-  <view style="height: 16rpx;"></view>
-
+  <!-- 客户评价 -->
   <view class="cs-card">
-    <view><text style="font-weight: 600">无人机型号</text></view>
-    <view wx:if="{{droneModels.length===0}}" class="cs-muted" style="padding-top: 10rpx;">暂无</view>
-    <view class="pill-row">
-      <view wx:for="{{droneModels}}" wx:key="*this" class="pill">{{item}}</view>
-    </view>
-  </view>
-
-  <view style="height: 16rpx;"></view>
-
-  <view class="cs-card">
-    <view class="section-title-row">
-      <text style="font-weight: 600">过往客户评价</text>
-      <text class="cs-muted">真实评价</text>
+    <view class="section-header">
+      <text class="section-title">客户评价</text>
+      <text class="section-count" wx:if="{{reviews.length > 0}}">{{reviews.length}} 条</text>
     </view>
     <view wx:if="{{reviewsLoading}}" class="cs-muted" style="padding-top: 10rpx;">加载中...</view>
-    <view wx:if="{{!reviewsLoading && reviews.length===0}}" class="cs-muted" style="padding-top: 10rpx;">
-      暂无
-    </view>
+    <view wx:if="{{!reviewsLoading && reviews.length===0}}" class="empty-hint">暂无评价</view>
     <view wx:for="{{reviews}}" wx:key="id" class="review-card">
       <image class="review-avatar" mode="aspectFill" src="{{item.avatar_url || ''}}" />
       <view class="review-main">
@@ -103,19 +126,16 @@
           <text class="review-date">{{item.created_date}}</text>
         </view>
         <view class="review-stars">{{item.star_text}}</view>
-        <view class="review-content">{{item.content || '用户未填写文字评价'}}</view>
+        <view class="review-content" wx:if="{{item.content}}">{{item.content}}</view>
       </view>
     </view>
   </view>
 
-  <view style="height: 16rpx;"></view>
-
-  <view class="cs-card">
-    <view><text style="font-weight: 600">联系/咨询</text></view>
-    <view class="cs-muted" style="padding-top: 10rpx;">
-      MVP 先做入口（可后续接：拨打电话/加微信/留资 Lead）
-    </view>
-    <button class="cs-btn cs-btn-primary" style="margin-top: 12rpx;" bindtap="contact">联系摄影师</button>
+  <!-- 底部操作栏 -->
+  <view class="bottom-bar">
+    <button class="contact-btn" bindtap="contact">联系摄影师</button>
   </view>
-</view>
 
+  <!-- 底部安全区占位 -->
+  <view style="height: 140rpx;"></view>
+</view>

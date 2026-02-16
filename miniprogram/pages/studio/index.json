@@ -1,4 +1,7 @@
 {
-  "navigationBarTitleText": "摄影师工作台"
+  "navigationBarTitleText": "摄影师工作台",
+  "usingComponents": {
+    "theme-switch": "/components/theme-switch/index"
+  }
 }
 

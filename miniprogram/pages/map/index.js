@@ -19,8 +19,6 @@ Page({
   },
 
   onShow() {
-    const tab = this.getTabBar && this.getTabBar();
-    if (tab && tab.setData) tab.setData({ selected: 0 });
     // 返回或切回页面时刷新附近摄影师
     if (!this.data.loading) {
       this.refresh();

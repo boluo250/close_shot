@@ -1,0 +1,31 @@
+.cs-page {
+  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.cs-studio-entry {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.cs-badge {
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  color: var(--cs-color-text-3);
+  background: var(--cs-color-surface-2);
+  border: 1px solid var(--cs-color-border);
+}
+
+.cs-badge.pending {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(245, 158, 11, 0.22);
+}
+
+.cs-badge.rejected {
+  color: var(--cs-color-danger);
+  background: rgba(255, 77, 109, 0.18);
+  border-color: rgba(255, 77, 109, 0.18);
+}
+

@@ -1,4 +1,5 @@
 const { request } = require("../../utils/request");
+const theme = require("../../utils/theme");
 
 Page({
   data: {
@@ -9,16 +10,37 @@ Page({
     rateCard: [],
     equipmentList: [],
     droneModels: [],
+    hasEquipment: false,
+    tagList: [],
+    serviceRadiusKm: 0,
     reviews: [],
     reviewsLoading: false,
     ratingText: "-",
-    fav: false
+    fav: false,
+    theme: "classic",
+    themeClass: "cs-theme-classic"
   },
 
   async onLoad(query) {
+    const t = theme.getTheme();
+    this.setData({ theme: t, themeClass: theme.getThemeClass(t) });
+    this._unsubTheme = theme.subscribe((next) => {
+      this.setData({ theme: next, themeClass: theme.getThemeClass(next) });
+    });
+
     const id = Number(query.id);
     this.setData({ id });
     await this.load();
+  },
+
+  onUnload() {
+    if (this._unsubTheme) this._unsubTheme();
+  },
+
+  onThemeChange(e) {
+    const next = e?.detail?.value;
+    const t = theme.setTheme(next);
+    this.setData({ theme: t, themeClass: theme.getThemeClass(t) });
   },
 
   async load() {
@@ -26,24 +48,29 @@ Page({
       const app = getApp();
       const base = app.globalData.apiBaseUrl;
       const data = await request(`/photographers/${this.data.id}`);
-      // 若后端返回相对路径（/media/...），小程序补全为完整 URL
+      // 补全图片URL
       if (Array.isArray(data.portfolio_items)) {
         data.portfolio_items = data.portfolio_items.map((x) => ({
           ...x,
           image_url: x.image_url && x.image_url.startsWith("/") ? base + x.image_url : x.image_url
         }));
       }
-      const ratingText =
-        data.rating_count > 0 ? `${data.rating_avg.toFixed(1)}（${data.rating_count}）` : "-";
 
-      // WXML 表达式不支持方法调用（如 toFixed），这里先把价格格式化好
+      const ratingText =
+        data.rating_count > 0 ? `${data.rating_avg.toFixed(1)} (${data.rating_count})` : "-";
+
+      // 套餐格式化
       const packages = Array.isArray(data.packages)
-        ? data.packages.map((x) => ({
-            ...x,
-            price_yuan:
-              typeof x.price_cents === "number" ? (x.price_cents / 100).toFixed(0) : ""
-          }))
+        ? data.packages
+            .filter((x) => x.is_active)
+            .map((x) => ({
+              ...x,
+              price_yuan:
+                typeof x.price_cents === "number" ? (x.price_cents / 100).toFixed(0) : ""
+            }))
         : [];
+
+      // 报价单格式化
       const rateCard = Array.isArray(data.rate_card)
         ? data.rate_card.map((x) => ({
             ...x,
@@ -52,8 +79,21 @@ Page({
             mode_label: x.mode === "hour" ? "按小时" : "按件"
           }))
         : [];
+
       const equipmentList = Array.isArray(data.equipment_list) ? data.equipment_list : [];
       const droneModels = Array.isArray(data.drone_models) ? data.drone_models : [];
+      const hasEquipment = equipmentList.length > 0 || droneModels.length > 0;
+
+      // 拆分标签
+      const tagList = (data.tags || "")
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t);
+
+      // 服务范围 km
+      const serviceRadiusKm = data.service_radius_m
+        ? Math.round(data.service_radius_m / 1000)
+        : 0;
 
       this.setData({
         p: data,
@@ -62,6 +102,9 @@ Page({
         rateCard,
         equipmentList,
         droneModels,
+        hasEquipment,
+        tagList,
+        serviceRadiusKm,
         ratingText
       });
       await this.loadReviews();
@@ -117,10 +160,9 @@ Page({
 
   contact() {
     wx.showModal({
-      title: "提示",
-      content: "这里后续可接：拨打电话/加微信/留资 Lead。",
+      title: "联系摄影师",
+      content: "可通过拨打电话或添加微信联系摄影师，功能即将上线。",
       showCancel: false
     });
   }
 });
-

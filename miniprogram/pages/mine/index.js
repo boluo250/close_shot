@@ -11,8 +11,6 @@ Page({
   },
 
   onShow() {
-    const tab = this.getTabBar && this.getTabBar();
-    if (tab && tab.setData) tab.setData({ selected: 2 });
     this.refresh();
   },
 
@@ -61,7 +59,7 @@ Page({
   },
 
   goFavorites() {
-    wx.switchTab({ url: "/pages/favorites/index" });
+    wx.navigateTo({ url: "/pages/favorites/index" });
   },
 
   async goStudio() {

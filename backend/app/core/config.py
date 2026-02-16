@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     jwt_alg: str = "HS256"
     jwt_expires_minutes: int = 60 * 24 * 7
 
-    storage_backend: str = "s3"  # s3|local
+    # 开发默认使用 local，避免本地必须起 MinIO；生产用环境变量改回 s3/COS
+    storage_backend: str = "local"  # s3|local
     s3_endpoint_url: str | None = None
     s3_access_key_id: str | None = None
     s3_secret_access_key: str | None = None

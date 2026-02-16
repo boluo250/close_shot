@@ -7,8 +7,6 @@ Page({
   },
 
   async onShow() {
-    const tab = this.getTabBar && this.getTabBar();
-    if (tab && tab.setData) tab.setData({ selected: 1 });
     await this.refresh();
   },
 

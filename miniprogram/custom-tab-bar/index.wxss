@@ -7,8 +7,8 @@
 }
 
 .tabbar {
-  background: #ffffff;
-  border-top: 1px solid var(--cs-color-border);
+  background: var(--cs-tabbar-bg);
+  border-top: 1px solid var(--cs-tabbar-border);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -17,7 +17,7 @@
   display: flex;
   justify-content: space-around;
   align-items: center;
-  background: #ffffff;
+  background: var(--cs-tabbar-bg);
 }
 
 .item {
@@ -58,7 +58,7 @@
   left: 50%;
   top: 2rpx;
   transform: translateX(-50%);
-  background: #ffffff;
+  background: var(--cs-tabbar-bg);
   box-sizing: border-box;
 }
 
@@ -71,7 +71,7 @@
   left: 50%;
   bottom: 0;
   transform: translateX(-50%);
-  background: #ffffff;
+  background: var(--cs-tabbar-bg);
   box-sizing: border-box;
 }
 
@@ -82,7 +82,7 @@
   height: 14rpx;
   border-radius: 999rpx;
   background: var(--cs-color-primary);
-  border: 2rpx solid #ffffff;
+  border: 2rpx solid var(--cs-tabbar-bg);
 }
 
 .label {

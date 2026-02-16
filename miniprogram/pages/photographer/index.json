@@ -1,4 +1,7 @@
 {
-  "navigationBarTitleText": "摄影师详情"
+  "navigationBarTitleText": "摄影师详情",
+  "usingComponents": {
+    "theme-switch": "/components/theme-switch/index"
+  }
 }
 

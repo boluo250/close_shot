@@ -1,5 +1,6 @@
 {
   "pages": [
+    "pages/home/index",
     "pages/map/index",
     "pages/favorites/index",
     "pages/mine/index",
@@ -9,27 +10,6 @@
     "pages/auth/review/index",
     "pages/auth/rejected/index"
   ],
-  "tabBar": {
-    "custom": true,
-    "color": "#8a8f98",
-    "selectedColor": "#bfe84a",
-    "backgroundColor": "#ffffff",
-    "borderStyle": "white",
-    "list": [
-      {
-        "pagePath": "pages/map/index",
-        "text": "附近"
-      },
-      {
-        "pagePath": "pages/favorites/index",
-        "text": "收藏"
-      },
-      {
-        "pagePath": "pages/mine/index",
-        "text": "我的"
-      }
-    ]
-  },
   "permission": {
     "scope.userLocation": {
       "desc": "用于定位你附近的摄影师与服务范围展示"

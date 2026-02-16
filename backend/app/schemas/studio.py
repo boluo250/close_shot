@@ -19,6 +19,9 @@ class PhotographerUpdateIn(BaseModel):
     service_center_lat: float | None = None
     service_center_lng: float | None = None
     service_radius_m: int | None = Field(default=None, ge=100, le=50000)
+    # 设备清单 & 无人机型号（逗号分隔文本）
+    equipment_list: str | None = Field(default=None, max_length=2000)
+    drone_models: str | None = Field(default=None, max_length=1000)
 
 
 class StudioMeOut(BaseModel):

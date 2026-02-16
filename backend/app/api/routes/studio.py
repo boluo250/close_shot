@@ -26,7 +26,7 @@ from app.schemas.studio import (
     StudioMeOut,
 )
 from app.services.image_watermark import add_text_watermark
-from app.services.storage import s3_get_object_stream, s3_put_object_bytes
+from app.services.storage import get_object_stream, put_object_bytes
 from app.services.wechat_security import ensure_image_safe_bytes, ensure_text_safe
 
 router = APIRouter()
@@ -87,12 +87,12 @@ def update_me(
     _require_photographer_user(me)
     p = _get_my_photographer(db, me)
     data = payload.model_dump(exclude_unset=True)
-    _ensure_texts_safe([data.get("bio"), data.get("tags"), data.get("city")])
+    _ensure_texts_safe([data.get("bio"), data.get("tags"), data.get("city"), data.get("equipment_list"), data.get("drone_models")])
     if data.get("avatar_object_key"):
-        stream, _ = s3_get_object_stream(data["avatar_object_key"])
+        stream, _ = get_object_stream(data["avatar_object_key"])
         ensure_image_safe_bytes(stream.read())
     if data.get("cover_object_key"):
-        stream, _ = s3_get_object_stream(data["cover_object_key"])
+        stream, _ = get_object_stream(data["cover_object_key"])
         ensure_image_safe_bytes(stream.read())
     if data.get("avatar_url") is not None and p.user:
         p.user.avatar_url = data.pop("avatar_url")
@@ -136,12 +136,12 @@ def create_portfolio(
     image_object_key = data.get("image_object_key") or _object_key_from_url(data["image_url"])
     if not image_object_key:
         raise HTTPException(status_code=400, detail="image_object_key required for security checks")
-    stream, _ = s3_get_object_stream(image_object_key)
+    stream, _ = get_object_stream(image_object_key)
     image_bytes = stream.read()
     ensure_image_safe_bytes(image_bytes)
     watermark_key = str(PurePosixPath("watermark") / PurePosixPath(image_object_key))
     watermark_bytes, watermark_content_type = add_text_watermark(image_bytes, watermark_text="边拍")
-    s3_put_object_bytes(object_key=watermark_key, data=watermark_bytes, content_type=watermark_content_type)
+    put_object_bytes(object_key=watermark_key, data=watermark_bytes, content_type=watermark_content_type)
     data["image_object_key"] = image_object_key
     data["watermark_object_key"] = watermark_key
     data["watermark_url"] = _object_key_to_url(watermark_key)
@@ -170,12 +170,12 @@ def update_portfolio(
         image_object_key = data.get("image_object_key") or _object_key_from_url(data.get("image_url") or "")
         if not image_object_key:
             raise HTTPException(status_code=400, detail="image_object_key required for security checks")
-        stream, _ = s3_get_object_stream(image_object_key)
+        stream, _ = get_object_stream(image_object_key)
         image_bytes = stream.read()
         ensure_image_safe_bytes(image_bytes)
         watermark_key = str(PurePosixPath("watermark") / PurePosixPath(image_object_key))
         watermark_bytes, watermark_content_type = add_text_watermark(image_bytes, watermark_text="边拍")
-        s3_put_object_bytes(object_key=watermark_key, data=watermark_bytes, content_type=watermark_content_type)
+        put_object_bytes(object_key=watermark_key, data=watermark_bytes, content_type=watermark_content_type)
         data["image_object_key"] = image_object_key
         data["watermark_object_key"] = watermark_key
         data["watermark_url"] = _object_key_to_url(watermark_key)

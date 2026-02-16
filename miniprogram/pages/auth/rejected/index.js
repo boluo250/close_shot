@@ -13,6 +13,6 @@ Page({
   },
 
   onBackMine() {
-    wx.switchTab({ url: "/pages/mine/index" });
+    wx.reLaunch({ url: "/pages/home/index?tab=mine" });
   },
 });

@@ -1,0 +1,104 @@
+<view class="page">
+  <!-- 顶部区 -->
+  <view class="top">
+    <view class="top-row">
+      <view class="loc" bindtap="onTapCity">
+        <text class="loc-icon">📍</text>
+        <text class="loc-text">{{cityText}}</text>
+      </view>
+      <view class="search" bindtap="onTapSearch">🔍</view>
+    </view>
+    <view class="subtitle">这附近，谁拍得好？</view>
+  </view>
+
+  <!-- 地图区 -->
+  <view class="map-wrap">
+    <map
+      id="map"
+      longitude="{{lng}}"
+      latitude="{{lat}}"
+      scale="14"
+      markers="{{markers}}"
+      circles="{{circles}}"
+      show-location
+      enable-rotate="false"
+      enable-overlooking="false"
+      style="width: 100%; height: 38vh;"
+      bindmarkertap="onMarkerTap"
+    />
+    <view class="map-hint cs-muted">位置为服务范围，并非实时定位</view>
+  </view>
+
+  <!-- 摄影师卡片区 -->
+  <view class="cs-page" style="padding-top: 0;">
+    <view class="section-row">
+      <view class="section-title">附近摄影师</view>
+      <button class="cs-btn" size="mini" bindtap="refresh">刷新</button>
+    </view>
+
+    <view wx:if="{{loading}}" class="cs-muted" style="padding-top: 10rpx;">加载中...</view>
+    <view wx:if="{{errorText}}" class="cs-muted" style="padding-top: 10rpx;">{{errorText}}</view>
+
+    <view wx:for="{{list}}" wx:key="id" class="p-card" bindtap="goDetail" data-id="{{item.id}}">
+      <view class="p-top">
+        <image
+          class="avatar"
+          mode="aspectFill"
+          src="{{item.avatar_url || ''}}"
+          style="{{item.avatar_url ? '' : 'background:#eef0f3;'}}"
+        />
+        <view class="p-meta">
+          <view class="p-name-row">
+            <text class="p-name">{{item.display_name}}</text>
+            <view class="p-rating" wx:if="{{item.rating_avg_text}}">
+              <text class="p-star">⭐</text>
+              <text>{{item.rating_avg_text}}</text>
+              <text class="cs-muted" wx:if="{{item.rating_count}}">（{{item.rating_count}}）</text>
+            </view>
+          </view>
+
+          <view class="tag-row" wx:if="{{item.tagsArr.length}}">
+            <view wx:for="{{item.tagsArr}}" wx:key="*this" class="tag">{{item}}</view>
+          </view>
+
+          <view class="p-brief">
+            <text class="cs-muted">作品集 {{item.portfolio_count || 0}} 张</text>
+            <text class="cs-muted" wx:if="{{item.rate_copy}}"> · {{item.rate_copy}}</text>
+          </view>
+
+          <view class="p-subrow">
+            <text class="cs-muted">{{item.distance_copy}}</text>
+            <text class="price" wx:if="{{item.starting_price_yuan}}">¥{{item.starting_price_yuan}} 起</text>
+          </view>
+        </view>
+      </view>
+
+      <scroll-view class="shots" scroll-x enhanced show-scrollbar="{{false}}">
+        <image
+          wx:for="{{item.preview_image_urls}}"
+          wx:for-item="u"
+          wx:key="u"
+          class="shot"
+          mode="aspectFill"
+          lazy-load
+          src="{{u}}"
+        />
+        <view wx:if="{{item.preview_empty}}" class="shot ph">
+          <text class="cs-muted">暂无样片</text>
+        </view>
+      </scroll-view>
+    </view>
+
+    <view wx:if="{{!loading && list.length===0}}" class="empty">
+      <view class="empty-title">🌆 这个点有点安静</view>
+      <view class="cs-muted" style="padding-top: 10rpx;">试试放大地图，或换个时间看看</view>
+      <view class="cs-muted" style="padding-top: 6rpx;">晚上和周末更容易约到摄影师哦</view>
+    </view>
+  </view>
+
+  <!-- 主 CTA（悬浮按钮） -->
+  <view class="cta-wrap">
+    <button class="cta" bindtap="onShootCTA">📸 我要拍照</button>
+  </view>
+</view>
+

@@ -1,6 +1,8 @@
 const { request } = require("../../utils/request");
 const { ensureLogin } = require("../../utils/auth");
 const { uploadImageToS3Like } = require("../../utils/upload");
+const theme = require("../../utils/theme");
+
 function pad(n) {
   return String(n).padStart(2, "0");
 }
@@ -21,13 +23,14 @@ function buildCalendar(year, month, scheduleMap) {
   return cells;
 }
 
+// 草稿存储 key
+const DRAFT_KEY = "studio_draft_v1";
+
 Page({
   data: {
     token: "",
     authorized: false,
     checkingIdentity: false,
-    loading: false,
-    profileLoading: false,
     profileSaving: false,
     portfolioLoading: false,
     portfolioUploading: false,
@@ -35,6 +38,15 @@ Page({
     packagesLoading: false,
     scheduleLoading: false,
     lastUrl: "",
+
+    // 简介模板
+    bioTemplates: [
+      "善于捕捉自然光影的记录者",
+      "电影感氛围营造师",
+      "温柔系人像摄影",
+      "用镜头讲故事"
+    ],
+
     profile: {
       bio: "",
       tags: "",
@@ -43,16 +55,26 @@ Page({
     },
     avatarObjectKey: "",
     coverObjectKey: "",
-    profileTagOptions: ["日系", "复古", "法式", "胶片", "纪实", "清新", "高级感"],
+    profileTagOptions: ["日系", "复古", "法式", "胶片", "纪实", "清新", "高级感", "森系", "人像", "氛围感"],
     profileTagSelected: [],
-    portfolioForm: {
-      title: "",
-      tags: "",
-      category: "",
-      is_pinned: false
-    },
+
+    // 设备清单 & 无人机
+    equipmentItems: [],
+    newEquipment: "",
+    droneItems: [],
+    newDrone: "",
+
     items: [],
+
+    // 预设套餐模板
+    presetPackages: [
+      { name: "标准人像", price_yuan: "299", duration_minutes: "60", desc: "1小时 / 精修15张", description: "含1小时拍摄、精修15张底片全送" },
+      { name: "情侣写真", price_yuan: "499", duration_minutes: "90", desc: "1.5小时 / 精修20张", description: "含1.5小时拍摄、精修20张底片全送" },
+      { name: "半日跟拍", price_yuan: "899", duration_minutes: "240", desc: "4小时 / 精修40张", description: "含4小时跟拍、精修40张底片全送" }
+    ],
+
     packages: [],
+    showNewPackage: false,
     newPackage: {
       name: "",
       price_yuan: "",
@@ -60,15 +82,86 @@ Page({
       description: "",
       is_active: true
     },
+
+    scheduleExpanded: false,
     scheduleYear: new Date().getFullYear(),
     scheduleMonth: new Date().getMonth() + 1,
     scheduleCells: [],
-    scheduleMap: {}
+    scheduleMap: {},
+
+    theme: "classic",
+    themeClass: "cs-theme-classic"
   },
 
   onLoad() {
+    const t = theme.getTheme();
+    this.setData({ theme: t, themeClass: theme.getThemeClass(t) });
+    this._unsubTheme = theme.subscribe((next) => {
+      this.setData({ theme: next, themeClass: theme.getThemeClass(next) });
+    });
+
+    this.restoreDraft();
     this.checkAndEnter();
   },
+
+  onUnload() {
+    if (this._unsubTheme) this._unsubTheme();
+    this.saveDraft();
+  },
+
+  onThemeChange(e) {
+    const next = e?.detail?.value;
+    const t = theme.setTheme(next);
+    this.setData({ theme: t, themeClass: theme.getThemeClass(t) });
+  },
+
+  onHide() {
+    this.saveDraft();
+  },
+
+  // ============ 草稿箱 ============
+
+  saveDraft() {
+    try {
+      const draft = {
+        bio: this.data.profile.bio,
+        tags: this.data.profileTagSelected,
+        newPackage: this.data.newPackage
+      };
+      wx.setStorageSync(DRAFT_KEY, JSON.stringify(draft));
+    } catch (e) {
+      // ignore
+    }
+  },
+
+  restoreDraft() {
+    try {
+      const raw = wx.getStorageSync(DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (draft.bio && !this.data.profile.bio) {
+        this.setData({ "profile.bio": draft.bio });
+      }
+      if (Array.isArray(draft.tags) && draft.tags.length > 0) {
+        this.setData({ profileTagSelected: draft.tags });
+      }
+      if (draft.newPackage && draft.newPackage.name) {
+        this.setData({ newPackage: draft.newPackage, showNewPackage: true });
+      }
+    } catch (e) {
+      // ignore
+    }
+  },
+
+  clearDraft() {
+    try {
+      wx.removeStorageSync(DRAFT_KEY);
+    } catch (e) {
+      // ignore
+    }
+  },
+
+  // ============ 身份验证 ============
 
   async checkAndEnter() {
     this.setData({ checkingIdentity: true });
@@ -128,24 +221,75 @@ Page({
     });
   },
 
-  onTitle(e) {
-    this.setData({ "portfolioForm.title": e.detail.value });
-  },
-  onTags(e) {
-    this.setData({ "portfolioForm.tags": e.detail.value });
-  },
-  onCategory(e) {
-    this.setData({ "portfolioForm.category": e.detail.value });
-  },
-  onPinSwitch(e) {
-    this.setData({ "portfolioForm.is_pinned": e.detail.value });
-  },
+  // ============ 个人资料 ============
+
   onBio(e) {
     this.setData({ "profile.bio": e.detail.value });
   },
 
-  logout() {
-    this.setData({ token: "", authorized: false, items: [], packages: [] });
+  useBioTemplate(e) {
+    const tpl = e.currentTarget.dataset.tpl;
+    this.setData({ "profile.bio": tpl });
+  },
+
+  toggleProfileTag(e) {
+    const tag = e.currentTarget.dataset.tag;
+    const selected = new Set(this.data.profileTagSelected);
+    if (selected.has(tag)) selected.delete(tag);
+    else selected.add(tag);
+    this.setData({ profileTagSelected: Array.from(selected) });
+  },
+
+  // ============ 设备清单 ============
+
+  onNewEquipment(e) {
+    this.setData({ newEquipment: e.detail.value });
+  },
+
+  addEquipment() {
+    const val = (this.data.newEquipment || "").trim();
+    if (!val) return;
+    if (this.data.equipmentItems.includes(val)) {
+      wx.showToast({ title: "已存在", icon: "none" });
+      return;
+    }
+    this.setData({
+      equipmentItems: [...this.data.equipmentItems, val],
+      newEquipment: ""
+    });
+  },
+
+  removeEquipment(e) {
+    const idx = e.currentTarget.dataset.index;
+    const items = [...this.data.equipmentItems];
+    items.splice(idx, 1);
+    this.setData({ equipmentItems: items });
+  },
+
+  // ============ 无人机 ============
+
+  onNewDrone(e) {
+    this.setData({ newDrone: e.detail.value });
+  },
+
+  addDrone() {
+    const val = (this.data.newDrone || "").trim();
+    if (!val) return;
+    if (this.data.droneItems.includes(val)) {
+      wx.showToast({ title: "已存在", icon: "none" });
+      return;
+    }
+    this.setData({
+      droneItems: [...this.data.droneItems, val],
+      newDrone: ""
+    });
+  },
+
+  removeDrone(e) {
+    const idx = e.currentTarget.dataset.index;
+    const items = [...this.data.droneItems];
+    items.splice(idx, 1);
+    this.setData({ droneItems: items });
   },
 
   async refreshAll() {
@@ -155,7 +299,6 @@ Page({
 
   async loadProfile() {
     if (!this.data.token) return;
-    this.setData({ profileLoading: true });
     try {
       const data = await this.studioRequest("/studio/me");
       const profile = data.photographer || {};
@@ -163,6 +306,13 @@ Page({
         .split(",")
         .map((t) => t.trim())
         .filter((t) => t);
+      // 解析设备清单和无人机（后端返回为 list）
+      const equipmentItems = Array.isArray(profile.equipment_list)
+        ? profile.equipment_list
+        : (profile.equipment_list || "").split(",").map((s) => s.trim()).filter((s) => s);
+      const droneItems = Array.isArray(profile.drone_models)
+        ? profile.drone_models
+        : (profile.drone_models || "").split(",").map((s) => s.trim()).filter((s) => s);
       this.setData({
         profile: {
           bio: profile.bio || "",
@@ -170,12 +320,12 @@ Page({
           avatar_url: profile.avatar_url || "",
           cover_url: profile.cover_url || ""
         },
-        profileTagSelected: selected
+        profileTagSelected: selected.length > 0 ? selected : this.data.profileTagSelected,
+        equipmentItems,
+        droneItems
       });
     } catch (e) {
       wx.showToast({ title: "加载资料失败", icon: "none" });
-    } finally {
-      this.setData({ profileLoading: false });
     }
   },
 
@@ -190,24 +340,19 @@ Page({
         avatar_url: this.data.profile.avatar_url,
         avatar_object_key: this.data.avatarObjectKey || null,
         cover_url: this.data.profile.cover_url,
-        cover_object_key: this.data.coverObjectKey || null
+        cover_object_key: this.data.coverObjectKey || null,
+        equipment_list: this.data.equipmentItems.join(","),
+        drone_models: this.data.droneItems.join(",")
       };
       await this.studioRequest("/studio/me", { method: "PUT", data: payload });
       this.setData({ "profile.tags": tags, avatarObjectKey: "", coverObjectKey: "" });
+      this.clearDraft();
       wx.showToast({ title: "资料已保存", icon: "none" });
     } catch (e) {
       wx.showToast({ title: "资料保存失败", icon: "none" });
     } finally {
       this.setData({ profileSaving: false });
     }
-  },
-
-  toggleProfileTag(e) {
-    const tag = e.currentTarget.dataset.tag;
-    const selected = new Set(this.data.profileTagSelected);
-    if (selected.has(tag)) selected.delete(tag);
-    else selected.add(tag);
-    this.setData({ profileTagSelected: Array.from(selected) });
   },
 
   async maybeCrop(src) {
@@ -263,6 +408,8 @@ Page({
     }
   },
 
+  // ============ 作品集（极简） ============
+
   async loadPortfolio() {
     if (!this.data.token) return;
     this.setData({ portfolioLoading: true });
@@ -309,6 +456,8 @@ Page({
     try {
       const app = getApp();
       const base = app.globalData.apiBaseUrl;
+      // 自动复用用户的风格标签
+      const autoTags = this.data.profileTagSelected.join(",");
       await Promise.all(
         files.map(async (file) => {
           const up = await uploadImageToS3Like({
@@ -322,10 +471,10 @@ Page({
           await this.studioRequest("/studio/portfolio", {
             method: "POST",
             data: {
-              title: this.data.portfolioForm.title,
-              tags: this.data.portfolioForm.tags,
-              category: this.data.portfolioForm.category,
-              is_pinned: this.data.portfolioForm.is_pinned,
+              title: "",
+              tags: autoTags,
+              category: "",
+              is_pinned: false,
               sort_order: 0,
               image_url: imageUrl,
               image_object_key: up.object_key || null
@@ -333,17 +482,11 @@ Page({
           });
         })
       );
-      this.setData({
-        lastUrl: "已上传 " + files.length + " 张",
-        "portfolioForm.title": "",
-        "portfolioForm.tags": "",
-        "portfolioForm.category": "",
-        "portfolioForm.is_pinned": false
-      });
-      wx.showToast({ title: "已创建作品", icon: "none" });
+      this.setData({ lastUrl: "已上传 " + files.length + " 张" });
+      wx.showToast({ title: "已上传", icon: "none" });
       await this.loadPortfolio();
     } catch (e) {
-      wx.showToast({ title: "上传/创建失败", icon: "none" });
+      wx.showToast({ title: "上传失败", icon: "none" });
     } finally {
       this.setData({ portfolioUploading: false, portfolioUploadCount: 0 });
     }
@@ -364,37 +507,24 @@ Page({
     }
   },
 
-  onItemCategory(e) {
-    const index = e.currentTarget.dataset.index;
-    const value = e.detail.value;
-    const key = `items[${index}].category`;
-    this.setData({ [key]: value });
-  },
-
-  async saveItemCategory(e) {
-    const index = e.currentTarget.dataset.index;
-    const item = this.data.items[index];
-    if (!item) return;
-    try {
-      await this.studioRequest(`/studio/portfolio/${item.id}`, {
-        method: "PUT",
-        data: { category: item.category || "" }
-      });
-      wx.showToast({ title: "已保存分类", icon: "none" });
-    } catch (e) {
-      wx.showToast({ title: "保存失败", icon: "none" });
-    }
-  },
-
   async deleteItem(e) {
     const id = e.currentTarget.dataset.id;
-    try {
-      await this.studioRequest(`/studio/portfolio/${id}`, { method: "DELETE" });
-      await this.loadPortfolio();
-    } catch (e) {
-      wx.showToast({ title: "删除失败", icon: "none" });
-    }
+    wx.showModal({
+      title: "确认删除",
+      content: "删除后不可恢复，确定吗？",
+      success: async (res) => {
+        if (!res.confirm) return;
+        try {
+          await this.studioRequest(`/studio/portfolio/${id}`, { method: "DELETE" });
+          await this.loadPortfolio();
+        } catch (e) {
+          wx.showToast({ title: "删除失败", icon: "none" });
+        }
+      }
+    });
   },
+
+  // ============ 套餐管理 ============
 
   async loadPackages() {
     if (!this.data.token) return;
@@ -403,7 +533,7 @@ Page({
       const data = await this.studioRequest("/studio/packages");
       const items = (data.items || []).map((x) => ({
         ...x,
-        price_yuan: (x.price_cents / 100).toFixed(2),
+        price_yuan: (x.price_cents / 100).toFixed(0),
         duration_minutes: x.duration_minutes || ""
       }));
       this.setData({ packages: items });
@@ -412,6 +542,45 @@ Page({
     } finally {
       this.setData({ packagesLoading: false });
     }
+  },
+
+  // 一键使用预设套餐
+  async applyPreset(e) {
+    const index = e.currentTarget.dataset.index;
+    const preset = this.data.presetPackages[index];
+    if (!preset) return;
+    try {
+      const priceValue = parseFloat(preset.price_yuan || "0");
+      await this.studioRequest("/studio/packages", {
+        method: "POST",
+        data: {
+          name: preset.name,
+          price_cents: Math.round((Number.isNaN(priceValue) ? 0 : priceValue) * 100),
+          duration_minutes: preset.duration_minutes ? parseInt(preset.duration_minutes, 10) : null,
+          description: preset.description || "",
+          is_active: true
+        }
+      });
+      wx.showToast({ title: "套餐已创建", icon: "none" });
+      await this.loadPackages();
+    } catch (e) {
+      wx.showToast({ title: "创建失败", icon: "none" });
+    }
+  },
+
+  showCustomPackage() {
+    this.setData({ showNewPackage: true });
+  },
+
+  hideNewPackage() {
+    this.setData({
+      showNewPackage: false,
+      newPackage: { name: "", price_yuan: "", duration_minutes: "", description: "", is_active: true }
+    });
+  },
+
+  toggleNewPackage() {
+    this.setData({ showNewPackage: !this.data.showNewPackage });
   },
 
   onPackageField(e) {
@@ -445,7 +614,7 @@ Page({
           is_active: !!item.is_active
         }
       });
-      wx.showToast({ title: "已保存套餐", icon: "none" });
+      wx.showToast({ title: "已保存", icon: "none" });
     } catch (e) {
       wx.showToast({ title: "保存失败", icon: "none" });
     }
@@ -470,8 +639,10 @@ Page({
         }
       });
       this.setData({
+        showNewPackage: false,
         newPackage: { name: "", price_yuan: "", duration_minutes: "", description: "", is_active: true }
       });
+      this.clearDraft();
       await this.loadPackages();
     } catch (e) {
       wx.showToast({ title: "创建失败", icon: "none" });
@@ -480,11 +651,27 @@ Page({
 
   async deletePackage(e) {
     const id = e.currentTarget.dataset.id;
-    try {
-      await this.studioRequest(`/studio/packages/${id}`, { method: "DELETE" });
-      await this.loadPackages();
-    } catch (e) {
-      wx.showToast({ title: "删除失败", icon: "none" });
+    wx.showModal({
+      title: "确认删除",
+      content: "删除后不可恢复，确定吗？",
+      success: async (res) => {
+        if (!res.confirm) return;
+        try {
+          await this.studioRequest(`/studio/packages/${id}`, { method: "DELETE" });
+          await this.loadPackages();
+        } catch (e) {
+          wx.showToast({ title: "删除失败", icon: "none" });
+        }
+      }
+    });
+  },
+
+  // ============ 档期管理 ============
+
+  toggleScheduleExpanded() {
+    this.setData({ scheduleExpanded: !this.data.scheduleExpanded });
+    if (this.data.scheduleExpanded && this.data.scheduleCells.length === 0) {
+      this.loadSchedule();
     }
   },
 
@@ -550,4 +737,3 @@ Page({
     });
   }
 });
-

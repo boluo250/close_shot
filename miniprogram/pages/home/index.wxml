@@ -1,0 +1,21 @@
+<view class="home {{themeClass}}">
+  <view class="home-top">
+    <view class="seg">
+      <view class="seg-item {{activeTab==='nearby' ? 'active' : ''}}" data-tab="nearby" bindtap="onTabTap">附近</view>
+      <view class="seg-item {{activeTab==='favorites' ? 'active' : ''}}" data-tab="favorites" bindtap="onTabTap">收藏</view>
+      <view class="seg-item {{activeTab==='mine' ? 'active' : ''}}" data-tab="mine" bindtap="onTabTap">我的</view>
+    </view>
+    <theme-switch value="{{theme}}" bind:change="onThemeChange" />
+  </view>
+
+  <view wx:if="{{activeTab==='nearby'}}">
+    <nearby-panel id="nearbyPanel" />
+  </view>
+  <view wx:if="{{activeTab==='favorites'}}">
+    <favorites-panel id="favPanel" />
+  </view>
+  <view wx:if="{{activeTab==='mine'}}">
+    <mine-panel id="minePanel" bind:gofavorites="onGoFavorites" />
+  </view>
+</view>
+

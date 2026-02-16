@@ -13,6 +13,11 @@ async function presign(filename, contentType, prefix) {
 
 async function uploadImageToS3Like({ tempFilePath, filename, contentType, prefix }) {
   const presignRes = await presign(filename, contentType, prefix);
+  // 兼容 local backend：presign 可能返回相对路径，需要拼接后端 base URL
+  const app = getApp();
+  const base = app.globalData.apiBaseUrl;
+  const putUrl =
+    typeof presignRes.url === "string" && presignRes.url.startsWith("/") ? base + presignRes.url : presignRes.url;
   const fs = wx.getFileSystemManager();
   const buffer = await new Promise((resolve, reject) => {
     fs.readFile({
@@ -24,7 +29,7 @@ async function uploadImageToS3Like({ tempFilePath, filename, contentType, prefix
 
   await new Promise((resolve, reject) => {
     wx.request({
-      url: presignRes.url,
+      url: putUrl,
       method: "PUT",
       header: presignRes.headers || {},
       data: buffer,

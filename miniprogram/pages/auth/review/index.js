@@ -26,7 +26,7 @@ Page({
       if (res.status === "approved") {
         wx.showToast({ title: "认证已通过！", icon: "success" });
         setTimeout(() => {
-          wx.switchTab({ url: "/pages/mine/index" });
+          wx.reLaunch({ url: "/pages/home/index?tab=mine" });
         }, 1500);
         return;
       }
@@ -51,7 +51,7 @@ Page({
   },
 
   onBackMine() {
-    wx.switchTab({ url: "/pages/mine/index" });
+    wx.reLaunch({ url: "/pages/home/index?tab=mine" });
   },
 
   onRefresh() {

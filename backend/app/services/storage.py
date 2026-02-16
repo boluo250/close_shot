@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import mimetypes
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
 
 import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError
+from jose import jwt
 
 from app.core.config import settings
 
@@ -33,6 +36,39 @@ def _s3_client():
     )
 
 
+def _local_base_dir() -> Path:
+    # 存放在 backend/app/../../local_media（仓库内、便于开发）
+    return Path(__file__).resolve().parents[2] / "local_media"
+
+
+def _safe_object_key(object_key: str) -> str:
+    """
+    防止路径穿越：只允许相对 posix 路径，且不含 '..'。
+    """
+    p = PurePosixPath(object_key)
+    if p.is_absolute() or ".." in p.parts:
+        raise ValueError("invalid object_key")
+    # 规范化：去掉前导 "./"
+    return str(p)
+
+
+def local_get_object_stream(object_key: str):
+    object_key = _safe_object_key(object_key)
+    fp = _local_base_dir() / object_key
+    if not fp.exists() or not fp.is_file():
+        raise FileNotFoundError(object_key)
+    content_type, _ = mimetypes.guess_type(fp.name)
+    # 交给 StreamingResponse 关闭
+    return fp.open("rb"), content_type
+
+
+def local_put_object_bytes(*, object_key: str, data: bytes, content_type: str | None = None) -> None:
+    object_key = _safe_object_key(object_key)
+    fp = _local_base_dir() / object_key
+    fp.parent.mkdir(parents=True, exist_ok=True)
+    fp.write_bytes(data)
+
+
 def ensure_bucket() -> None:
     if settings.storage_backend != "s3":
         return
@@ -44,18 +80,46 @@ def ensure_bucket() -> None:
         s3.create_bucket(Bucket=bucket)
 
 
+def create_upload_token(*, object_key: str, expires_seconds: int = 15 * 60) -> str:
+    """
+    本地存储直传使用的短期 token（无需登录也可 PUT，但只能上传指定 object_key）。
+    """
+    exp = datetime.now(timezone.utc) + timedelta(seconds=expires_seconds)
+    payload = {"sub": "upload", "key": object_key, "exp": exp}
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_alg)
+
+
+def verify_upload_token(*, token: str, object_key: str) -> None:
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_alg])
+    except Exception as e:
+        raise ValueError("invalid token") from e
+    if payload.get("sub") != "upload":
+        raise ValueError("invalid token")
+    if payload.get("key") != object_key:
+        raise ValueError("token key mismatch")
+
+
 def presign_put(*, object_key: str, content_type: str | None = None, expires_seconds: int = 3600) -> PresignResult:
     """
     生成 S3 兼容的 PUT 预签名 URL（MinIO/OSS/COS/S3）。
     客户端直接 PUT 到 url；服务端只保存 object_key。
     """
+    if not content_type:
+        content_type, _ = mimetypes.guess_type(object_key)
+
+    # 本地模式：返回后端 PUT 地址（相对路径，客户端需要拼 base URL）
+    if settings.storage_backend == "local":
+        token = create_upload_token(object_key=object_key, expires_seconds=min(expires_seconds, 15 * 60))
+        headers = {"Content-Type": content_type} if content_type else {}
+        url = f"/upload/put/{object_key}?token={token}"
+        return PresignResult(method="PUT", url=url, headers=headers, public_url=None, object_key=object_key)
+
     if settings.storage_backend != "s3":
-        raise RuntimeError("Only s3 backend implemented for presign in MVP")
+        raise RuntimeError("Unsupported storage backend")
 
     s3 = _s3_client()
     bucket = settings.s3_bucket  # type: ignore[assignment]
-    if not content_type:
-        content_type, _ = mimetypes.guess_type(object_key)
     params = {"Bucket": bucket, "Key": object_key}
     if content_type:
         params["ContentType"] = content_type
@@ -67,10 +131,16 @@ def presign_put(*, object_key: str, content_type: str | None = None, expires_sec
     return PresignResult(method="PUT", url=url, headers=headers, public_url=public_url, object_key=object_key)
 
 
-def s3_get_object_stream(object_key: str):
+def get_object_stream(object_key: str):
     """
     返回 (file-like body, content_type) 供 StreamingResponse 使用。
     """
+    if settings.storage_backend == "local":
+        return local_get_object_stream(object_key)
+
+    if settings.storage_backend != "s3":
+        raise RuntimeError("Unsupported storage backend")
+
     s3 = _s3_client()
     bucket = settings.s3_bucket  # type: ignore[assignment]
     try:
@@ -85,13 +155,22 @@ def s3_get_object_stream(object_key: str):
     return body, content_type
 
 
-def s3_put_object_bytes(*, object_key: str, data: bytes, content_type: str | None = None) -> None:
+def put_object_bytes(*, object_key: str, data: bytes, content_type: str | None = None) -> None:
+    if settings.storage_backend == "local":
+        return local_put_object_bytes(object_key=object_key, data=data, content_type=content_type)
+
     if settings.storage_backend != "s3":
-        raise RuntimeError("Only s3 backend implemented for upload in MVP")
+        raise RuntimeError("Unsupported storage backend")
+
     s3 = _s3_client()
     bucket = settings.s3_bucket  # type: ignore[assignment]
     params: dict[str, object] = {"Bucket": bucket, "Key": object_key, "Body": data}
     if content_type:
         params["ContentType"] = content_type
     s3.put_object(**params)
+
+
+# 兼容旧命名（被其他模块引用）
+s3_get_object_stream = get_object_stream
+s3_put_object_bytes = put_object_bytes
 

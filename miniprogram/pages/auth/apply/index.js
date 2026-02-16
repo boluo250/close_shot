@@ -55,7 +55,7 @@ Page({
       // 如果已通过认证，跳转工作台
       if (res.status === "approved") {
         wx.showToast({ title: "你已通过认证", icon: "none" });
-        wx.switchTab({ url: "/pages/mine/index" });
+        wx.reLaunch({ url: "/pages/home/index?tab=mine" });
         return;
       }
     } catch (e) {
@@ -217,6 +217,6 @@ Page({
   },
 
   onBackMine() {
-    wx.switchTab({ url: "/pages/mine/index" });
+    wx.reLaunch({ url: "/pages/home/index?tab=mine" });
   },
 });

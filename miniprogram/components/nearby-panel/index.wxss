@@ -1,0 +1,232 @@
+.page {
+  min-height: 100vh;
+  padding-bottom: calc(220rpx + env(safe-area-inset-bottom)); /* CTA 预留空间 */
+}
+
+.top {
+  padding: var(--cs-space-5);
+  padding-bottom: var(--cs-space-4);
+}
+
+.top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.loc {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 12rpx 16rpx;
+  border-radius: 999rpx;
+  background: var(--cs-color-surface);
+  border: 1px solid var(--cs-color-border);
+}
+
+.loc-text {
+  font-size: var(--cs-font-sm);
+  color: var(--cs-color-text);
+}
+
+.search {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 999rpx;
+  background: var(--cs-color-surface);
+  border: 1px solid var(--cs-color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.subtitle {
+  padding-top: 16rpx;
+  font-size: 34rpx;
+  font-weight: 650;
+  color: var(--cs-color-text);
+}
+
+.map-wrap {
+  margin: 0 var(--cs-space-5);
+  border-radius: var(--cs-radius-lg);
+  overflow: hidden;
+  background: rgba(229, 231, 235, 0.28);
+  position: relative;
+  border: 1px solid var(--cs-color-border);
+}
+
+.map-hint {
+  position: absolute;
+  left: 16rpx;
+  bottom: 14rpx;
+  padding: 10rpx 14rpx;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--cs-color-border);
+  border-radius: 999rpx;
+}
+
+.cs-theme-soda .map-hint {
+  background: rgba(11, 13, 18, 0.72);
+}
+
+.section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18rpx 2rpx 6rpx;
+}
+
+.section-title {
+  font-size: var(--cs-font-lg);
+  font-weight: 650;
+  color: var(--cs-color-text);
+}
+
+.p-card {
+  background: var(--cs-color-surface);
+  border-radius: var(--cs-radius-lg);
+  padding: var(--cs-space-6);
+  box-shadow: var(--cs-shadow-card);
+  margin-top: 16rpx;
+  border: 1px solid var(--cs-color-border);
+}
+
+.cs-theme-classic .p-card {
+  border-color: rgba(17, 24, 39, 0.04);
+}
+
+.p-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 18rpx;
+}
+
+.avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 28rpx;
+  background: var(--cs-color-surface-2);
+}
+
+.p-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.p-name-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.p-name {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--cs-color-text);
+  max-width: 420rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.p-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+  font-size: var(--cs-font-sm);
+  color: var(--cs-color-text-2);
+}
+
+.p-star {
+  font-size: 24rpx;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  padding-top: 10rpx;
+}
+
+.tag {
+  padding: 8rpx 14rpx;
+  border-radius: 999rpx;
+  background: var(--cs-color-surface-2);
+  color: var(--cs-color-text);
+  font-size: 24rpx;
+}
+
+.price {
+  font-weight: 700;
+  color: var(--cs-color-text);
+}
+
+.shots {
+  padding-top: 16rpx;
+  white-space: nowrap;
+}
+
+.shot {
+  display: inline-block;
+  width: 220rpx;
+  height: 150rpx;
+  border-radius: 18rpx;
+  background: var(--cs-color-surface-2);
+  margin-right: 14rpx;
+}
+
+.shot.ph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty {
+  margin-top: 18rpx;
+  background: var(--cs-color-surface);
+  border-radius: var(--cs-radius-lg);
+  padding: 26rpx;
+  box-shadow: var(--cs-shadow-card);
+  border: 1px solid var(--cs-color-border);
+}
+
+.empty-title {
+  font-size: 30rpx;
+  font-weight: 650;
+  color: var(--cs-color-text);
+}
+
+.cta-wrap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(26rpx + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.cta {
+  pointer-events: auto;
+  width: 480rpx;
+  height: 92rpx;
+  line-height: 92rpx;
+  border-radius: 999rpx;
+  background: var(--cs-gradient-primary);
+  color: #0b0d12;
+  font-weight: 750;
+  border: none;
+  box-shadow: var(--cs-shadow-glow);
+}
+
+.cs-theme-classic .cta {
+  color: #111827;
+}
+
+.cta::after {
+  border: none;
+}
+

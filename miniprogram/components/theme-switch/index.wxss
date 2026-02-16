@@ -1,0 +1,36 @@
+.cs-theme-switch {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999rpx;
+  padding: 4rpx;
+  background: var(--cs-color-surface-2);
+  border: 1rpx solid var(--cs-color-border);
+}
+
+.cs-theme-switch.lg {
+  padding: 6rpx;
+}
+
+.seg {
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  color: var(--cs-color-muted);
+  line-height: 1;
+}
+
+.cs-theme-switch.lg .seg {
+  padding: 12rpx 22rpx;
+  font-size: 26rpx;
+}
+
+.seg.active {
+  background: var(--cs-color-primary);
+  color: #0b0d12;
+  box-shadow: var(--cs-shadow-glow);
+}
+
+.cs-theme-classic .seg.active {
+  color: #111827;
+}
+

@@ -4,11 +4,24 @@ page {
   /* 参考图风格：浅灰底 + 大圆角卡片 + 荧光黄绿点缀 */
   --cs-color-bg: #f7f7f8;
   --cs-color-surface: #ffffff;
+  --cs-color-surface-2: #f3f4f6;
   --cs-color-text: #111827;
+  --cs-color-text-2: #374151;
+  --cs-color-text-3: #6b7280;
   --cs-color-muted: #8a8f98;
   --cs-color-border: #eef0f3;
   --cs-color-primary: #bfe84a;
   --cs-color-primary-press: #a8d63c;
+  --cs-color-success: #22c55e;
+  --cs-color-danger: #ef4444;
+
+  /* 主按钮渐变（用于“联系摄影师”等关键 CTA） */
+  --cs-gradient-primary: linear-gradient(135deg, #bfe84a 0%, #d9ff6a 55%, #bfe84a 100%);
+  --cs-gradient-primary-press: linear-gradient(135deg, #a8d63c 0%, #c9f35f 55%, #a8d63c 100%);
+
+  /* TabBar */
+  --cs-tabbar-bg: #ffffff;
+  --cs-tabbar-border: #eef0f3;
 
   --cs-radius-md: 18rpx;
   --cs-radius-lg: 28rpx;
@@ -21,6 +34,36 @@ page {
   --cs-font-lg: 32rpx;
 
   --cs-shadow-card: 0 10rpx 30rpx rgba(17, 24, 39, 0.06);
+  --cs-shadow-glow: 0 0 18rpx rgba(191, 232, 74, 0.35);
+}
+
+/* 主题：汽水音乐（暗色霓虹） */
+.cs-theme-soda {
+  --cs-color-bg: #0b0d12;
+  --cs-color-surface: rgba(255, 255, 255, 0.06);
+  --cs-color-surface-2: rgba(255, 255, 255, 0.10);
+  --cs-color-text: #f8fafc;
+  --cs-color-text-2: rgba(248, 250, 252, 0.86);
+  --cs-color-text-3: rgba(248, 250, 252, 0.70);
+  --cs-color-muted: rgba(148, 163, 184, 0.85);
+  --cs-color-border: rgba(255, 255, 255, 0.12);
+  --cs-color-primary: #39ff88;
+  --cs-color-primary-press: #22e676;
+  --cs-color-success: #39ff88;
+  --cs-color-danger: #ff4d6d;
+
+  --cs-gradient-primary: linear-gradient(135deg, #39ff88 0%, #00f0ff 100%);
+  --cs-gradient-primary-press: linear-gradient(135deg, #22e676 0%, #00d7e6 100%);
+
+  --cs-tabbar-bg: #0b0d12;
+  --cs-tabbar-border: rgba(255, 255, 255, 0.12);
+
+  --cs-shadow-card: 0 14rpx 40rpx rgba(0, 0, 0, 0.45);
+  --cs-shadow-glow: 0 0 22rpx rgba(57, 255, 136, 0.40);
+}
+
+.cs-theme-classic {
+  /* classic 是默认值，这里留空方便统一挂 class */
 }
 
 .cs-page {

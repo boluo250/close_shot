@@ -1,0 +1,43 @@
+.home {
+  min-height: 100vh;
+  background: var(--cs-color-bg);
+}
+
+.home-top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 18rpx 20rpx 10rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12rpx;
+  background: var(--cs-color-bg);
+}
+
+.seg {
+  display: inline-flex;
+  padding: 4rpx;
+  border-radius: 999rpx;
+  background: var(--cs-color-surface-2);
+  border: 1rpx solid var(--cs-color-border);
+}
+
+.seg-item {
+  padding: 12rpx 22rpx;
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  color: var(--cs-color-muted);
+  line-height: 1;
+}
+
+.seg-item.active {
+  background: var(--cs-color-primary);
+  color: #0b0d12;
+  box-shadow: var(--cs-shadow-glow);
+}
+
+.cs-theme-classic .seg-item.active {
+  color: #111827;
+}
+
