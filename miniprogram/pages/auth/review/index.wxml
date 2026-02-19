@@ -18,7 +18,7 @@
       </view>
       <view class="check-item">
         <text class="check-icon {{portfolioUploaded ? 'done' : ''}}">{{portfolioUploaded ? '✓' : '○'}}</text>
-        <text class="check-text">摄影师身份</text>
+        <text class="check-text">资料完善</text>
       </view>
       <view class="check-item">
         <text class="check-icon {{contactVerified ? 'done' : ''}}">{{contactVerified ? '✓' : '○'}}</text>

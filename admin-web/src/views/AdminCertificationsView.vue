@@ -54,17 +54,6 @@
           {{ row.phone || '-' }}
         </template>
       </el-table-column>
-      <el-table-column label="拍摄类型" min-width="160">
-        <template #default="{ row }">
-          <el-tag
-            v-for="t in row.shooting_types"
-            :key="t"
-            size="small"
-            style="margin: 2px"
-          >{{ t }}</el-tag>
-          <span v-if="!row.shooting_types?.length" style="color: #999">-</span>
-        </template>
-      </el-table-column>
       <el-table-column label="从业年限" width="100">
         <template #default="{ row }">
           {{ row.experience_years || '-' }}
@@ -161,21 +150,6 @@
         </div>
       </div>
 
-      <el-divider content-position="left">摄影师身份</el-divider>
-      <el-descriptions :column="2" border>
-        <el-descriptions-item label="拍摄类型">
-          <el-tag v-for="t in currentItem.shooting_types" :key="t" size="small" style="margin: 2px">{{ t }}</el-tag>
-          <span v-if="!currentItem.shooting_types?.length" style="color: #999">-</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="从业年限">{{ currentItem.experience_years || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="个人主页" :span="2">
-          <a v-if="currentItem.portfolio_link" :href="currentItem.portfolio_link" target="_blank" style="color: #409eff">
-            {{ currentItem.portfolio_link }}
-          </a>
-          <span v-else style="color: #999">-</span>
-        </el-descriptions-item>
-      </el-descriptions>
-
       <el-divider content-position="left">联系方式</el-divider>
       <el-descriptions :column="2" border>
         <el-descriptions-item label="手机号">{{ currentItem.phone || '-' }}</el-descriptions-item>
@@ -183,6 +157,12 @@
         <el-descriptions-item label="城市">{{ currentItem.city || '-' }}</el-descriptions-item>
         <el-descriptions-item label="报价区间">
           {{ currentItem.price_range ? `¥${currentItem.price_range}` : '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="个人主页" :span="2">
+          <a v-if="currentItem.portfolio_link" :href="currentItem.portfolio_link" target="_blank" style="color: #409eff">
+            {{ currentItem.portfolio_link }}
+          </a>
+          <span v-else style="color: #999">-</span>
         </el-descriptions-item>
       </el-descriptions>
 
@@ -245,7 +225,6 @@ type CertificationItem = {
   id_card_number: string | null;
   id_card_front_url: string | null;
   id_card_back_url: string | null;
-  shooting_types: string[];
   experience_years: string | null;
   portfolio_link: string | null;
   phone: string | null;

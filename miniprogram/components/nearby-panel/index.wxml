@@ -50,25 +50,24 @@
         <view class="p-meta">
           <view class="p-name-row">
             <text class="p-name">{{item.display_name}}</text>
-            <view class="p-rating" wx:if="{{item.rating_avg_text}}">
-              <text class="p-star">⭐</text>
-              <text>{{item.rating_avg_text}}</text>
-              <text class="cs-muted" wx:if="{{item.rating_count}}">（{{item.rating_count}}）</text>
+            <text class="p-price" wx:if="{{item.starting_price_yuan}}">¥{{item.starting_price_yuan}} 起</text>
+            <text class="p-price p-price-muted" wx:else>价格面议</text>
+          </view>
+
+          <view class="p-intro {{item.bio ? '' : 'cs-muted'}}">
+            {{item.bio || '暂无简介'}}
+          </view>
+
+          <!-- 底部信息：固定贴底，保证价格对齐 -->
+          <view class="p-footer">
+            <view class="p-brief">
+              <text class="cs-muted">作品集 {{item.portfolio_count || 0}} 张</text>
+              <text class="cs-muted" wx:if="{{item.rate_copy}}"> · {{item.rate_copy}}</text>
             </view>
-          </view>
 
-          <view class="tag-row" wx:if="{{item.tagsArr.length}}">
-            <view wx:for="{{item.tagsArr}}" wx:key="*this" class="tag">{{item}}</view>
-          </view>
-
-          <view class="p-brief">
-            <text class="cs-muted">作品集 {{item.portfolio_count || 0}} 张</text>
-            <text class="cs-muted" wx:if="{{item.rate_copy}}"> · {{item.rate_copy}}</text>
-          </view>
-
-          <view class="p-subrow">
-            <text class="cs-muted">{{item.distance_copy}}</text>
-            <text class="price" wx:if="{{item.starting_price_yuan}}">¥{{item.starting_price_yuan}} 起</text>
+            <view class="p-subrow">
+              <text class="cs-muted">{{item.distance_copy}}</text>
+            </view>
           </view>
         </view>
       </view>

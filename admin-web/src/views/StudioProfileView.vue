@@ -12,9 +12,6 @@
       <el-form-item label="简介">
         <el-input v-model="form.bio" type="textarea" :rows="4" />
       </el-form-item>
-      <el-form-item label="接单状态">
-        <el-switch v-model="form.is_accepting_orders" />
-      </el-form-item>
       <el-form-item label="服务中心点 lat/lng（非实时）">
         <el-row :gutter="12" style="width: 100%">
           <el-col :span="12"><el-input v-model.number="form.service_center_lat" placeholder="lat" /></el-col>
@@ -42,7 +39,6 @@ type Photographer = {
   city?: string | null;
   tags: string;
   bio?: string | null;
-  is_accepting_orders: boolean;
   service_center_lat?: number | null;
   service_center_lng?: number | null;
   service_radius_m: number;
@@ -55,7 +51,6 @@ const form = reactive<Photographer>({
   city: "",
   tags: "",
   bio: "",
-  is_accepting_orders: false,
   service_center_lat: null,
   service_center_lng: null,
   service_radius_m: 5000
@@ -80,7 +75,6 @@ async function save() {
       city: form.city,
       tags: form.tags,
       bio: form.bio,
-      is_accepting_orders: form.is_accepting_orders,
       service_center_lat: form.service_center_lat,
       service_center_lng: form.service_center_lng,
       service_radius_m: form.service_radius_m

@@ -70,6 +70,9 @@
     <div style="margin-top: 10px; color: #888; font-size: 12px">
       上传流程：前端调用 <code>/upload/presign</code>，再用预签名 URL 直传 PUT 到对象存储（MinIO/S3）。
     </div>
+
+    <el-divider content-position="left" style="margin-top: 22px">套餐管理</el-divider>
+    <StudioPackagesEditor />
   </el-card>
 </template>
 
@@ -80,6 +83,7 @@ import type { UploadRequestOptions } from "element-plus";
 
 import { api } from "../lib/api";
 import { uploadViaPresign } from "../lib/upload";
+import StudioPackagesEditor from "../components/StudioPackagesEditor.vue";
 
 type PortfolioItem = {
   id: number;

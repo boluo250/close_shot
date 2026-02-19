@@ -87,7 +87,7 @@
 
 .p-top {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 18rpx;
 }
 
@@ -101,6 +101,9 @@
 .p-meta {
   flex: 1;
   min-width: 0;
+  min-height: 96rpx;
+  display: flex;
+  flex-direction: column;
 }
 
 .p-name-row {
@@ -114,36 +117,33 @@
   font-size: 32rpx;
   font-weight: 700;
   color: var(--cs-color-text);
-  max-width: 420rpx;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.p-rating {
-  display: inline-flex;
-  align-items: center;
-  gap: 6rpx;
-  font-size: var(--cs-font-sm);
-}
-
-.p-star {
-  font-size: 24rpx;
-}
-
-.tag-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10rpx;
+.p-intro {
   padding-top: 10rpx;
+  font-size: 24rpx;
+  color: var(--cs-color-text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.tag {
-  padding: 8rpx 14rpx;
-  border-radius: 999rpx;
-  background: #f3f4f6;
-  color: #111827;
-  font-size: 24rpx;
+.p-price {
+  font-weight: 750;
+  color: var(--cs-color-text);
+  white-space: nowrap;
+  line-height: 1.1;
+  font-size: 28rpx;
+}
+
+.p-price-muted {
+  font-weight: 650;
+  color: var(--cs-color-muted);
 }
 
 .p-brief {
@@ -151,18 +151,29 @@
   font-size: 24rpx;
 }
 
+.p-footer {
+  margin-top: auto;
+}
+
 .p-subrow {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 12rpx;
+  justify-content: flex-start;
+  align-items: flex-end;
+  padding-top: 10rpx;
 }
 
 .price {
   font-weight: 700;
   color: #111827;
+  min-width: 150rpx;
+  text-align: right;
+  line-height: 1.1;
 }
 
+.price-muted {
+  font-weight: 600;
+  color: var(--cs-color-muted);
+}
 .shots {
   padding-top: 16rpx;
   white-space: nowrap;

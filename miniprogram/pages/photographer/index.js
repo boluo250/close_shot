@@ -8,14 +8,11 @@ Page({
     portfolio: [],
     packages: [],
     rateCard: [],
+    offerings: [],
     equipmentList: [],
     droneModels: [],
     hasEquipment: false,
-    tagList: [],
     serviceRadiusKm: 0,
-    reviews: [],
-    reviewsLoading: false,
-    ratingText: "-",
     fav: false,
     theme: "classic",
     themeClass: "cs-theme-classic"
@@ -56,9 +53,6 @@ Page({
         }));
       }
 
-      const ratingText =
-        data.rating_count > 0 ? `${data.rating_avg.toFixed(1)} (${data.rating_count})` : "-";
-
       // 套餐格式化
       const packages = Array.isArray(data.packages)
         ? data.packages
@@ -76,19 +70,35 @@ Page({
             ...x,
             price_yuan:
               typeof x.price_cents === "number" ? (x.price_cents / 100).toFixed(0) : "",
-            mode_label: x.mode === "hour" ? "按小时" : "按件"
+            mode_label: x.mode === "hour" ? "按小时" : "按张数"
           }))
         : [];
+
+      // 合并展示列表（不改变后端结构，仅用于详情页 UI）
+      const offerings = [
+        ...packages.map((x) => ({
+          key: `pkg-${x.id}`,
+          type: "package",
+          name: x.name,
+          price_yuan: x.price_yuan,
+          meta: x.duration_minutes ? `${x.duration_minutes} 分钟` : "",
+          description: x.description || "",
+          badge: "套餐"
+        })),
+        ...rateCard.map((x, idx) => ({
+          key: `rate-${idx}-${x.name || "item"}`,
+          type: "rate",
+          name: x.name,
+          price_yuan: x.price_yuan,
+          meta: `${x.mode_label}${x.unit ? ` · 单位：${x.unit}` : ""}`,
+          description: "",
+          badge: x.mode_label
+        }))
+      ];
 
       const equipmentList = Array.isArray(data.equipment_list) ? data.equipment_list : [];
       const droneModels = Array.isArray(data.drone_models) ? data.drone_models : [];
       const hasEquipment = equipmentList.length > 0 || droneModels.length > 0;
-
-      // 拆分标签
-      const tagList = (data.tags || "")
-        .split(",")
-        .map((t) => t.trim())
-        .filter((t) => t);
 
       // 服务范围 km
       const serviceRadiusKm = data.service_radius_m
@@ -100,39 +110,14 @@ Page({
         portfolio: data.portfolio_items || [],
         packages,
         rateCard,
+        offerings,
         equipmentList,
         droneModels,
         hasEquipment,
-        tagList,
         serviceRadiusKm,
-        ratingText
       });
-      await this.loadReviews();
     } catch (e) {
       wx.showToast({ title: "加载失败", icon: "none" });
-    }
-  },
-
-  async loadReviews() {
-    this.setData({ reviewsLoading: true });
-    try {
-      const list = await request(`/photographers/${this.data.id}/reviews`, {
-        params: { limit: 20 }
-      });
-      const reviews = Array.isArray(list)
-        ? list.map((x) => ({
-            ...x,
-            display_name: x.user_display_name || "匿名客户",
-            avatar_url: x.user_avatar_url || "",
-            created_date: x.created_at ? String(x.created_at).slice(0, 10) : "",
-            star_text: "⭐".repeat(Math.max(1, Math.min(5, Number(x.rating) || 0)))
-          }))
-        : [];
-      this.setData({ reviews });
-    } catch (e) {
-      this.setData({ reviews: [] });
-    } finally {
-      this.setData({ reviewsLoading: false });
     }
   },
 

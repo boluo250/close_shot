@@ -76,12 +76,6 @@ Page({
       const base = app.globalData.apiBaseUrl;
 
       const fixed = (list || []).map((p) => {
-        const tagsArr = String(p.tags || "")
-          .split(/[,，、\s]+/g)
-          .map((x) => x.trim())
-          .filter(Boolean)
-          .slice(0, 3);
-
         const displayName = p.display_name || `摄影师 #${p.id}`;
         const avatarUrl =
           p.avatar_url && p.avatar_url.startsWith("/") ? base + p.avatar_url : p.avatar_url || "";
@@ -101,8 +95,6 @@ Page({
           ...p,
           display_name: displayName,
           avatar_url: avatarUrl,
-          tagsArr,
-          rating_avg_text: typeof p.rating_avg === "number" ? p.rating_avg.toFixed(1) : "",
           starting_price_yuan:
             typeof p.starting_price_cents === "number" ? Math.round(p.starting_price_cents / 100) : "",
           preview_image_urls: previewFixed,

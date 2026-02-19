@@ -30,7 +30,7 @@ class PackageOut(TimestampOut):
 
 class RateCardItemOut(BaseModel):
     name: str
-    mode: str = Field(description="计价模式：hour/item")
+    mode: str = Field(description="计价模式：hour/photo")
     price_cents: int
     unit: str | None = None
 
@@ -90,19 +90,15 @@ class PhotographerNearbyOut(PhotographerOut):
     distance_km: float = Field(description="距离（公里）")
     distance_copy: str = Field(description="距离展示文案（非实时位置语义）")
     starting_price_cents: int | None = Field(default=None, description="起步价（分），可为空")
-    rating_avg: float | None = None
-    rating_count: int | None = None
     preview_image_urls: list[str] = Field(default_factory=list, description="首页样片预览（最多 3 张）")
     portfolio_count: int = Field(default=0, description="作品集数量")
     rate_hour_min_cents: int | None = Field(default=None, description="小时起步价（分）")
-    rate_item_min_cents: int | None = Field(default=None, description="按件起步价（分）")
+    rate_item_min_cents: int | None = Field(default=None, description="按张数起步价（分）")
 
 
 class PhotographerDetailOut(PhotographerOut):
     portfolio_items: list[PortfolioItemOut]
     packages: list[PackageOut]
-    rating_avg: float | None = None
-    rating_count: int
 
 
 class NearbyQuery(BaseModel):
@@ -111,7 +107,6 @@ class NearbyQuery(BaseModel):
     max_distance_m: int = Field(default=50000, ge=100, le=200000)
     limit: int = Field(default=20, ge=1, le=100)
     offset: int = Field(default=0, ge=0, le=10000)
-    is_accepting_orders: bool | None = None
     tag: str | None = None
 
 
@@ -133,8 +128,7 @@ class CertificationDetailOut(TimestampOut):
     id_card_front_url: str | None = None
     id_card_back_url: str | None = None
 
-    # 摄影师身份
-    shooting_types: list[str] = Field(default_factory=list)
+    # 资料完善（拍摄类型已移除）
     experience_years: str | None = None
     portfolio_link: str | None = None
 
@@ -145,18 +139,6 @@ class CertificationDetailOut(TimestampOut):
     # 可选
     city: str | None = None
     price_range: str | None = None
-
-    @field_validator("shooting_types", mode="before")
-    @classmethod
-    def _parse_shooting_types(cls, value: object) -> list[str]:
-        if value is None:
-            return []
-        if isinstance(value, list):
-            return value
-        if isinstance(value, str):
-            return [x.strip() for x in value.split(",") if x.strip()]
-        return []
-
 
 class CertificationReviewIn(BaseModel):
     """管理端审核操作"""

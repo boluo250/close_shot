@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timezone
 from pathlib import PurePosixPath
 
@@ -87,7 +88,29 @@ def update_me(
     _require_photographer_user(me)
     p = _get_my_photographer(db, me)
     data = payload.model_dump(exclude_unset=True)
-    _ensure_texts_safe([data.get("bio"), data.get("tags"), data.get("city"), data.get("equipment_list"), data.get("drone_models")])
+    _ensure_texts_safe(
+        [
+            data.get("bio"),
+            data.get("tags"),
+            data.get("city"),
+            data.get("equipment_list"),
+            data.get("drone_models"),
+        ]
+    )
+    # 报价单安全检查（文本 + mode）
+    if data.get("rate_card") is not None:
+        normalized: list[dict] = []
+        for it in data.get("rate_card") or []:
+            _ensure_texts_safe([it.get("name"), it.get("unit")])
+            mode = it.get("mode")
+            # 兼容旧值 item → photo（按张数）
+            if mode == "item":
+                mode = "photo"
+                it["mode"] = "photo"
+            if mode not in ("hour", "photo"):
+                raise HTTPException(status_code=400, detail="invalid rate_card.mode")
+            normalized.append(it)
+        data["rate_card"] = normalized
     if data.get("avatar_object_key"):
         stream, _ = get_object_stream(data["avatar_object_key"])
         ensure_image_safe_bytes(stream.read())
@@ -98,6 +121,9 @@ def update_me(
         p.user.avatar_url = data.pop("avatar_url")
     data.pop("avatar_object_key", None)
     data.pop("cover_object_key", None)
+    # 处理 rate_card：保存为 json 文本
+    if "rate_card" in data:
+        p.rate_card_json = json.dumps(data.pop("rate_card") or [], ensure_ascii=False)
     for k, v in data.items():
         setattr(p, k, v)
     # 作为“活跃度”的输入：摄影师主动维护资料/接单范围时更新活跃时间

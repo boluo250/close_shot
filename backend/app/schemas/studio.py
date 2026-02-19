@@ -4,6 +4,13 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 
+
+class RateCardItemIn(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    mode: str = Field(description="计价模式：hour/photo")
+    price_cents: int = Field(ge=0, le=10_000_000)
+    unit: str | None = Field(default=None, max_length=64)
+
 from app.schemas.photographer import PackageOut, PhotographerOut, PortfolioItemOut
 
 
@@ -15,13 +22,14 @@ class PhotographerUpdateIn(BaseModel):
     bio: str | None = Field(default=None, max_length=5000)
     tags: str | None = Field(default=None, max_length=2000)
     city: str | None = Field(default=None, max_length=64)
-    is_accepting_orders: bool | None = None
     service_center_lat: float | None = None
     service_center_lng: float | None = None
     service_radius_m: int | None = Field(default=None, ge=100, le=50000)
     # 设备清单 & 无人机型号（逗号分隔文本）
     equipment_list: str | None = Field(default=None, max_length=2000)
     drone_models: str | None = Field(default=None, max_length=1000)
+    # 报价单：列表结构，后端会保存为 Photographer.rate_card_json
+    rate_card: list[RateCardItemIn] | None = None
 
 
 class StudioMeOut(BaseModel):

@@ -3,11 +3,12 @@ from __future__ import annotations
 import re
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.db.models import Favorite, Photographer, PhotographerStatus, PortfolioItem, User, UserRole
+from app.db.models import BioTemplate, Favorite, Photographer, PhotographerStatus, PortfolioItem, User, UserRole
 from app.db.session import get_db
 from app.schemas.me import (
     CertificationStatusOut,
@@ -20,8 +21,41 @@ from app.schemas.photographer import PhotographerOut
 
 router = APIRouter()
 
+# bio_templates 未迁移/为空时的兜底模板（开发环境避免 500）
+_FALLBACK_BIO_TEMPLATES: list[str] = [
+    "善于捕捉自然光影的记录者，偏爱真实与松弛的氛围。",
+    "喜欢用镜头讲故事，擅长把情绪拍进画面里。",
+    "温柔系摄影师，擅长引导，让你自然好看。",
+    "注重构图与光线，成片干净耐看不浮夸。",
+    "偏纪实风格，记录当下的细节与温度。",
+]
+
+
 # ---------- 有效拍摄类型白名单 ----------
-VALID_SHOOTING_TYPES = {"人像", "情侣", "亲子", "商拍", "活动", "婚礼", "旅拍", "宠物", "美食", "建筑"}
+# 注意：需与小程序端 miniprogram/pages/auth/apply/index.js 的 SHOOTING_TYPES 保持一致
+VALID_SHOOTING_TYPES = {
+    "人像",
+    "写真",
+    "街拍",
+    "情侣",
+    "亲子",
+    "儿童",
+    "孕妇",
+    "新生儿",
+    "全家福",
+    "毕业照",
+    "婚礼",
+    "旅拍",
+    "跟拍",
+    "活动",
+    "商拍",
+    "证件照",
+    "探店",
+    "宠物",
+    "美食",
+    "建筑",
+    "航拍",
+}
 VALID_EXPERIENCE_YEARS = {"1年内", "1-3年", "3年以上"}
 VALID_PRICE_RANGES = {"199-399", "399-699", "699+"}
 ID_CARD_PATTERN = re.compile(r"^\d{15}$|^\d{17}[\dXx]$")
@@ -36,8 +70,7 @@ def _build_certification_status(p: Photographer | None, db: Session) -> Certific
     portfolio_count = db.scalar(
         select(PortfolioItem.id).where(PortfolioItem.photographer_id == p.id).limit(1)
     )
-    has_shooting_types = bool(p.shooting_types and p.shooting_types.strip())
-    portfolio_uploaded = bool(portfolio_count is not None or has_shooting_types)
+    portfolio_uploaded = bool(portfolio_count is not None)
     contact_verified = bool(p.phone and p.wechat_id)
 
     return CertificationStatusOut(
@@ -94,6 +127,27 @@ def get_certification_status(
     return _build_certification_status(p, db)
 
 
+@router.get("/bio-templates", response_model=list[str])
+def get_bio_templates(
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[str]:
+    """随机返回 3 条个人简介模板（用于一键填充）"""
+    import random
+
+    _ = me  # 触发登录校验
+    try:
+        rows = db.execute(select(BioTemplate.text).order_by(func.random()).limit(3)).all()
+        templates = [r[0] for r in rows if r and r[0]]
+        if templates:
+            return templates
+    except ProgrammingError:
+        # 典型场景：新库未跑 alembic（bio_templates 表不存在）
+        db.rollback()
+
+    return random.sample(_FALLBACK_BIO_TEMPLATES, k=min(3, len(_FALLBACK_BIO_TEMPLATES)))
+
+
 @router.post("/photographer/apply", response_model=CertificationStatusOut)
 def apply_photographer(
     payload: PhotographerApplyIn,
@@ -113,13 +167,17 @@ def apply_photographer(
             contact_verified=True,
         )
 
-    # 校验拍摄类型
-    if len(payload.shooting_types) > 3:
-        raise HTTPException(status_code=400, detail="拍摄类型最多选择3个")
+    # 用户提交入驻后，提升为 photographer 角色（以便使用 /studio 接口维护作品/套餐等资料）
+    if me.role != UserRole.photographer.value:
+        me.role = UserRole.photographer.value
 
-    for st in payload.shooting_types:
-        if st not in VALID_SHOOTING_TYPES:
-            raise HTTPException(status_code=400, detail=f"不支持的拍摄类型：{st}")
+    # 拍摄类型已从入驻必填中移除：保留字段仅做兼容校验（若传了则校验）
+    if payload.shooting_types:
+        if len(payload.shooting_types) > 3:
+            raise HTTPException(status_code=400, detail="拍摄类型最多选择3个")
+        for st in payload.shooting_types:
+            if st not in VALID_SHOOTING_TYPES:
+                raise HTTPException(status_code=400, detail=f"不支持的拍摄类型：{st}")
 
     if payload.experience_years and payload.experience_years not in VALID_EXPERIENCE_YEARS:
         raise HTTPException(status_code=400, detail=f"不支持的从业年限选项：{payload.experience_years}")
@@ -144,7 +202,8 @@ def apply_photographer(
         p.id_card_front_url = payload.id_card_front_url
     if payload.id_card_back_url is not None:
         p.id_card_back_url = payload.id_card_back_url
-    p.shooting_types = ",".join(payload.shooting_types)
+    if payload.shooting_types:
+        p.shooting_types = ",".join(payload.shooting_types)
     p.experience_years = payload.experience_years
     p.portfolio_link = payload.portfolio_link
     p.phone = payload.phone

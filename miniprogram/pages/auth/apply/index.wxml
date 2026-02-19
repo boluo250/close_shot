@@ -16,7 +16,7 @@
           <text wx:if="{{step > 2}}">✓</text>
           <text wx:else>2</text>
         </view>
-        <text class="step-label">摄影师身份</text>
+        <text class="step-label">资料完善</text>
       </view>
       <view class="progress-line {{step > 2 ? 'active' : ''}}"></view>
       <view class="progress-step {{step >= 3 ? 'active' : ''}}">
@@ -50,8 +50,6 @@
                maxlength="18"
                type="idcard" />
       </view>
-
-      <view class="form-tip">当前版本暂不上传身份证照片</view>
     </view>
 
     <view class="btn-area">
@@ -62,33 +60,190 @@
     </view>
   </view>
 
-  <!-- ===== Step 2: 摄影师身份 ===== -->
+  <!-- ===== Step 2: 资料完善 ===== -->
   <view class="step-content" wx:if="{{step === 2}}">
+    <!-- 基础资料（会展示在详情页） -->
     <view class="cs-card">
-      <view class="section-title">摄影师身份</view>
-      <view class="section-desc">帮助用户了解你的专业方向</view>
+      <view class="section-title">基础资料 <text class="optional">（选填，但会展示）</text></view>
+      <view class="section-desc">头像、简介会出现在你的摄影师详情页</view>
 
       <view class="form-group">
-        <view class="form-label">拍摄类型 <text class="required">*</text></view>
-        <view class="form-tip">最多选择 3 个（已选 {{selectedTypes.length}}/3）</view>
-        <view class="tag-grid">
-          <view wx:for="{{shootingTypes}}" wx:key="*this"
-                class="tag-item {{selectedTypeMap[item] ? 'selected' : ''}} {{typeDisabledMap[item] ? 'disabled' : ''}}"
-                bindtap="toggleShootingType"
-                data-type="{{item}}">
-            {{item}}
+        <view class="form-label">头像</view>
+        <view class="avatar-row">
+          <view class="avatar-slot" bindtap="chooseAvatar">
+            <image wx:if="{{avatarUrl}}" class="avatar-img" mode="aspectFill" src="{{avatarUrl}}" />
+            <view wx:else class="avatar-placeholder">
+              <text class="placeholder-plus">+</text>
+              <text class="placeholder-text">上传头像</text>
+            </view>
+          </view>
+          <view class="avatar-tip">
+            <view class="form-tip" style="margin-top: 0;">建议上传清晰正脸照</view>
+            <view class="form-tip" style="margin-top: 6rpx;" wx:if="{{avatarUrl}}">可再次点击更换</view>
           </view>
         </view>
       </view>
 
       <view class="form-group">
-        <view class="form-label">个人摄影主页 <text class="optional">（选填）</text></view>
+        <view class="form-label">个人简介</view>
+        <view class="form-tip" wx:if="{{bioTemplates.length > 0}}">一键填充：</view>
+        <view class="bio-tpl-grid" wx:if="{{bioTemplates.length > 0}}">
+          <view
+            wx:for="{{bioTemplates}}"
+            wx:key="item"
+            class="bio-tpl {{bio === item ? 'active' : ''}}"
+            data-tpl="{{item}}"
+            bindtap="useBioTemplate"
+          >{{item}}</view>
+        </view>
+        <textarea
+          class="form-textarea"
+          placeholder="用一句话介绍自己的拍摄风格..."
+          value="{{bio}}"
+          bindinput="onBioInput"
+          maxlength="200"
+        ></textarea>
+      </view>
+
+    </view>
+
+    <!-- 装备信息 -->
+    <view class="cs-card" style="margin-top: 20rpx;">
+      <view class="section-title">装备信息 <text class="optional">（选填，但会展示）</text></view>
+
+      <view class="form-group">
+        <view class="form-label">相机 / 镜头</view>
+        <view class="chip-row">
+          <view wx:for="{{equipmentItems}}" wx:key="*this" class="chip">
+            <text>{{item}}</text>
+            <text class="chip-x" data-index="{{index}}" bindtap="removeEquipment">×</text>
+          </view>
+        </view>
+        <view class="input-row">
+          <input class="form-input flex-1" placeholder="如：Sony A7M4" value="{{newEquipment}}" bindinput="onNewEquipment" bindconfirm="addEquipment" />
+          <button class="mini-btn" size="mini" bindtap="addEquipment">添加</button>
+        </view>
+      </view>
+
+      <view class="form-group">
+        <view class="form-label">无人机</view>
+        <view class="chip-row">
+          <view wx:for="{{droneItems}}" wx:key="*this" class="chip chip-alt">
+            <text>{{item}}</text>
+            <text class="chip-x" data-index="{{index}}" bindtap="removeDrone">×</text>
+          </view>
+        </view>
+        <view class="input-row">
+          <input class="form-input flex-1" placeholder="如：DJI Air 3" value="{{newDrone}}" bindinput="onNewDrone" bindconfirm="addDrone" />
+          <button class="mini-btn" size="mini" bindtap="addDrone">添加</button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 作品上传 -->
+    <view class="cs-card" style="margin-top: 20rpx;">
+      <view class="section-title">作品集 <text class="optional">（选填，建议≥3张）</text></view>
+      <view class="section-desc">上传后会在详情页“作品集”里展示</view>
+
+      <button class="cs-btn cs-btn-primary full-btn"
+              bindtap="choosePortfolioDraft"
+              disabled="{{portfolioUploading}}">
+        {{portfolioUploading ? '上传中（' + portfolioUploadCount + '张）...' : '选择照片上传'}}
+      </button>
+
+      <view class="draft-grid" wx:if="{{portfolioDraft.length > 0}}">
+        <view wx:for="{{portfolioDraft}}" wx:key="image_url" class="draft-cell">
+          <image class="draft-img" mode="aspectFill" src="{{item.image_url}}" bindtap="previewPortfolioDraft" data-idx="{{index}}" />
+          <view class="draft-remove" bindtap="removePortfolioDraft" data-index="{{index}}">×</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 服务套餐 + 报价明细（合并展示 & 统一新增） -->
+    <view class="cs-card" style="margin-top: 20rpx;">
+      <view class="section-title">服务套餐与报价 <text class="optional">（选填，但会展示）</text></view>
+
+      <view class="draft-list" wx:if="{{offeringsDraft.length > 0}}">
+        <view wx:for="{{offeringsDraft}}" wx:key="key" class="draft-line">
+          <view class="draft-left">
+            <text class="draft-title">{{item.name}}</text>
+            <text class="draft-badge">{{item.badge}}</text>
+          </view>
+          <text class="draft-sub">{{item.sub}}</text>
+          <text
+            class="draft-link danger"
+            data-source="{{item.source}}"
+            data-index="{{item.sourceIndex}}"
+            bindtap="removeOfferingDraft"
+          >删除</text>
+        </view>
+      </view>
+
+      <view class="section-desc" style="margin-top: 12rpx;">示例：标准人像（套餐）/ 外景人像（按小时）/ 证件照（按张数）</view>
+
+      <view class="form-group" style="margin-top: 10rpx;">
+        <picker mode="selector" range="{{['套餐','按小时','按张数']}}" value="{{newOffering.kind === 'photo' ? 2 : (newOffering.kind === 'hour' ? 1 : 0)}}" bindchange="onOfferingKindChange">
+          <view class="form-input picker-input">
+            {{newOffering.kind === 'photo' ? '按张数' : (newOffering.kind === 'hour' ? '按小时' : '套餐')}}
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+
+        <input class="form-input" style="margin-top: 10rpx;" placeholder="名称（如：标准人像/外景人像/证件照）" value="{{newOffering.name}}" data-field="name" bindinput="onNewOfferingField" />
+
+        <view class="row-2" style="margin-top: 10rpx;">
+          <input class="form-input flex-1" type="digit" placeholder="价格（元）" value="{{newOffering.price_yuan}}" data-field="price_yuan" bindinput="onNewOfferingField" />
+          <input
+            wx:if="{{newOffering.kind === 'package'}}"
+            class="form-input flex-1"
+            type="number"
+            placeholder="时长（分钟，可选）"
+            value="{{newOffering.duration_minutes}}"
+            data-field="duration_minutes"
+            bindinput="onNewOfferingField"
+          />
+          <input
+            wx:else
+            class="form-input flex-1"
+            placeholder="单位（可选，如：套/张/人）"
+            value="{{newOffering.unit}}"
+            data-field="unit"
+            bindinput="onNewOfferingField"
+          />
+        </view>
+
+        <textarea
+          wx:if="{{newOffering.kind === 'package'}}"
+          class="form-textarea"
+          style="margin-top: 10rpx;"
+          placeholder="套餐描述（选填）"
+          value="{{newOffering.description}}"
+          data-field="description"
+          bindinput="onNewOfferingField"
+          maxlength="200"
+        ></textarea>
+
+        <view wx:if="{{newOffering.kind === 'package'}}" class="switch-row">
+          <text class="switch-label">上架</text>
+          <switch checked="{{newOffering.is_active}}" bindchange="toggleNewOfferingActive" />
+        </view>
+
+        <button class="mini-btn wide" size="mini" bindtap="addOfferingDraft">
+          {{newOffering.kind === 'package' ? '添加套餐' : '添加报价'}}
+        </button>
+      </view>
+    </view>
+
+    <!-- 个人主页（放在最后） -->
+    <view class="cs-card" style="margin-top: 20rpx;">
+      <view class="section-title">个人主页 <text class="optional">（选填）</text></view>
+      <view class="section-desc">抖音/小红书/Instagram 链接（有主页链接可加快审核速度）</view>
+      <view class="form-group">
         <input class="form-input"
-               placeholder="抖音/小红书/Instagram 链接"
+               placeholder="粘贴你的主页链接"
                value="{{portfolioLink}}"
                bindinput="onPortfolioLinkInput"
                maxlength="200" />
-        <view class="form-tip">有主页链接可加快审核速度</view>
       </view>
     </view>
 

@@ -89,26 +89,17 @@
 }
 
 /* ====== 标签/状态 ====== */
-.tag-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10rpx;
-  margin-bottom: 16rpx;
-}
-
-.style-tag {
-  padding: 6rpx 18rpx;
-  border-radius: 999rpx;
+.meta-strip {
+  margin-top: 14rpx;
+  padding: 12rpx 16rpx;
+  border-radius: 16rpx;
   background: var(--cs-color-surface-2);
-  color: var(--cs-color-text-2);
-  font-size: 24rpx;
-}
-
-.info-row {
+  border: 1rpx solid var(--cs-color-border);
   display: flex;
   align-items: center;
-  gap: 8rpx;
-  flex-wrap: wrap;
+  gap: 10rpx;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .status-dot {
@@ -126,14 +117,24 @@
   background: var(--cs-color-border);
 }
 
-.info-text {
+.meta-text {
   font-size: 24rpx;
-  color: var(--cs-color-text-3);
+  color: var(--cs-color-text-2);
+  line-height: 1.1;
 }
 
-.info-sep {
+.meta-sep {
   color: var(--cs-color-border);
   font-size: 24rpx;
+}
+
+.meta-active {
+  color: var(--cs-color-success);
+  font-weight: 600;
+}
+
+.meta-inactive {
+  color: var(--cs-color-muted);
 }
 
 /* ====== Section 通用 ====== */
@@ -275,6 +276,75 @@
   margin-top: 6rpx;
   font-size: 22rpx;
   color: var(--cs-color-muted);
+}
+
+/* ====== 服务套餐与报价（统一列表展示） ====== */
+.offer-item {
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid var(--cs-color-border);
+}
+
+.offer-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.offer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.offer-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.offer-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  min-width: 0;
+}
+
+.offer-name {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--cs-color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 440rpx;
+}
+
+.offer-badge {
+  font-size: 22rpx;
+  color: var(--cs-color-muted);
+  background: var(--cs-color-surface-2);
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  flex-shrink: 0;
+}
+
+.offer-meta {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--cs-color-muted);
+}
+
+.offer-price {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--cs-color-text);
+  flex-shrink: 0;
+}
+
+.offer-desc {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--cs-color-text-3);
+  line-height: 1.5;
 }
 
 /* ====== 装备信息 ====== */

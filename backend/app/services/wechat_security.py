@@ -10,13 +10,24 @@ from app.core.config import settings
 _token_cache: dict[str, object] = {"token": None, "expires_at": datetime.min.replace(tzinfo=timezone.utc)}
 
 
+def _is_enabled() -> bool:
+    return bool(settings.wechat_appid and settings.wechat_secret)
+
+
 def _require_wechat_config() -> None:
+    if _is_enabled():
+        return
+    # 开发/测试环境允许跳过（避免本地必须配置微信密钥）
+    if (settings.env or "").lower() not in ("prod", "production"):
+        return
     if not settings.wechat_appid or not settings.wechat_secret:
         raise HTTPException(status_code=500, detail="wechat security config missing")
 
 
 def _get_access_token() -> str:
     _require_wechat_config()
+    if not _is_enabled():
+        raise HTTPException(status_code=500, detail="wechat security config missing")
     now = datetime.now(timezone.utc)
     token = _token_cache.get("token")
     expires_at = _token_cache.get("expires_at")
@@ -42,6 +53,9 @@ def _get_access_token() -> str:
 def ensure_text_safe(text: str) -> None:
     if not text or not text.strip():
         return
+    _require_wechat_config()
+    if not _is_enabled():
+        return
     token = _get_access_token()
     url = f"https://api.weixin.qq.com/wxa/msg_sec_check?access_token={token}"
     payload = {"content": text.strip(), "version": 2, "scene": 2}
@@ -57,6 +71,9 @@ def ensure_text_safe(text: str) -> None:
 
 
 def ensure_image_safe_bytes(image_bytes: bytes) -> None:
+    _require_wechat_config()
+    if not _is_enabled():
+        return
     token = _get_access_token()
     url = f"https://api.weixin.qq.com/wxa/img_sec_check?access_token={token}"
     files = {"media": ("image.jpg", image_bytes, "image/jpeg")}

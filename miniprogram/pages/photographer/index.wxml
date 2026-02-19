@@ -18,23 +18,12 @@
             {{fav ? '已收藏' : '收藏'}}
           </button>
         </view>
+
+        <view class="meta-strip" wx:if="{{serviceRadiusKm}}">
+          <text class="meta-text">服务范围 {{serviceRadiusKm}} km</text>
+        </view>
         <view class="p-bio" wx:if="{{p.bio}}">{{p.bio}}</view>
       </view>
-    </view>
-  </view>
-
-  <!-- 标签 + 状态 -->
-  <view class="cs-card">
-    <view class="tag-row" wx:if="{{p.tags}}">
-      <view wx:for="{{tagList}}" wx:key="*this" class="style-tag">{{item}}</view>
-    </view>
-    <view class="info-row">
-      <view class="status-dot {{p.is_accepting_orders ? 'dot-active' : 'dot-inactive'}}"></view>
-      <text class="info-text">{{p.is_accepting_orders ? '接单中' : '暂停接单'}}</text>
-      <text class="info-sep">·</text>
-      <text class="info-text">服务范围 {{serviceRadiusKm}} km</text>
-      <text class="info-sep" wx:if="{{ratingText !== '-'}}">·</text>
-      <text class="info-text" wx:if="{{ratingText !== '-'}}">{{ratingText}}</text>
     </view>
   </view>
 
@@ -57,37 +46,24 @@
     </view>
   </view>
 
-  <!-- 服务套餐 -->
-  <view class="cs-card" wx:if="{{packages.length > 0}}">
+  <!-- 服务套餐 + 报价明细（合并展示为一个列表） -->
+  <view class="cs-card" wx:if="{{offerings.length > 0}}">
     <view class="section-header">
-      <text class="section-title">服务套餐</text>
+      <text class="section-title">服务套餐与报价</text>
     </view>
-    <view wx:for="{{packages}}" wx:key="id" class="pkg-item">
-      <view class="pkg-row">
-        <text class="pkg-name">{{item.name}}</text>
-        <text class="pkg-price">¥{{item.price_yuan}}</text>
-      </view>
-      <view class="pkg-detail" wx:if="{{item.duration_minutes}}">
-        <text class="pkg-duration">{{item.duration_minutes}} 分钟</text>
-      </view>
-      <view class="pkg-desc" wx:if="{{item.description}}">{{item.description}}</view>
-    </view>
-  </view>
 
-  <!-- 服务报价单（按小时/按件） -->
-  <view class="cs-card" wx:if="{{rateCard.length > 0}}">
-    <view class="section-header">
-      <text class="section-title">报价明细</text>
-    </view>
-    <view wx:for="{{rateCard}}" wx:key="name" class="rate-item">
-      <view class="rate-row">
-        <view class="rate-left">
-          <text class="rate-name">{{item.name}}</text>
-          <text class="rate-mode">{{item.mode_label}}</text>
+    <view wx:for="{{offerings}}" wx:key="key" class="offer-item">
+      <view class="offer-row">
+        <view class="offer-left">
+          <view class="offer-title-row">
+            <text class="offer-name">{{item.name}}</text>
+            <text class="offer-badge">{{item.badge}}</text>
+          </view>
+          <view class="offer-meta" wx:if="{{item.meta}}">{{item.meta}}</view>
         </view>
-        <text class="rate-price">¥{{item.price_yuan}}</text>
+        <text class="offer-price">¥{{item.price_yuan}}</text>
       </view>
-      <view class="rate-unit" wx:if="{{item.unit}}">单位：{{item.unit}}</view>
+      <view class="offer-desc" wx:if="{{item.description}}">{{item.description}}</view>
     </view>
   </view>
 
@@ -106,27 +82,6 @@
       <view class="equip-label">无人机</view>
       <view class="pill-row">
         <view wx:for="{{droneModels}}" wx:key="*this" class="pill">{{item}}</view>
-      </view>
-    </view>
-  </view>
-
-  <!-- 客户评价 -->
-  <view class="cs-card">
-    <view class="section-header">
-      <text class="section-title">客户评价</text>
-      <text class="section-count" wx:if="{{reviews.length > 0}}">{{reviews.length}} 条</text>
-    </view>
-    <view wx:if="{{reviewsLoading}}" class="cs-muted" style="padding-top: 10rpx;">加载中...</view>
-    <view wx:if="{{!reviewsLoading && reviews.length===0}}" class="empty-hint">暂无评价</view>
-    <view wx:for="{{reviews}}" wx:key="id" class="review-card">
-      <image class="review-avatar" mode="aspectFill" src="{{item.avatar_url || ''}}" />
-      <view class="review-main">
-        <view class="review-head">
-          <text class="review-name">{{item.display_name}}</text>
-          <text class="review-date">{{item.created_date}}</text>
-        </view>
-        <view class="review-stars">{{item.star_text}}</view>
-        <view class="review-content" wx:if="{{item.content}}">{{item.content}}</view>
       </view>
     </view>
   </view>

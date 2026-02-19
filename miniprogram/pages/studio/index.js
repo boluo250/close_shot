@@ -39,13 +39,8 @@ Page({
     scheduleLoading: false,
     lastUrl: "",
 
-    // 简介模板
-    bioTemplates: [
-      "善于捕捉自然光影的记录者",
-      "电影感氛围营造师",
-      "温柔系人像摄影",
-      "用镜头讲故事"
-    ],
+    // 简介模板（后端随机返回 3 条）
+    bioTemplates: [],
 
     profile: {
       bio: "",
@@ -294,7 +289,33 @@ Page({
 
   async refreshAll() {
     if (!this.data.token) return;
-    await Promise.all([this.loadProfile(), this.loadPortfolio(), this.loadPackages(), this.loadSchedule()]);
+    await Promise.all([
+      this.loadBioTemplates(),
+      this.loadProfile(),
+      this.loadPortfolio(),
+      this.loadPackages(),
+      this.loadSchedule()
+    ]);
+  },
+
+  async loadBioTemplates() {
+    try {
+      const items = await request("/me/bio-templates", { auth: true });
+      if (Array.isArray(items) && items.length > 0) {
+        this.setData({ bioTemplates: items.slice(0, 3) });
+        return;
+      }
+    } catch (e) {
+      // ignore and fallback
+    }
+    // fallback（后端未部署/无数据时）
+    this.setData({
+      bioTemplates: [
+        "善于捕捉自然光影的记录者，偏爱真实与松弛的氛围。",
+        "喜欢用镜头讲故事，擅长把情绪拍进画面里。",
+        "温柔系摄影师，擅长引导，让你自然好看。"
+      ]
+    });
   },
 
   async loadProfile() {

@@ -19,8 +19,8 @@ class PhotographerApplyIn(BaseModel):
     id_card_front_url: str | None = Field(default=None, max_length=512, description="身份证正面照片（预留）")
     id_card_back_url: str | None = Field(default=None, max_length=512, description="身份证反面照片（预留）")
 
-    # Step 2: 摄影师身份（必填）
-    shooting_types: list[str] = Field(min_length=1, max_length=3, description="拍摄类型，至少选一种，最多三种")
+    # Step 2: 资料完善（历史字段，已改为可选；保留以兼容旧版本客户端）
+    shooting_types: list[str] = Field(default_factory=list, max_length=3, description="拍摄类型（可选，最多三种）")
     experience_years: str | None = Field(default=None, max_length=16, description="从业年限（可选）")
     portfolio_link: str | None = Field(default=None, max_length=512, description="个人摄影主页链接（可选）")
 

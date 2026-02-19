@@ -94,7 +94,7 @@ class Photographer(TimestampMixin, Base):
     id_card_front_url: Mapped[str | None] = mapped_column(String(512))
     id_card_back_url: Mapped[str | None] = mapped_column(String(512))
     # Step 2: 摄影师身份
-    shooting_types: Mapped[str] = mapped_column(Text, nullable=False, default="")  # 逗号分隔：人像,情侣,亲子,商拍,活动
+    shooting_types: Mapped[str] = mapped_column(Text, nullable=False, default="")  # 逗号分隔：见 /me.py VALID_SHOOTING_TYPES
     experience_years: Mapped[str | None] = mapped_column(String(16))  # "1年内" / "1-3年" / "3年以上"
     portfolio_link: Mapped[str | None] = mapped_column(String(512))  # 个人主页链接（可选）
     # Step 3: 联系方式
@@ -119,6 +119,13 @@ class Photographer(TimestampMixin, Base):
     portfolio_items: Mapped[list["PortfolioItem"]] = relationship(back_populates="photographer")
     packages: Mapped[list["Package"]] = relationship(back_populates="photographer")
     schedule_blocks: Mapped[list["ScheduleBlock"]] = relationship(back_populates="photographer")
+
+
+class BioTemplate(TimestampMixin, Base):
+    __tablename__ = "bio_templates"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    text: Mapped[str] = mapped_column(String(256), nullable=False, unique=True)
 
 
 class PortfolioItem(TimestampMixin, Base):
