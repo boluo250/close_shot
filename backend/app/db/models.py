@@ -54,6 +54,7 @@ class User(TimestampMixin, Base):
     role: Mapped[str] = mapped_column(String(32), nullable=False, default=UserRole.customer.value)
 
     wechat_openid: Mapped[str | None] = mapped_column(String(64), unique=True)
+    wechat_unionid: Mapped[str | None] = mapped_column(String(64), unique=True)
     username: Mapped[str | None] = mapped_column(String(64), unique=True)
     password_hash: Mapped[str | None] = mapped_column(String(255))
 
@@ -191,4 +192,19 @@ class Review(TimestampMixin, Base):
 
     rating: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[str | None] = mapped_column(Text)
+
+
+class AnalyticsEvent(TimestampMixin, Base):
+    __tablename__ = "analytics_events"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    channel: Mapped[str | None] = mapped_column(String(32))
+    user_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"))
+    photographer_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("photographers.id", ondelete="SET NULL"), index=True
+    )
+    client_lat: Mapped[float | None] = mapped_column(Float)
+    client_lng: Mapped[float | None] = mapped_column(Float)
+    extra_json: Mapped[str] = mapped_column(Text, nullable=False, default="")
 

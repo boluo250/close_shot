@@ -50,9 +50,6 @@ Page({
     },
     avatarObjectKey: "",
     coverObjectKey: "",
-    profileTagOptions: ["日系", "复古", "法式", "胶片", "纪实", "清新", "高级感", "森系", "人像", "氛围感"],
-    profileTagSelected: [],
-
     // 设备清单 & 无人机
     equipmentItems: [],
     newEquipment: "",
@@ -120,7 +117,6 @@ Page({
     try {
       const draft = {
         bio: this.data.profile.bio,
-        tags: this.data.profileTagSelected,
         newPackage: this.data.newPackage
       };
       wx.setStorageSync(DRAFT_KEY, JSON.stringify(draft));
@@ -136,9 +132,6 @@ Page({
       const draft = JSON.parse(raw);
       if (draft.bio && !this.data.profile.bio) {
         this.setData({ "profile.bio": draft.bio });
-      }
-      if (Array.isArray(draft.tags) && draft.tags.length > 0) {
-        this.setData({ profileTagSelected: draft.tags });
       }
       if (draft.newPackage && draft.newPackage.name) {
         this.setData({ newPackage: draft.newPackage, showNewPackage: true });
@@ -225,14 +218,6 @@ Page({
   useBioTemplate(e) {
     const tpl = e.currentTarget.dataset.tpl;
     this.setData({ "profile.bio": tpl });
-  },
-
-  toggleProfileTag(e) {
-    const tag = e.currentTarget.dataset.tag;
-    const selected = new Set(this.data.profileTagSelected);
-    if (selected.has(tag)) selected.delete(tag);
-    else selected.add(tag);
-    this.setData({ profileTagSelected: Array.from(selected) });
   },
 
   // ============ 设备清单 ============
@@ -323,10 +308,6 @@ Page({
     try {
       const data = await this.studioRequest("/studio/me");
       const profile = data.photographer || {};
-      const selected = (profile.tags || "")
-        .split(",")
-        .map((t) => t.trim())
-        .filter((t) => t);
       // 解析设备清单和无人机（后端返回为 list）
       const equipmentItems = Array.isArray(profile.equipment_list)
         ? profile.equipment_list
@@ -341,7 +322,6 @@ Page({
           avatar_url: profile.avatar_url || "",
           cover_url: profile.cover_url || ""
         },
-        profileTagSelected: selected.length > 0 ? selected : this.data.profileTagSelected,
         equipmentItems,
         droneItems
       });
@@ -354,10 +334,9 @@ Page({
     if (!this.data.token) return;
     this.setData({ profileSaving: true });
     try {
-      const tags = this.data.profileTagSelected.join(",");
       const payload = {
         bio: this.data.profile.bio,
-        tags,
+        tags: "",
         avatar_url: this.data.profile.avatar_url,
         avatar_object_key: this.data.avatarObjectKey || null,
         cover_url: this.data.profile.cover_url,
@@ -366,7 +345,7 @@ Page({
         drone_models: this.data.droneItems.join(",")
       };
       await this.studioRequest("/studio/me", { method: "PUT", data: payload });
-      this.setData({ "profile.tags": tags, avatarObjectKey: "", coverObjectKey: "" });
+      this.setData({ "profile.tags": "", avatarObjectKey: "", coverObjectKey: "" });
       this.clearDraft();
       wx.showToast({ title: "资料已保存", icon: "none" });
     } catch (e) {
@@ -477,8 +456,6 @@ Page({
     try {
       const app = getApp();
       const base = app.globalData.apiBaseUrl;
-      // 自动复用用户的风格标签
-      const autoTags = this.data.profileTagSelected.join(",");
       await Promise.all(
         files.map(async (file) => {
           const up = await uploadImageToS3Like({
@@ -493,7 +470,7 @@ Page({
             method: "POST",
             data: {
               title: "",
-              tags: autoTags,
+              tags: "",
               category: "",
               is_pinned: false,
               sort_order: 0,

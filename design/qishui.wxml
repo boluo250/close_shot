@@ -1,0 +1,62 @@
+<view class="page">
+  <view class="safe-top"></view>
+
+  <view class="header-card">
+    <view class="profile-row">
+      <image class="avatar" src="/images/avatar-default.png" mode="aspectFill"></image>
+
+      <view class="profile-main">
+        <view class="nickname">欢迎回来</view>
+        <view class="tag-row">
+          <text class="tag tag-green">已登录</text>
+          <text class="tag tag-dark">普通用户</text>
+          <text class="tag tag-dark">未申请认证</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="stats-card">
+    <view class="stats-item">
+      <view class="stats-title">我的收藏</view>
+      <view class="stats-value">128</view>
+      <view class="stats-action">查看全部</view>
+    </view>
+
+    <view class="stats-divider"></view>
+
+    <view class="stats-item">
+      <view class="stats-title">摄影收益</view>
+      <view class="stats-value amount">0.00</view>
+      <view class="stats-action stats-action-green">去提现</view>
+    </view>
+  </view>
+
+  <view class="list-card">
+    <view class="list-item" hover-class="list-item-hover" hover-stay-time="120">
+      <view class="list-left">
+        <view class="list-title">我的师工作台</view>
+        <view class="list-desc">管理你的摄影作品与预约</view>
+      </view>
+      <text class="list-arrow">›</text>
+    </view>
+
+    <view class="list-item" hover-class="list-item-hover" hover-stay-time="120">
+      <view class="list-left">
+        <view class="list-title">摄影师工作台</view>
+        <view class="list-desc">提交 / 查看认证进度</view>
+      </view>
+      <text class="list-arrow">›</text>
+    </view>
+
+    <view class="list-item" hover-class="list-item-hover" hover-stay-time="120">
+      <view class="list-left">
+        <view class="list-title">账号与安全</view>
+        <view class="list-desc">手机号、登录设备与隐私设置</view>
+      </view>
+      <text class="list-arrow">›</text>
+    </view>
+  </view>
+
+  <view class="footer-logout">退出登录</view>
+</view>

@@ -98,7 +98,7 @@
         </view>
         <textarea
           class="form-textarea"
-          placeholder="用一句话介绍自己的拍摄风格..."
+          placeholder="用一句话介绍你的服务特色..."
           value="{{bio}}"
           bindinput="onBioInput"
           maxlength="200"
@@ -307,6 +307,15 @@
             <text class="picker-arrow">›</text>
           </view>
         </picker>
+      </view>
+
+      <view class="form-group">
+        <view class="form-label">服务位置</view>
+        <view class="form-tip">用于地图展示附近摄影师，可随时更新</view>
+        <view class="location-row">
+          <text class="location-text">{{locationText}}</text>
+          <button class="mini-btn" size="mini" bindtap="refreshLocation">刷新位置</button>
+        </view>
       </view>
     </view>
 

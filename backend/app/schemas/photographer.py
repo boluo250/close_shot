@@ -49,6 +49,8 @@ class PhotographerOut(TimestampOut):
     rate_card: list[RateCardItemOut] = Field(default_factory=list, description="服务报价单")
     is_accepting_orders: bool
     city: str | None = None
+    phone: str | None = None
+    wechat_id: str | None = None
     service_center_lat: float | None = None
     service_center_lng: float | None = None
     service_radius_m: int
@@ -104,7 +106,7 @@ class PhotographerDetailOut(PhotographerOut):
 class NearbyQuery(BaseModel):
     lat: float
     lng: float
-    max_distance_m: int = Field(default=50000, ge=100, le=200000)
+    max_distance_m: int = Field(default=5000, ge=100, le=200000)
     limit: int = Field(default=20, ge=1, le=100)
     offset: int = Field(default=0, ge=0, le=10000)
     tag: str | None = None

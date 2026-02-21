@@ -313,6 +313,20 @@
   color: var(--cs-color-text, #111827);
 }
 
+.location-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.location-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 24rpx;
+  color: var(--cs-color-text-2, #525866);
+}
+
 .draft-grid {
   display: flex;
   flex-wrap: wrap;

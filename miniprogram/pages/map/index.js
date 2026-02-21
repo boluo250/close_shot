@@ -1,9 +1,11 @@
 const { request } = require("../../utils/request");
+const { trackBatch } = require("../../utils/analytics");
 
 Page({
   data: {
     lat: 31.2304,
     lng: 121.4737,
+    scale: 14,
     cityText: "定位中",
     loading: false,
     errorText: "",
@@ -11,10 +13,14 @@ Page({
     markers: [],
     circles: [],
     selected: null,
-    activeTag: ""
+    activeTag: "",
+    searchRadiusM: 5000,
+    markerOverflow: false
   },
 
   async onLoad() {
+    this.mapCtx = wx.createMapContext("map", this);
+    this._exposureSet = new Set();
     await this.refresh();
   },
 
@@ -30,47 +36,74 @@ Page({
     wx.stopPullDownRefresh();
   },
 
-  async refresh() {
-    this.setData({ loading: true, errorText: "" });
-    try {
-      const loc = await new Promise((resolve) => {
-        let done = false;
-        const timer = setTimeout(() => {
+  onUnload() {
+    if (this._regionDebounceTimer) {
+      clearTimeout(this._regionDebounceTimer);
+      this._regionDebounceTimer = null;
+    }
+  },
+
+  async getCurrentLocation() {
+    return await new Promise((resolve) => {
+      let done = false;
+      const timer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        resolve(null);
+      }, 2000);
+      wx.getLocation({
+        type: "gcj02",
+        success: (res) => {
           if (done) return;
           done = true;
+          clearTimeout(timer);
+          resolve(res);
+        },
+        fail: () => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
           resolve(null);
-        }, 2000);
-        wx.getLocation({
-          type: "gcj02",
-          success: (res) => {
-            if (done) return;
-            done = true;
-            clearTimeout(timer);
-            resolve(res);
-          },
-          fail: () => {
-            if (done) return;
-            done = true;
-            clearTimeout(timer);
-            resolve(null);
-          }
-        });
+        }
       });
-      const lat = loc?.latitude || this.data.lat;
-      const lng = loc?.longitude || this.data.lng;
-      this.setData({ lat, lng });
+    });
+  },
+
+  haversineDistanceM(lat1, lng1, lat2, lng2) {
+    const toRad = (v) => (v * Math.PI) / 180;
+    const earthRadius = 6371000;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 2 * earthRadius * Math.asin(Math.sqrt(a));
+  },
+
+  async refresh(options = {}) {
+    this.setData({ loading: true, errorText: "" });
+    try {
+      let lat = typeof options.lat === "number" ? options.lat : null;
+      let lng = typeof options.lng === "number" ? options.lng : null;
+      let searchRadiusM =
+        typeof options.maxDistanceM === "number" ? options.maxDistanceM : this.data.searchRadiusM || 5000;
+      if (lat === null || lng === null) {
+        const loc = await this.getCurrentLocation();
+        lat = loc?.latitude || this.data.lat;
+        lng = loc?.longitude || this.data.lng;
+      }
+      searchRadiusM = Math.max(3000, Math.min(50000, Math.round(searchRadiusM)));
+      this.setData({ lat, lng, searchRadiusM });
 
       const list = await request("/photographers/nearby", {
         params: {
           lat,
           lng,
-          max_distance_m: 50000,
-          limit: 20,
+          max_distance_m: searchRadiusM,
+          limit: 100,
           tag: this.data.activeTag || undefined
         }
       });
-      console.log("[nearby] params", { lat, lng, tag: this.data.activeTag || "" });
-      console.log("[nearby] response length", Array.isArray(list) ? list.length : "not-array", list);
 
       const app = getApp();
       const base = app.globalData.apiBaseUrl;
@@ -107,40 +140,92 @@ Page({
         };
       });
 
-      const markers = fixed.map((p) => ({
-        id: p.id,
-        latitude: p.service_center_lat,
-        longitude: p.service_center_lng,
-        title: p.display_name || `#${p.id}`,
-        width: 18,
-        height: 18,
-        label: {
-          content: (p.display_name || "摄影师").slice(0, 1),
-          color: "#111827",
-          bgColor: "#ffffff",
-          borderRadius: 999,
-          padding: 6,
-          textAlign: "center",
-          anchorX: 0,
-          anchorY: -42
+      const markerOverflow = fixed.length > 80;
+      const markerSource = markerOverflow ? fixed.slice(0, 80) : fixed;
+      const markers = markerSource.map((p) => {
+        const marker = {
+          id: p.id,
+          latitude: p.service_center_lat,
+          longitude: p.service_center_lng,
+          title: p.display_name || `#${p.id}`,
+          width: markerOverflow ? 14 : 18,
+          height: markerOverflow ? 14 : 18
+        };
+        if (!markerOverflow) {
+          marker.label = {
+            content: (p.display_name || "摄影师").slice(0, 1),
+            color: "#111827",
+            bgColor: "#ffffff",
+            borderRadius: 999,
+            padding: 6,
+            textAlign: "center",
+            anchorX: 0,
+            anchorY: -42
+          };
         }
-      }));
+        return marker;
+      });
 
       // 城市文案：MVP 先给“已定位”语义（无地理编码就不猜城市）
+      const selectedId = this.data.selected?.id;
+      const selected = fixed.find((item) => item.id === selectedId) || null;
+      const circles = selected
+        ? [
+            {
+              latitude: selected.service_center_lat,
+              longitude: selected.service_center_lng,
+              radius: selected.service_radius_m,
+              color: "#11182715",
+              fillColor: "#11182708",
+              strokeWidth: 2
+            }
+          ]
+        : [];
       this.setData({
         cityText: "已定位",
         list: fixed,
         markers,
-        circles: [],
-        selected: null
+        circles,
+        selected,
+        markerOverflow
       });
+      this.reportExposureEvents(fixed);
     } catch (e) {
-      console.error("[nearby] failed", e);
       const msg = e?.message || "加载失败";
       this.setData({ errorText: msg });
       wx.showToast({ title: msg.slice(0, 15), icon: "none" });
     } finally {
       this.setData({ loading: false });
+    }
+  },
+
+  onRegionChange(e) {
+    if (e.type !== "end") return;
+    if (this._regionDebounceTimer) clearTimeout(this._regionDebounceTimer);
+    this._regionDebounceTimer = setTimeout(() => {
+      this.refreshByCurrentRegion();
+    }, 300);
+  },
+
+  async refreshByCurrentRegion() {
+    if (!this.mapCtx || this.data.loading) return;
+    try {
+      const region = await new Promise((resolve, reject) => {
+        this.mapCtx.getRegion({
+          success: resolve,
+          fail: reject
+        });
+      });
+      const ne = region?.northeast;
+      const sw = region?.southwest;
+      if (!ne || !sw) return;
+      const centerLat = (ne.latitude + sw.latitude) / 2;
+      const centerLng = (ne.longitude + sw.longitude) / 2;
+      const distanceToCorner = this.haversineDistanceM(centerLat, centerLng, ne.latitude, ne.longitude);
+      const maxDistanceM = Math.max(3000, Math.min(50000, Math.round(distanceToCorner)));
+      await this.refresh({ lat: centerLat, lng: centerLng, maxDistanceM });
+    } catch (_e) {
+      // ignore map region refresh failure
     }
   },
 
@@ -159,15 +244,121 @@ Page({
       }
     ];
     this.setData({ selected: p, circles });
-    wx.showToast({
-      title: `可在 ${(p.service_radius_m / 1000).toFixed(0)} km 范围内接拍`,
-      icon: "none"
-    });
+    this.trackEvents([
+      {
+        event_type: "photographer_click",
+        photographer_id: p.id,
+        channel: "map_marker",
+        lat: this.data.lat,
+        lng: this.data.lng,
+        extra: { source: "marker_tap" }
+      }
+    ]);
   },
 
   goDetail(e) {
     const id = e.currentTarget.dataset.id;
+    if (id) {
+      this.trackEvents([
+        {
+          event_type: "photographer_click",
+          photographer_id: Number(id),
+          channel: "map_list",
+          lat: this.data.lat,
+          lng: this.data.lng,
+          extra: { source: "list_card" }
+        }
+      ]);
+    }
     wx.navigateTo({ url: `/pages/photographer/index?id=${id}` });
+  },
+
+  goDetailSelected() {
+    const id = this.data.selected?.id;
+    if (!id) return;
+    wx.navigateTo({ url: `/pages/photographer/index?id=${id}` });
+  },
+
+  contactSelected() {
+    const p = this.data.selected;
+    if (!p) return;
+    const options = [];
+    if (p.wechat_id) options.push("复制微信号");
+    if (p.phone) options.push("拨打电话");
+    options.push("查看主页");
+    wx.showActionSheet({
+      itemList: options,
+      success: (res) => {
+        const action = options[res.tapIndex];
+        if (action === "复制微信号") {
+          wx.setClipboardData({
+            data: p.wechat_id,
+            success: () => wx.showToast({ title: "微信号已复制", icon: "none" })
+          });
+          this.trackEvents([
+            {
+              event_type: "photographer_contact",
+              photographer_id: p.id,
+              channel: "map_sheet",
+              lat: this.data.lat,
+              lng: this.data.lng,
+              extra: { action: "copy_wechat" }
+            }
+          ]);
+          return;
+        }
+        if (action === "拨打电话") {
+          wx.makePhoneCall({ phoneNumber: p.phone });
+          this.trackEvents([
+            {
+              event_type: "photographer_contact",
+              photographer_id: p.id,
+              channel: "map_sheet",
+              lat: this.data.lat,
+              lng: this.data.lng,
+              extra: { action: "phone_call" }
+            }
+          ]);
+          return;
+        }
+        this.goDetailSelected();
+      }
+    });
+  },
+
+  bookSelected() {
+    const id = this.data.selected?.id;
+    if (!id) return;
+    wx.navigateTo({ url: `/pages/photographer/index?id=${id}` });
+  },
+
+  closeSelected() {
+    this.setData({ selected: null, circles: [] });
+  },
+
+  reportExposureEvents(list) {
+    if (!Array.isArray(list) || !list.length) return;
+    const events = [];
+    const exposureSet = this._exposureSet || new Set();
+    this._exposureSet = exposureSet;
+    list.slice(0, 30).forEach((p) => {
+      if (!p?.id) return;
+      const key = String(p.id);
+      if (exposureSet.has(key)) return;
+      exposureSet.add(key);
+      events.push({
+        event_type: "photographer_exposure",
+        photographer_id: p.id,
+        channel: "map_list",
+        lat: this.data.lat,
+        lng: this.data.lng
+      });
+    });
+    this.trackEvents(events);
+  },
+
+  trackEvents(events) {
+    trackBatch(events);
   },
 
   onTapCity() {

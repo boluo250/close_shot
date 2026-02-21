@@ -14,6 +14,7 @@ Page({
     hasEquipment: false,
     serviceRadiusKm: 0,
     fav: false,
+    isOwnerPhotographer: false,
     theme: "classic",
     themeClass: "cs-theme-classic"
   },
@@ -116,8 +117,28 @@ Page({
         hasEquipment,
         serviceRadiusKm,
       });
+      await this.checkOwnerEditable(data);
     } catch (e) {
       wx.showToast({ title: "加载失败", icon: "none" });
+    }
+  },
+
+  async checkOwnerEditable(detailData) {
+    try {
+      const identity = await request("/me/identity", { auth: true });
+      if (!identity || !["photographer", "admin"].includes(identity.role)) {
+        this.setData({ isOwnerPhotographer: false });
+        return;
+      }
+      if (identity.role === "photographer" && identity.photographer_status !== "approved") {
+        this.setData({ isOwnerPhotographer: false });
+        return;
+      }
+      const meStudio = await request("/studio/me", { auth: true });
+      const myPhotographerId = meStudio?.photographer?.id;
+      this.setData({ isOwnerPhotographer: Number(myPhotographerId) === Number(detailData?.id) });
+    } catch (_e) {
+      this.setData({ isOwnerPhotographer: false });
     }
   },
 
@@ -149,5 +170,9 @@ Page({
       content: "可通过拨打电话或添加微信联系摄影师，功能即将上线。",
       showCancel: false
     });
+  },
+
+  goEditProfile() {
+    wx.navigateTo({ url: "/pages/studio/index" });
   }
 });

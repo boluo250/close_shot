@@ -2,10 +2,32 @@
   <!-- 顶部标题 -->
   <view class="page-header">
     <view class="page-title">摄影师工作台</view>
-    <view class="page-subtitle">轻松管理你的资料、作品和报价</view>
+    <view class="page-subtitle">清晰查看已上传内容，并快速修改</view>
     <view wx:if="{{checkingIdentity}}" class="cs-muted" style="padding-top: 12rpx;">身份校验中...</view>
     <view class="theme-bar">
       <theme-switch value="{{theme}}" bind:change="onThemeChange" />
+    </view>
+  </view>
+
+  <view class="cs-card" wx:if="{{authorized}}">
+    <view class="card-title">内容概览</view>
+    <view class="overview-grid">
+      <view class="overview-item">
+        <view class="overview-label">头像</view>
+        <view class="overview-value">{{profile.avatar_url ? '已上传' : '未上传'}}</view>
+      </view>
+      <view class="overview-item">
+        <view class="overview-label">简介</view>
+        <view class="overview-value">{{profile.bio ? '已填写' : '未填写'}}</view>
+      </view>
+      <view class="overview-item">
+        <view class="overview-label">作品</view>
+        <view class="overview-value">{{items.length}} 张</view>
+      </view>
+      <view class="overview-item">
+        <view class="overview-label">套餐</view>
+        <view class="overview-value">{{packages.length}} 个</view>
+      </view>
     </view>
   </view>
 
@@ -14,7 +36,7 @@
     <view class="card-header">
       <view class="card-title-row">
         <view class="step-badge">1</view>
-        <text class="card-title">基础资料</text>
+        <text class="card-title">基础资料（可编辑）</text>
       </view>
       <button class="save-btn" size="mini" bindtap="saveProfile" loading="{{profileSaving}}">保存</button>
     </view>
@@ -32,6 +54,7 @@
 
     <!-- 简介：模板 + 输入 -->
     <view class="field-label">个人简介</view>
+    <view class="section-tip">当前状态：{{profile.bio ? '已填写，可继续修改' : '未填写，建议补充'}}</view>
     <view class="bio-templates">
       <view
         wx:for="{{bioTemplates}}"
@@ -43,23 +66,11 @@
     </view>
     <textarea
       class="bio-input"
-      placeholder="用一句话介绍自己的拍摄风格..."
+      placeholder="用一句话介绍你的服务特点..."
       value="{{profile.bio}}"
       bindinput="onBio"
       maxlength="200"
     ></textarea>
-
-    <!-- 风格标签 -->
-    <view class="field-label">风格标签</view>
-    <view class="tag-selector">
-      <view
-        wx:for="{{profileTagOptions}}"
-        wx:key="item"
-        data-tag="{{item}}"
-        bindtap="toggleProfileTag"
-        class="sel-tag {{profileTagSelected.includes(item) ? 'active' : ''}}"
-      >{{item}}</view>
-    </view>
 
     <!-- 设备清单 -->
     <view class="field-label" style="margin-top: 20rpx;">设备清单</view>
@@ -94,12 +105,12 @@
     <view class="card-header">
       <view class="card-title-row">
         <view class="step-badge">2</view>
-        <text class="card-title">上传作品</text>
+        <text class="card-title">作品管理（可编辑）</text>
       </view>
       <button class="refresh-btn" size="mini" bindtap="loadPortfolio">刷新</button>
     </view>
 
-    <view class="upload-hint">直接选择照片，标签自动复用你的风格标签</view>
+    <view class="upload-hint">已上传 {{items.length}} 张，支持继续上传、置顶和删除</view>
 
     <button
       class="upload-btn"
@@ -136,10 +147,11 @@
     <view class="card-header">
       <view class="card-title-row">
         <view class="step-badge">3</view>
-        <text class="card-title">服务报价</text>
+        <text class="card-title">服务报价（可编辑）</text>
       </view>
       <button class="refresh-btn" size="mini" bindtap="loadPackages">刷新</button>
     </view>
+    <view class="upload-hint">已配置 {{packages.length}} 个套餐，可修改、上架或删除</view>
 
     <!-- 快速创建预设套餐 -->
     <view wx:if="{{packages.length === 0 && !showNewPackage}}" class="preset-section">

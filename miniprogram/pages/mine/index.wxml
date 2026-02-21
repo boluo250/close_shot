@@ -1,48 +1,71 @@
-<view class="cs-page">
-  <view class="cs-card">
-    <view class="cs-row">
-      <view><text style="font-weight: 600">我的</text></view>
-      <button class="cs-btn" size="mini" bindtap="refresh">刷新</button>
-    </view>
-    <view class="cs-muted" style="padding-top: 10rpx;">
-      {{token ? '已登录（微信登录）' : '未登录'}}
-    </view>
+<view class="cs-page mine-page">
+  <view class="safe-top"></view>
 
-    <view style="height: 12rpx;"></view>
-
-    <view wx:if="{{!token}}">
-      <button class="cs-btn cs-btn-primary" style="margin-top: 12rpx;" bindtap="login" disabled="{{loading}}">
-        {{loading ? '登录中...' : '一键登录'}}
-      </button>
-      <view class="cs-muted" style="padding-top: 10rpx;">
-        会调用后端 `/auth/wechat` 换取 token，用于“收藏/我的”相关接口。
-      </view>
-    </view>
-    <view wx:else>
-      <button class="cs-btn" style="margin-top: 12rpx;" bindtap="logout">退出登录</button>
-    </view>
-  </view>
-
-  <view style="height: 16rpx;"></view>
-
-  <view class="cs-card">
-    <view><text style="font-weight: 600">快捷入口</text></view>
-    <view style="height: 12rpx;"></view>
-    <view style="display:flex; gap: 12rpx; flex-wrap: wrap;">
-      <button class="cs-btn" bindtap="goFavorites">我的收藏</button>
-      <view class="cs-studio-entry">
-        <button class="cs-btn" bindtap="goStudio">摄影师工作台</button>
-        <view
-          wx:if="{{photographerStatus !== 'approved'}}"
-          class="cs-badge {{photographerStatus}}"
-        >
-          {{identityLoading ? '查询中' : (photographerStatus === 'pending' ? '待认证' : photographerStatus === 'rejected' ? '已驳回' : '申请入驻')}}
+  <view class="mine-header-card">
+    <view class="mine-head">
+      <view class="mine-avatar">{{viewState.avatarText}}</view>
+      <view class="mine-head-copy">
+        <view class="mine-title">{{viewState.nickname}}</view>
+        <view class="mine-status-row">
+          <text class="mine-status-pill active">{{viewState.roleLabel}}</text>
+          <text class="mine-status-pill">{{viewState.certLabel}}</text>
         </view>
       </view>
     </view>
-    <view class="cs-muted" style="padding-top: 10rpx;">
-      工作台用于摄影师上传作品（偏内部工具，先放在这里不进主 Tab）。
+  </view>
+
+  <view class="mine-stats-card">
+    <view class="mine-stats-item">
+      <view class="mine-stats-label">我的收藏</view>
+      <view class="mine-stats-value">{{stats.favoriteCount}}</view>
+      <view class="mine-stats-btn" bindtap="goFavorites" hover-class="tap-hover">查看全部</view>
     </view>
+
+    <view class="mine-stats-divider"></view>
+
+    <view class="mine-stats-item">
+      <view class="mine-stats-label">摄影收益</view>
+      <view class="mine-stats-value">0.00</view>
+      <view class="mine-stats-btn primary" bindtap="goStudio" hover-class="tap-hover">去提现</view>
+    </view>
+  </view>
+
+  <view class="mine-cell-group">
+    <button
+      wx:if="{{token && photographerStatus === 'approved'}}"
+      class="mine-cell"
+      bindtap="goEditPhotographerProfile"
+      hover-class="mine-cell-hover"
+    >
+      <view class="mine-cell-main">
+        <text class="mine-cell-title">{{uiText.editProfileTitle}}</text>
+        <text class="mine-cell-desc">{{uiText.editProfileDesc}}</text>
+      </view>
+      <text class="mine-cell-arrow">›</text>
+    </button>
+
+    <button class="mine-cell" bindtap="goStudio" hover-class="mine-cell-hover">
+      <view class="mine-cell-main">
+        <text class="mine-cell-title">{{uiText.certTitle}}</text>
+        <text class="mine-cell-desc">{{uiText.certDesc}}</text>
+      </view>
+      <text class="mine-cell-arrow">›</text>
+    </button>
+
+    <view wx:if="{{token && photographerStatus === 'rejected' && rejectReason}}" class="mine-reject-tip">
+      驳回原因：{{rejectReason}}
+    </view>
+  </view>
+
+  <view wx:if="{{!token}}" class="mine-login-wrap">
+    <button class="mine-login-btn" bindtap="login" disabled="{{loading}}" hover-class="tap-hover">
+      {{loading ? uiText.loggingInTitle : uiText.loginTitle}}
+    </button>
+    <view class="mine-login-tip">{{uiText.loginTip}}</view>
+  </view>
+
+  <view wx:if="{{token}}" class="mine-logout-link" bindtap="logout">
+    {{uiText.logoutTitle}}
   </view>
 </view>
 

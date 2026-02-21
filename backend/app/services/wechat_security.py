@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -11,23 +12,38 @@ _token_cache: dict[str, object] = {"token": None, "expires_at": datetime.min.rep
 
 
 def _is_enabled() -> bool:
-    return bool(settings.wechat_appid and settings.wechat_secret)
+    appid = (settings.wechat_appid or "").strip()
+    secret = (settings.wechat_secret or "").strip()
+    if not appid or not secret:
+        return False
+    # 占位符配置不视为有效配置
+    if appid.startswith("你的小程序") or secret.startswith("你的小程序"):
+        return False
+    return True
 
 
-def _require_wechat_config() -> None:
+def _build_mock_login_identity(code: str) -> dict[str, str]:
+    digest = hashlib.sha256(code.encode("utf-8")).hexdigest()
+    return {
+        "openid": f"mock_{digest[:32]}",
+        "unionid": f"mocku_{digest[:32]}",
+        "session_key": f"mocksk_{digest[:32]}",
+    }
+
+
+def _require_wechat_config(*, strict: bool = False) -> None:
     if _is_enabled():
         return
-    # 开发/测试环境允许跳过（避免本地必须配置微信密钥）
-    if (settings.env or "").lower() not in ("prod", "production"):
+    if not strict and (settings.env or "").lower() not in ("prod", "production"):
         return
     if not settings.wechat_appid or not settings.wechat_secret:
-        raise HTTPException(status_code=500, detail="wechat security config missing")
+        raise HTTPException(status_code=500, detail="missing WECHAT_APPID/WECHAT_SECRET")
 
 
 def _get_access_token() -> str:
     _require_wechat_config()
     if not _is_enabled():
-        raise HTTPException(status_code=500, detail="wechat security config missing")
+        raise HTTPException(status_code=500, detail="missing WECHAT_APPID/WECHAT_SECRET")
     now = datetime.now(timezone.utc)
     token = _token_cache.get("token")
     expires_at = _token_cache.get("expires_at")
@@ -48,6 +64,41 @@ def _get_access_token() -> str:
     _token_cache["token"] = token
     _token_cache["expires_at"] = now + timedelta(seconds=max(0, expires_in - 120))
     return token
+
+
+def exchange_login_code(code: str) -> dict[str, str]:
+    """使用小程序 wx.login code 交换 openid/unionid/session_key。"""
+    env = (settings.env or "").lower()
+    if env not in ("prod", "production") and (settings.wechat_login_allow_mock or not _is_enabled()):
+        return _build_mock_login_identity(code)
+    _require_wechat_config(strict=True)
+    url = "https://api.weixin.qq.com/sns/jscode2session"
+    params = {
+        "appid": settings.wechat_appid,
+        "secret": settings.wechat_secret,
+        "js_code": code,
+        "grant_type": "authorization_code",
+    }
+    try:
+        resp = httpx.get(url, params=params, timeout=10)
+        resp.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="wechat login request failed") from exc
+
+    data = resp.json()
+    if data.get("errcode"):
+        raise HTTPException(status_code=400, detail=f"wechat login failed: {data.get('errmsg', 'unknown')}")
+
+    openid = data.get("openid")
+    session_key = data.get("session_key")
+    if not openid or not session_key:
+        raise HTTPException(status_code=400, detail="wechat login response missing openid/session_key")
+
+    result = {"openid": openid, "session_key": session_key}
+    unionid = data.get("unionid")
+    if unionid:
+        result["unionid"] = unionid
+    return result
 
 
 def ensure_text_safe(text: str) -> None:

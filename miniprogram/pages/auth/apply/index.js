@@ -51,6 +51,10 @@ Page({
     priceRanges: PRICE_RANGES,
     priceRangeIndex: -1,
     priceRange: "",
+    serviceCenterLat: null,
+    serviceCenterLng: null,
+    serviceRadiusM: 5000,
+    locationText: "未设置",
 
     // 表单校验
     step1Valid: false,
@@ -461,6 +465,28 @@ Page({
     });
   },
 
+  async refreshLocation() {
+    try {
+      const loc = await new Promise((resolve, reject) => {
+        wx.getLocation({
+          type: "gcj02",
+          success: resolve,
+          fail: reject
+        });
+      });
+      const lat = Number(loc.latitude);
+      const lng = Number(loc.longitude);
+      this.setData({
+        serviceCenterLat: lat,
+        serviceCenterLng: lng,
+        locationText: `已定位 ${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      });
+      wx.showToast({ title: "位置已刷新", icon: "none" });
+    } catch (_e) {
+      wx.showToast({ title: "定位失败，请检查授权", icon: "none" });
+    }
+  },
+
   _validateStep3() {
     const { phone, wechatId } = this.data;
     const valid = /^1\d{10}$/.test(phone) && wechatId.length > 0;
@@ -506,6 +532,9 @@ Page({
         wechat_id: this.data.wechatId,
         city: this.data.city || null,
         price_range: this.data.priceRange || null,
+        service_center_lat: this.data.serviceCenterLat,
+        service_center_lng: this.data.serviceCenterLng,
+        service_radius_m: this.data.serviceRadiusM || 5000,
       };
       // 1) 先提交认证（会在后端把用户角色提升为 photographer）
       await request("/me/photographer/apply", { method: "POST", data, auth: true });

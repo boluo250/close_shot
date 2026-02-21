@@ -22,7 +22,13 @@ def add_text_watermark(image_bytes: bytes, watermark_text: str = "边拍") -> tu
             font = ImageFont.load_default()
 
         text = watermark_text or "边拍"
-        text_width, text_height = draw.textsize(text, font=font)
+        # Pillow 10+ 移除了 textsize，优先使用 textbbox，并保留向后兼容。
+        try:
+            left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
+            text_width = right - left
+            text_height = bottom - top
+        except Exception:
+            text_width, text_height = font.getsize(text)
         padding = max(10, int(text_height * 0.6))
         x = width - text_width - padding
         y = height - text_height - padding

@@ -210,6 +210,12 @@ def apply_photographer(
     p.wechat_id = payload.wechat_id
     p.city = payload.city
     p.price_range = payload.price_range
+    if payload.service_center_lat is not None:
+        p.service_center_lat = payload.service_center_lat
+    if payload.service_center_lng is not None:
+        p.service_center_lng = payload.service_center_lng
+    if payload.service_radius_m is not None:
+        p.service_radius_m = payload.service_radius_m
 
     # 设为待审核
     p.status = PhotographerStatus.pending.value

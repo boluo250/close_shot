@@ -1,15 +1,65 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.models import PhotographerStatus, User, UserRole
 from app.db.session import get_db
 from app.schemas.auth import AdminLoginIn, TokenOut, WechatLoginIn
+from app.services.wechat_security import exchange_login_code
 
 router = APIRouter()
+
+
+def _get_user_by_wechat_identity(db: Session, openid: str, unionid: str | None) -> User | None:
+    filters = [User.wechat_openid == openid]
+    if unionid:
+        filters.append(User.wechat_unionid == unionid)
+    return db.scalar(select(User).where(or_(*filters)))
+
+
+def _save_user_with_conflict_retry(db: Session, user: User, openid: str, unionid: str | None) -> User:
+    try:
+        db.commit()
+        db.refresh(user)
+        return user
+    except IntegrityError:
+        db.rollback()
+        existing = _get_user_by_wechat_identity(db, openid, unionid)
+        if not existing:
+            raise HTTPException(status_code=409, detail="wechat account already bound")
+        return existing
+
+
+def _resolve_wechat_user(
+    db: Session,
+    *,
+    openid: str,
+    unionid: str | None,
+    default_role: str,
+    default_display_name: str,
+) -> User:
+    user = _get_user_by_wechat_identity(db, openid, unionid)
+    if not user:
+        user = User(
+            role=default_role,
+            wechat_openid=openid,
+            wechat_unionid=unionid,
+            display_name=default_display_name,
+        )
+        db.add(user)
+        return _save_user_with_conflict_retry(db, user, openid, unionid)
+
+    if not user.wechat_openid:
+        user.wechat_openid = openid
+    if unionid and not user.wechat_unionid:
+        user.wechat_unionid = unionid
+    if not user.display_name:
+        user.display_name = default_display_name
+    return _save_user_with_conflict_retry(db, user, openid, unionid)
 
 
 @router.post("/login", response_model=TokenOut)
@@ -25,52 +75,40 @@ def admin_login(payload: AdminLoginIn, db: Session = Depends(get_db)) -> TokenOu
 
 @router.post("/wechat", response_model=TokenOut)
 def wechat_login(payload: WechatLoginIn, db: Session = Depends(get_db)) -> TokenOut:
-    """
-    MVP：微信登录 mock。
-    真实实现：用 code 换取 openid/session_key，然后绑定用户。
-    """
-    openid = f"mock_{payload.code}"
-    user = db.scalar(select(User).where(User.wechat_openid == openid))
-    if not user:
-        user = User(role=UserRole.customer.value, wechat_openid=openid, display_name="微信用户")
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    else:
-        if user.photographer and user.photographer.status == PhotographerStatus.approved.value:
-            if user.role != UserRole.photographer.value:
-                user.role = UserRole.photographer.value
-                db.commit()
+    wechat_auth = exchange_login_code(payload.code)
+    user = _resolve_wechat_user(
+        db,
+        openid=wechat_auth["openid"],
+        unionid=wechat_auth.get("unionid"),
+        default_role=UserRole.customer.value,
+        default_display_name="微信用户",
+    )
+    if user.photographer and user.photographer.status == PhotographerStatus.approved.value:
+        if user.role != UserRole.photographer.value:
+            user.role = UserRole.photographer.value
+            db.commit()
     token = create_access_token(subject=str(user.id))
     return TokenOut(access_token=token)
 
 
 @router.post("/wechat/studio", response_model=TokenOut)
 def wechat_studio_login(payload: WechatLoginIn, db: Session = Depends(get_db)) -> TokenOut:
-    """
-    摄影师工作台微信登录 mock。
-    真实实现：用 code 换取 openid/session_key，然后绑定摄影师账号。
-    """
-    openid = f"mock_{payload.code}"
-    user = db.scalar(select(User).where(User.wechat_openid == openid))
-    if not user:
-        user = User(role=UserRole.photographer.value, wechat_openid=openid, display_name="微信摄影师")
-        db.add(user)
-        db.flush()
+    wechat_auth = exchange_login_code(payload.code)
+    user = _resolve_wechat_user(
+        db,
+        openid=wechat_auth["openid"],
+        unionid=wechat_auth.get("unionid"),
+        default_role=UserRole.photographer.value,
+        default_display_name="微信摄影师",
+    )
+    if user.role != UserRole.photographer.value:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="当前微信账号未绑定摄影师")
+    if not user.photographer:
         from app.db.models import Photographer  # 避免循环导入
 
         db.add(Photographer(user_id=user.id, tags="", is_accepting_orders=False, service_radius_m=5000))
         db.commit()
         db.refresh(user)
-    else:
-        if user.role != UserRole.photographer.value:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="当前微信账号未绑定摄影师")
-        if not user.photographer:
-            from app.db.models import Photographer  # 避免循环导入
-
-            db.add(Photographer(user_id=user.id, tags="", is_accepting_orders=False, service_radius_m=5000))
-            db.commit()
-            db.refresh(user)
     token = create_access_token(subject=str(user.id))
     return TokenOut(access_token=token)
 

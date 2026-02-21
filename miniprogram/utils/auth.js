@@ -16,6 +16,7 @@ async function ensureLogin() {
       fail: reject
     });
   });
+  if (!code) throw new Error("微信登录凭证为空");
 
   const app = getApp();
   const base = app.globalData.apiBaseUrl;
@@ -34,7 +35,7 @@ async function ensureLogin() {
     setToken(t);
     return t;
   }
-  throw new Error(res.data?.detail || "login failed");
+  throw new Error(res.data?.detail || "微信登录失败");
 }
 
 module.exports = { getToken, setToken, ensureLogin };

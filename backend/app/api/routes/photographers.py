@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import Float, delete, func, select
+from sqlalchemy import Float, case, delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_user
@@ -113,7 +113,7 @@ def _rate_min(items: list[dict], mode: str) -> int | None:
 def nearby(
     lat: float,
     lng: float,
-    max_distance_m: int = 50000,
+    max_distance_m: int = 5000,
     limit: int = 20,
     offset: int = 0,
     tag: str | None = None,
@@ -151,12 +151,16 @@ def nearby(
         .subquery()
     )
 
-    # 排序：距离权重 + 活跃度（评分系统已移除）
+    # 排序：距离权重 + 活跃度 + 作品数量
     d_km = (dist / 1000.0).cast(Float)
     f_distance = func.exp(-(d_km / 8.0))
     days_since_active = (func.extract("epoch", func.now() - Photographer.last_active_at) / 86400.0).cast(Float)
     f_activity = func.exp(-(days_since_active / 14.0))
-    score = (0.55 * f_distance + 0.45 * f_activity).label("score")
+    f_portfolio = case(
+        (func.coalesce(portfolio_count_sq.c.portfolio_count, 0) >= 40, 1.0),
+        else_=(func.coalesce(portfolio_count_sq.c.portfolio_count, 0) / 40.0),
+    ).cast(Float)
+    score = (0.5 * f_distance + 0.35 * f_activity + 0.15 * f_portfolio).label("score")
 
     stmt = (
         select(
@@ -171,8 +175,12 @@ def nearby(
         .join(User, User.id == Photographer.user_id)
         .outerjoin(price_sq, price_sq.c.pid == Photographer.id)
         .outerjoin(portfolio_count_sq, portfolio_count_sq.c.pid == Photographer.id)
-        .where(Photographer.service_center_lat.is_not(None), Photographer.service_center_lng.is_not(None))
-        # 临时放宽距离限制：不做服务半径和最大距离过滤
+        .where(
+            Photographer.status == PhotographerStatus.approved.value,
+            Photographer.service_center_lat.is_not(None),
+            Photographer.service_center_lng.is_not(None),
+            dist <= max_distance_m,
+        )
         .order_by(score.desc(), dist.asc())
         .limit(limit)
         .offset(offset)

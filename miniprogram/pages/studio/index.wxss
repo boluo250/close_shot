@@ -41,6 +41,32 @@
   justify-content: flex-end;
 }
 
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12rpx;
+  margin-top: 14rpx;
+}
+
+.overview-item {
+  background: var(--cs-color-surface-2);
+  border: 1rpx solid var(--cs-color-border);
+  border-radius: 14rpx;
+  padding: 16rpx;
+}
+
+.overview-label {
+  font-size: 22rpx;
+  color: var(--cs-color-muted);
+}
+
+.overview-value {
+  font-size: 28rpx;
+  color: var(--cs-color-text);
+  font-weight: 600;
+  margin-top: 6rpx;
+}
+
 /* ====== 卡片通用 ====== */
 .card-header {
   display: flex;
@@ -176,6 +202,12 @@
   margin-top: 8rpx;
 }
 
+.section-tip {
+  font-size: 22rpx;
+  color: var(--cs-color-muted);
+  margin-bottom: 10rpx;
+}
+
 /* ====== 简介模板 ====== */
 .bio-templates {
   display: flex;
@@ -214,33 +246,6 @@
   font-size: 28rpx;
   color: var(--cs-color-text);
   box-sizing: border-box;
-}
-
-/* ====== 风格标签选择 ====== */
-.tag-selector {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10rpx;
-}
-
-.sel-tag {
-  padding: 10rpx 22rpx;
-  border-radius: 999rpx;
-  border: 1rpx solid var(--cs-color-border);
-  font-size: 26rpx;
-  color: var(--cs-color-text-3);
-  background: var(--cs-color-surface);
-}
-
-.sel-tag.active {
-  background: var(--cs-color-primary);
-  color: #0b0d12;
-  border-color: var(--cs-color-primary);
-  box-shadow: var(--cs-shadow-glow);
-}
-
-.cs-theme-classic .sel-tag.active {
-  color: #111827;
 }
 
 /* ====== 设备清单 / 无人机编辑 ====== */

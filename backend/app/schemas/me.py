@@ -31,6 +31,9 @@ class PhotographerApplyIn(BaseModel):
     # 可选字段
     city: str | None = Field(default=None, max_length=64, description="常驻城市")
     price_range: str | None = Field(default=None, max_length=32, description="报价区间")
+    service_center_lat: float | None = Field(default=None, ge=-90, le=90, description="服务中心纬度")
+    service_center_lng: float | None = Field(default=None, ge=-180, le=180, description="服务中心经度")
+    service_radius_m: int | None = Field(default=None, ge=100, le=50000, description="服务半径（米）")
 
 
 class TencentRealPersonVerifyIn(BaseModel):

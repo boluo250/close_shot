@@ -65,6 +65,17 @@
   border-radius: 999rpx;
 }
 
+.map-badge {
+  position: absolute;
+  right: 16rpx;
+  top: 14rpx;
+  padding: 8rpx 14rpx;
+  background: rgba(17, 24, 39, 0.82);
+  border-radius: 999rpx;
+  color: #fff;
+  font-size: 20rpx;
+}
+
 .section-row {
   display: flex;
   align-items: center;
@@ -83,6 +94,10 @@
   padding: var(--cs-space-6);
   box-shadow: var(--cs-shadow-card);
   margin-top: 16rpx;
+}
+
+.p-card-active {
+  outline: 2rpx solid rgba(17, 24, 39, 0.22);
 }
 
 .p-top {
@@ -205,6 +220,76 @@
 .empty-title {
   font-size: 30rpx;
   font-weight: 650;
+}
+
+.sheet-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.24);
+  z-index: 21;
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(110rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  border-top-left-radius: 28rpx;
+  border-top-right-radius: 28rpx;
+  padding: 28rpx 28rpx 24rpx;
+  box-shadow: 0 -14rpx 40rpx rgba(17, 24, 39, 0.16);
+  z-index: 22;
+}
+
+.sheet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sheet-title {
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.sheet-close {
+  font-size: 24rpx;
+  color: var(--cs-color-muted);
+}
+
+.sheet-meta {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: var(--cs-color-text);
+}
+
+.sheet-actions {
+  margin-top: 18rpx;
+  display: flex;
+  gap: 10rpx;
+}
+
+.sheet-btn {
+  flex: 1;
+  height: 74rpx;
+  line-height: 74rpx;
+  border-radius: 16rpx;
+  border: 1px solid var(--cs-color-border);
+  font-size: 24rpx;
+  padding: 0;
+}
+
+.sheet-btn.ghost {
+  background: #fff;
+  color: var(--cs-color-text);
+}
+
+.sheet-btn.primary {
+  background: var(--cs-color-primary);
+  border: none;
+  color: #111827;
+  font-weight: 700;
 }
 
 .cta-wrap {

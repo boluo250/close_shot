@@ -88,7 +88,8 @@
 
   <!-- 底部操作栏 -->
   <view class="bottom-bar">
-    <button class="contact-btn" bindtap="contact">联系摄影师</button>
+    <button wx:if="{{isOwnerPhotographer}}" class="contact-btn" bindtap="goEditProfile">编辑我的主页</button>
+    <button wx:else class="contact-btn" bindtap="contact">联系摄影师</button>
   </view>
 
   <!-- 底部安全区占位 -->

@@ -17,7 +17,7 @@
       id="map"
       longitude="{{lng}}"
       latitude="{{lat}}"
-      scale="14"
+      scale="{{scale}}"
       markers="{{markers}}"
       circles="{{circles}}"
       show-location
@@ -25,8 +25,10 @@
       enable-overlooking="false"
       style="width: 100%; height: 38vh;"
       bindmarkertap="onMarkerTap"
+      bindregionchange="onRegionChange"
     />
     <view class="map-hint cs-muted">位置为服务范围，并非实时定位</view>
+    <view wx:if="{{markerOverflow}}" class="map-badge">点位较多，已简化展示</view>
   </view>
 
   <!-- ③ 摄影师卡片区：首页核心 -->
@@ -39,7 +41,13 @@
     <view wx:if="{{loading}}" class="cs-muted" style="padding-top: 10rpx;">加载中...</view>
   <view wx:if="{{errorText}}" class="cs-muted" style="padding-top: 10rpx;">{{errorText}}</view>
 
-    <view wx:for="{{list}}" wx:key="id" class="p-card" bindtap="goDetail" data-id="{{item.id}}">
+    <view
+      wx:for="{{list}}"
+      wx:key="id"
+      class="p-card {{selected && selected.id===item.id ? 'p-card-active' : ''}}"
+      bindtap="goDetail"
+      data-id="{{item.id}}"
+    >
       <view class="p-top">
         <image
           class="avatar"
@@ -93,6 +101,25 @@
       <view class="empty-title">🌆 这个点有点安静</view>
       <view class="cs-muted" style="padding-top: 10rpx;">试试放大地图，或换个时间看看</view>
       <view class="cs-muted" style="padding-top: 6rpx;">晚上和周末更容易约到摄影师哦</view>
+    </view>
+  </view>
+
+  <view wx:if="{{selected}}" class="sheet-mask" bindtap="closeSelected"></view>
+  <view wx:if="{{selected}}" class="sheet">
+    <view class="sheet-header">
+      <view class="sheet-title">{{selected.display_name}}</view>
+      <view class="sheet-close" bindtap="closeSelected">关闭</view>
+    </view>
+    <view class="sheet-meta cs-muted">{{selected.distance_copy}}</view>
+    <view class="sheet-meta">
+      <text wx:if="{{selected.starting_price_yuan}}">¥{{selected.starting_price_yuan}} 起</text>
+      <text wx:else>价格面议</text>
+      <text class="cs-muted"> · 作品 {{selected.portfolio_count || 0}} 张</text>
+    </view>
+    <view class="sheet-actions">
+      <button class="sheet-btn ghost" bindtap="goDetailSelected">查看主页</button>
+      <button class="sheet-btn ghost" bindtap="contactSelected">联系摄影师</button>
+      <button class="sheet-btn primary" bindtap="bookSelected">预约拍摄</button>
     </view>
   </view>
 

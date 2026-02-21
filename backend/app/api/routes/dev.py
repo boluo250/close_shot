@@ -38,6 +38,7 @@ def seed(
         db.execute(
             text(
                 "TRUNCATE TABLE favorites, reviews, portfolio_items, packages, photographers, users "
+                ", analytics_events "
                 "RESTART IDENTITY CASCADE"
             )
         )
