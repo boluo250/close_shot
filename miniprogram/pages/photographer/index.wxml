@@ -22,6 +22,9 @@
         <view class="meta-strip" wx:if="{{serviceRadiusKm}}">
           <text class="meta-text">服务范围 {{serviceRadiusKm}} km</text>
         </view>
+        <view class="meta-strip" wx:if="{{distanceText}}">
+          <text class="meta-text">{{distanceText}}</text>
+        </view>
         <view class="p-bio" wx:if="{{p.bio}}">{{p.bio}}</view>
       </view>
     </view>

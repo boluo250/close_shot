@@ -39,7 +39,7 @@
     </view>
 
     <view wx:if="{{loading}}" class="cs-muted" style="padding-top: 10rpx;">加载中...</view>
-  <view wx:if="{{errorText}}" class="cs-muted" style="padding-top: 10rpx;">{{errorText}}</view>
+    <view wx:if="{{errorText}}" class="cs-muted" style="padding-top: 10rpx;">{{errorText}}</view>
 
     <view
       wx:for="{{list}}"
@@ -73,8 +73,8 @@
               <text class="cs-muted" wx:if="{{item.rate_copy}}"> · {{item.rate_copy}}</text>
             </view>
 
-            <view class="p-subrow" wx:if="{{item.distance_copy}}">
-              <text class="cs-muted">{{item.distance_copy}}</text>
+            <view class="p-subrow" wx:if="{{item.distanceCopy}}">
+              <text class="cs-muted">{{item.distanceCopy}}</text>
             </view>
           </view>
         </view>
@@ -110,7 +110,7 @@
       <view class="sheet-title">{{selected.display_name}}</view>
       <view class="sheet-close" bindtap="closeSelected">关闭</view>
     </view>
-    <view class="sheet-meta cs-muted">{{selected.distance_copy}}</view>
+    <view class="sheet-meta cs-muted">{{selected.distanceCopy}}</view>
     <view class="sheet-meta">
       <text wx:if="{{selected.starting_price_yuan}}">¥{{selected.starting_price_yuan}} 起</text>
       <text wx:else>价格面议</text>

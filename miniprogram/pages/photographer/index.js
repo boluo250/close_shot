@@ -4,6 +4,7 @@ const theme = require("../../utils/theme");
 Page({
   data: {
     id: null,
+    distanceText: "",
     p: {},
     portfolio: [],
     packages: [],
@@ -27,7 +28,7 @@ Page({
     });
 
     const id = Number(query.id);
-    this.setData({ id });
+    this.setData({ id, distanceText: decodeURIComponent(query.distance || "") });
     await this.load();
   },
 

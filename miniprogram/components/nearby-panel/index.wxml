@@ -39,7 +39,14 @@
     <view wx:if="{{loading}}" class="cs-muted" style="padding-top: 10rpx;">加载中...</view>
     <view wx:if="{{errorText}}" class="cs-muted" style="padding-top: 10rpx;">{{errorText}}</view>
 
-    <view wx:for="{{list}}" wx:key="id" class="p-card" bindtap="goDetail" data-id="{{item.id}}">
+    <view
+      wx:for="{{list}}"
+      wx:key="id"
+      class="p-card"
+      bindtap="goDetail"
+      data-id="{{item.id}}"
+      data-distance="{{item.distanceCopy}}"
+    >
       <view class="p-top">
         <image
           class="avatar"
@@ -65,8 +72,8 @@
               <text class="cs-muted" wx:if="{{item.rate_copy}}"> · {{item.rate_copy}}</text>
             </view>
 
-            <view class="p-subrow" wx:if="{{item.distance_copy}}">
-              <text class="cs-muted">{{item.distance_copy}}</text>
+            <view class="p-subrow" wx:if="{{item.distanceCopy}}">
+              <text class="cs-muted">{{item.distanceCopy}}</text>
             </view>
           </view>
         </view>

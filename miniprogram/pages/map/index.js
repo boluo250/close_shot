@@ -124,17 +124,12 @@ Page({
         if (rateHourMin) rateParts.push(`¥${rateHourMin}/小时起`);
         if (rateItemMin) rateParts.push(`¥${rateItemMin}/张起`);
 
-        const distanceCopy =
-          p.distance_copy != null && p.distance_copy !== ""
-            ? p.distance_copy
-            : p.distance_km != null
-              ? (p.distance_km < 1 ? "约 <1 km" : `约 ${Number(p.distance_km).toFixed(1)} km`)
-              : "";
+        const distanceCopy = typeof p.distance_copy === "string" ? p.distance_copy : "";
         return {
           ...p,
           display_name: displayName,
           avatar_url: avatarUrl,
-          distance_copy: distanceCopy,
+          distanceCopy,
           starting_price_yuan:
             typeof p.starting_price_cents === "number" ? Math.round(p.starting_price_cents / 100) : "",
           preview_image_urls: previewFixed,
@@ -253,7 +248,8 @@ Page({
         extra: { source: "marker_tap" }
       }
     ]);
-    wx.navigateTo({ url: `/pages/photographer/index?id=${id}` });
+    const distance = encodeURIComponent(p.distanceCopy || "");
+    wx.navigateTo({ url: `/pages/photographer/index?id=${id}&distance=${distance}` });
   },
 
   goDetail(e) {
@@ -270,13 +266,16 @@ Page({
         }
       ]);
     }
-    wx.navigateTo({ url: `/pages/photographer/index?id=${id}` });
+    const p = (this.data.list || []).find((x) => Number(x.id) === Number(id));
+    const distance = encodeURIComponent(p?.distanceCopy || "");
+    wx.navigateTo({ url: `/pages/photographer/index?id=${id}&distance=${distance}` });
   },
 
   goDetailSelected() {
     const id = this.data.selected?.id;
     if (!id) return;
-    wx.navigateTo({ url: `/pages/photographer/index?id=${id}` });
+    const distance = encodeURIComponent(this.data.selected?.distanceCopy || "");
+    wx.navigateTo({ url: `/pages/photographer/index?id=${id}&distance=${distance}` });
   },
 
   contactSelected() {
@@ -329,7 +328,8 @@ Page({
   bookSelected() {
     const id = this.data.selected?.id;
     if (!id) return;
-    wx.navigateTo({ url: `/pages/photographer/index?id=${id}` });
+    const distance = encodeURIComponent(this.data.selected?.distanceCopy || "");
+    wx.navigateTo({ url: `/pages/photographer/index?id=${id}&distance=${distance}` });
   },
 
   closeSelected() {

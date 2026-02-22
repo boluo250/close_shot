@@ -47,6 +47,10 @@
   color: var(--cs-color-text);
 }
 
+.cs-muted {
+  color: var(--cs-color-muted);
+}
+
 .map-wrap {
   margin: 0 var(--cs-space-5);
   border-radius: var(--cs-radius-lg);
