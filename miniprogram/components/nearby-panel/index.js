@@ -80,10 +80,17 @@ Component({
           if (rateHourMin) rateParts.push(`¥${rateHourMin}/小时起`);
           if (rateItemMin) rateParts.push(`¥${rateItemMin}/张起`);
 
+          const distanceCopy =
+            p.distance_copy != null && p.distance_copy !== ""
+              ? p.distance_copy
+              : p.distance_km != null
+                ? (p.distance_km < 1 ? "约 <1 km" : `约 ${Number(p.distance_km).toFixed(1)} km`)
+                : "";
           return {
             ...p,
             display_name: displayName,
             avatar_url: avatarUrl,
+            distance_copy: distanceCopy,
             starting_price_yuan:
               typeof p.starting_price_cents === "number"
                 ? Math.round(p.starting_price_cents / 100)
@@ -98,24 +105,31 @@ Component({
           };
         });
 
-        const markers = fixed.map((p) => ({
-          id: p.id,
-          latitude: p.service_center_lat,
-          longitude: p.service_center_lng,
-          title: p.display_name || `#${p.id}`,
-          width: 18,
-          height: 18,
-          label: {
-            content: (p.display_name || "摄影师").slice(0, 1),
-            color: "#111827",
-            bgColor: "#ffffff",
-            borderRadius: 999,
-            padding: 6,
-            textAlign: "center",
-            anchorX: 0,
-            anchorY: -42
+        const markers = fixed.map((p) => {
+          const marker = {
+            id: p.id,
+            latitude: p.service_center_lat,
+            longitude: p.service_center_lng,
+            title: p.display_name || `#${p.id}`,
+            width: 36,
+            height: 36
+          };
+          if (p.avatar_url && (p.avatar_url.startsWith("http://") || p.avatar_url.startsWith("https://"))) {
+            marker.iconPath = p.avatar_url;
+          } else {
+            marker.label = {
+              content: (p.display_name || "摄影师").slice(0, 1),
+              color: "#111827",
+              bgColor: "#ffffff",
+              borderRadius: 999,
+              padding: 6,
+              textAlign: "center",
+              anchorX: 0,
+              anchorY: -42
+            };
           }
-        }));
+          return marker;
+        });
 
         this.setData({
           cityText: "已定位",
@@ -137,21 +151,7 @@ Component({
       const id = e.markerId;
       const p = (this.data.list || []).find((x) => x.id === id);
       if (!p) return;
-      const circles = [
-        {
-          latitude: p.service_center_lat,
-          longitude: p.service_center_lng,
-          radius: p.service_radius_m,
-          color: "#11182715",
-          fillColor: "#11182708",
-          strokeWidth: 2
-        }
-      ];
-      this.setData({ selected: p, circles });
-      wx.showToast({
-        title: `可在 ${(p.service_radius_m / 1000).toFixed(0)} km 范围内接拍`,
-        icon: "none"
-      });
+      wx.navigateTo({ url: `/pages/photographer/index?id=${id}` });
     },
 
     goDetail(e) {

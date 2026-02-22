@@ -124,10 +124,17 @@ Page({
         if (rateHourMin) rateParts.push(`¥${rateHourMin}/小时起`);
         if (rateItemMin) rateParts.push(`¥${rateItemMin}/张起`);
 
+        const distanceCopy =
+          p.distance_copy != null && p.distance_copy !== ""
+            ? p.distance_copy
+            : p.distance_km != null
+              ? (p.distance_km < 1 ? "约 <1 km" : `约 ${Number(p.distance_km).toFixed(1)} km`)
+              : "";
         return {
           ...p,
           display_name: displayName,
           avatar_url: avatarUrl,
+          distance_copy: distanceCopy,
           starting_price_yuan:
             typeof p.starting_price_cents === "number" ? Math.round(p.starting_price_cents / 100) : "",
           preview_image_urls: previewFixed,
@@ -142,16 +149,19 @@ Page({
 
       const markerOverflow = fixed.length > 80;
       const markerSource = markerOverflow ? fixed.slice(0, 80) : fixed;
+      const markerSize = markerOverflow ? 28 : 36;
       const markers = markerSource.map((p) => {
         const marker = {
           id: p.id,
           latitude: p.service_center_lat,
           longitude: p.service_center_lng,
           title: p.display_name || `#${p.id}`,
-          width: markerOverflow ? 14 : 18,
-          height: markerOverflow ? 14 : 18
+          width: markerSize,
+          height: markerSize
         };
-        if (!markerOverflow) {
+        if (p.avatar_url && (p.avatar_url.startsWith("http://") || p.avatar_url.startsWith("https://"))) {
+          marker.iconPath = p.avatar_url;
+        } else if (!markerOverflow) {
           marker.label = {
             content: (p.display_name || "摄影师").slice(0, 1),
             color: "#111827",
@@ -233,17 +243,6 @@ Page({
     const id = e.markerId;
     const p = (this.data.list || []).find((x) => x.id === id);
     if (!p) return;
-    const circles = [
-      {
-        latitude: p.service_center_lat,
-        longitude: p.service_center_lng,
-        radius: p.service_radius_m,
-        color: "#11182715",
-        fillColor: "#11182708",
-        strokeWidth: 2
-      }
-    ];
-    this.setData({ selected: p, circles });
     this.trackEvents([
       {
         event_type: "photographer_click",
@@ -254,6 +253,7 @@ Page({
         extra: { source: "marker_tap" }
       }
     ]);
+    wx.navigateTo({ url: `/pages/photographer/index?id=${id}` });
   },
 
   goDetail(e) {

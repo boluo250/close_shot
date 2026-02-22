@@ -73,7 +73,7 @@
               <text class="cs-muted" wx:if="{{item.rate_copy}}"> · {{item.rate_copy}}</text>
             </view>
 
-            <view class="p-subrow">
+            <view class="p-subrow" wx:if="{{item.distance_copy}}">
               <text class="cs-muted">{{item.distance_copy}}</text>
             </view>
           </view>
