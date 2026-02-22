@@ -38,7 +38,36 @@ npm run dev
 ### 4）打开小程序（微信开发者工具）
 - 用微信开发者工具打开 `miniprogram/`
 - 开发环境建议关闭域名校验（已在 `project.config.json` 里设置 `urlCheck:false`）
-- 如需真机调试，请把 `miniprogram/app.js` 的 `apiBaseUrl` 改成你的局域网 IP（不能用 localhost）
+- 小程序后端地址统一在 `miniprogram/env.js` 配置
+  - 局域网模式：改 `DEV_API_HOST`
+  - 内网穿透模式：改 `API_BASE_URL`（推荐 Cloudflare）
+
+### 5）真机调试（Cloudflare Tunnel，推荐）
+当局域网模式不稳定（例如开发者工具 ws 通道失败）时，建议改用 Cloudflare Tunnel：
+
+```bash
+# 安装（macOS）
+brew install cloudflared
+
+# 将本机 8001 暴露为公网 https 地址
+cloudflared tunnel --url http://127.0.0.1:8001
+```
+
+启动后会看到类似 `https://xxxx-xxxx.trycloudflare.com` 的地址。  
+把它填到 `miniprogram/env.js`：
+
+```js
+module.exports = {
+  API_BASE_URL: "https://xxxx-xxxx.trycloudflare.com",
+  DEV_API_HOST: "192.168.1.100",
+  DEV_API_PORT: 8001
+};
+```
+
+说明：
+- `app.js` 已实现“优先使用 `API_BASE_URL`，为空时再走局域网 IP”
+- 后端仍需在本机启动：`uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload`
+- 每次重启临时隧道，`trycloudflare.com` 子域可能变化，记得同步更新 `miniprogram/env.js`
 
 ## 开发联调建议（快速有数据）
 1) 先调用 `POST /dev/seed` 生成一些摄影师（`/docs` 里直接点就行）

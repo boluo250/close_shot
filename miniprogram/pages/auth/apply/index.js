@@ -465,15 +465,84 @@ Page({
     });
   },
 
+  async _getLocationOnce() {
+    return await new Promise((resolve, reject) => {
+      wx.getLocation({
+        type: "gcj02",
+        success: resolve,
+        fail: reject
+      });
+    });
+  },
+
+  _isLocationAuthError(e) {
+    const msg = String(e?.errMsg || "").toLowerCase();
+    return (
+      msg.includes("auth deny") ||
+      msg.includes("auth denied") ||
+      msg.includes("permission denied")
+    );
+  },
+
+  _formatLocationError(e) {
+    const msg = String(e?.errMsg || "");
+    if (!msg) return "定位失败，请稍后重试";
+    if (this._isLocationAuthError(e)) return "定位未授权，请开启位置信息权限";
+    if (msg.includes("timeout")) return "定位超时，请到开阔区域重试";
+    return `定位失败：${msg}`;
+  },
+
+  async _requestLocationPermission() {
+    const setting = await new Promise((resolve) => {
+      wx.getSetting({
+        success: resolve,
+        fail: () => resolve({})
+      });
+    });
+    const current = setting?.authSetting?.["scope.userLocation"];
+
+    if (current === true) return true;
+
+    // 首次授权时，直接触发授权弹窗。
+    if (current === undefined) {
+      try {
+        await new Promise((resolve, reject) => {
+          wx.authorize({
+            scope: "scope.userLocation",
+            success: resolve,
+            fail: reject
+          });
+        });
+        return true;
+      } catch (_e) {
+        // 用户在首次授权弹窗里拒绝，继续走 openSetting 引导。
+      }
+    }
+
+    const modal = await new Promise((resolve) => {
+      wx.showModal({
+        title: "需要位置信息权限",
+        content: "用于设置你的服务位置，是否前往设置开启？",
+        confirmText: "去开启",
+        cancelText: "暂不",
+        success: resolve,
+        fail: () => resolve({ confirm: false })
+      });
+    });
+    if (!modal?.confirm) return false;
+
+    const openRes = await new Promise((resolve) => {
+      wx.openSetting({
+        success: resolve,
+        fail: () => resolve({})
+      });
+    });
+    return !!openRes?.authSetting?.["scope.userLocation"];
+  },
+
   async refreshLocation() {
     try {
-      const loc = await new Promise((resolve, reject) => {
-        wx.getLocation({
-          type: "gcj02",
-          success: resolve,
-          fail: reject
-        });
-      });
+      const loc = await this._getLocationOnce();
       const lat = Number(loc.latitude);
       const lng = Number(loc.longitude);
       this.setData({
@@ -482,8 +551,31 @@ Page({
         locationText: `已定位 ${lat.toFixed(4)}, ${lng.toFixed(4)}`
       });
       wx.showToast({ title: "位置已刷新", icon: "none" });
-    } catch (_e) {
-      wx.showToast({ title: "定位失败，请检查授权", icon: "none" });
+    } catch (e) {
+      if (!this._isLocationAuthError(e)) {
+        wx.showToast({ title: this._formatLocationError(e).slice(0, 18), icon: "none" });
+        return;
+      }
+
+      const granted = await this._requestLocationPermission();
+      if (!granted) {
+        wx.showToast({ title: "未开启定位权限", icon: "none" });
+        return;
+      }
+
+      try {
+        const loc = await this._getLocationOnce();
+        const lat = Number(loc.latitude);
+        const lng = Number(loc.longitude);
+        this.setData({
+          serviceCenterLat: lat,
+          serviceCenterLng: lng,
+          locationText: `已定位 ${lat.toFixed(4)}, ${lng.toFixed(4)}`
+        });
+        wx.showToast({ title: "位置已刷新", icon: "none" });
+      } catch (e2) {
+        wx.showToast({ title: this._formatLocationError(e2).slice(0, 18), icon: "none" });
+      }
     }
   },
 

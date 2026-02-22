@@ -22,8 +22,10 @@ def _is_enabled() -> bool:
     return True
 
 
-def _build_mock_login_identity(code: str) -> dict[str, str]:
-    digest = hashlib.sha256(code.encode("utf-8")).hexdigest()
+def _build_mock_login_identity() -> dict[str, str]:
+    # 开发环境 mock 默认固定账号，避免每次 wx.login(code) 变化导致账号漂移
+    seed = (settings.wechat_mock_openid_seed or "local-dev").strip() or "local-dev"
+    digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()
     return {
         "openid": f"mock_{digest[:32]}",
         "unionid": f"mocku_{digest[:32]}",
@@ -70,7 +72,7 @@ def exchange_login_code(code: str) -> dict[str, str]:
     """使用小程序 wx.login code 交换 openid/unionid/session_key。"""
     env = (settings.env or "").lower()
     if env not in ("prod", "production") and (settings.wechat_login_allow_mock or not _is_enabled()):
-        return _build_mock_login_identity(code)
+        return _build_mock_login_identity()
     _require_wechat_config(strict=True)
     url = "https://api.weixin.qq.com/sns/jscode2session"
     params = {

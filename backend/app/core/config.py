@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     wechat_appid: str | None = None
     wechat_secret: str | None = None
     wechat_login_allow_mock: bool = False
+    wechat_mock_openid_seed: str = "local-dev"
 
 
 settings = Settings()  # type: ignore[call-arg]
