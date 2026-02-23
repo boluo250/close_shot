@@ -184,7 +184,18 @@ def my_favorites(
         out.append(
             PhotographerCardOut(
                 **PhotographerOut.model_validate(p).model_dump(
-                    exclude={"display_name", "avatar_url", "equipment_list", "drone_models", "rate_card"}
+                    exclude={
+                        "display_name",
+                        "avatar_url",
+                        "phone",
+                        "wechat_id",
+                        "can_view_contact",
+                        "contact_access_mode",
+                        "contact_lock_reason",
+                        "equipment_list",
+                        "drone_models",
+                        "rate_card",
+                    }
                 ),
                 display_name=display_name,
                 avatar_url=avatar_url,
