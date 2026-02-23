@@ -57,6 +57,9 @@ class PhotographerOut(TimestampOut):
     last_active_at: datetime
     status: str
     reject_reason: str | None = None
+    can_view_contact: bool = True
+    contact_access_mode: str = "all"
+    contact_lock_reason: str | None = None
 
     @field_validator("equipment_list", "drone_models", mode="before")
     @classmethod
@@ -87,10 +90,10 @@ class PhotographerOut(TimestampOut):
         return []
 
 
-class PhotographerNearbyOut(PhotographerOut):
-    distance_m: float = Field(description="距离（米）")
-    distance_km: float = Field(description="距离（公里）")
-    distance_copy: str = Field(description="距离展示文案（非实时位置语义）")
+class PhotographerCardOut(PhotographerOut):
+    distance_m: float | None = Field(default=None, description="距离（米）")
+    distance_km: float | None = Field(default=None, description="距离（公里）")
+    distance_copy: str = Field(default="", description="距离展示文案（非实时位置语义）")
     starting_price_cents: int | None = Field(default=None, description="起步价（分），可为空")
     preview_image_urls: list[str] = Field(default_factory=list, description="首页样片预览（最多 3 张）")
     portfolio_count: int = Field(default=0, description="作品集数量")
@@ -98,7 +101,14 @@ class PhotographerNearbyOut(PhotographerOut):
     rate_item_min_cents: int | None = Field(default=None, description="按张数起步价（分）")
 
 
+class PhotographerNearbyOut(PhotographerCardOut):
+    distance_m: float = Field(description="距离（米）")
+    distance_km: float = Field(description="距离（公里）")
+    distance_copy: str = Field(description="距离展示文案（非实时位置语义）")
+
+
 class PhotographerDetailOut(PhotographerOut):
+    is_favorited: bool = Field(default=False, description="当前登录用户是否已收藏该摄影师")
     portfolio_items: list[PortfolioItemOut]
     packages: list[PackageOut]
 

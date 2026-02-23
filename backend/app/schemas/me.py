@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -8,6 +10,8 @@ class MeIdentityOut(BaseModel):
     photographer_status: str | None = None
     photographer_reject_reason: str | None = None
     certification_level: int = 0
+    is_member: bool = False
+    member_expires_at: datetime | None = None
 
 
 class PhotographerApplyIn(BaseModel):

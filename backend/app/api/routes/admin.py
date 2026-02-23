@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
@@ -17,6 +19,7 @@ from app.schemas.photographer import (
     CertificationListOut,
     CertificationReviewIn,
 )
+from app.services.membership import get_contact_access_mode, set_contact_access_mode
 
 router = APIRouter()
 
@@ -24,6 +27,14 @@ router = APIRouter()
 def _require_admin(me: User) -> None:
     if me.role != UserRole.admin.value:
         raise HTTPException(status_code=403, detail="admin role required")
+
+
+class ContactAccessSettingIn(BaseModel):
+    mode: Literal["all", "member"]
+
+
+class ContactAccessSettingOut(BaseModel):
+    mode: str
 
 
 def _photographer_to_detail(p: Photographer) -> CertificationDetailOut:
@@ -133,6 +144,26 @@ def review_certification(
     db.commit()
     db.refresh(p)
     return _photographer_to_detail(p)
+
+
+@router.get("/settings/contact-access", response_model=ContactAccessSettingOut)
+def get_contact_access_setting(
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ContactAccessSettingOut:
+    _require_admin(me)
+    return ContactAccessSettingOut(mode=get_contact_access_mode(db))
+
+
+@router.put("/settings/contact-access", response_model=ContactAccessSettingOut)
+def update_contact_access_setting(
+    payload: ContactAccessSettingIn,
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ContactAccessSettingOut:
+    _require_admin(me)
+    mode = set_contact_access_mode(db, payload.mode)
+    return ContactAccessSettingOut(mode=mode)
 
 
 @router.get("/analytics/summary", response_model=AnalyticsSummaryOut)

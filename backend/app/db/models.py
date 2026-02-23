@@ -60,6 +60,8 @@ class User(TimestampMixin, Base):
 
     display_name: Mapped[str | None] = mapped_column(String(128))
     avatar_url: Mapped[str | None] = mapped_column(String(512))
+    is_member: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    member_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     photographer: Mapped["Photographer | None"] = relationship(back_populates="user", uselist=False)
 
@@ -207,4 +209,28 @@ class AnalyticsEvent(TimestampMixin, Base):
     client_lat: Mapped[float | None] = mapped_column(Float)
     client_lng: Mapped[float | None] = mapped_column(Float)
     extra_json: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
+class AppSetting(TimestampMixin, Base):
+    __tablename__ = "app_settings"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    key: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
+class MembershipOrder(TimestampMixin, Base):
+    __tablename__ = "membership_orders"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    plan_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    months: Mapped[int] = mapped_column(Integer, nullable=False)
+    amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    channel: Mapped[str] = mapped_column(String(32), nullable=False, default="wechat_mini")
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    out_trade_no: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    transaction_id: Mapped[str | None] = mapped_column(String(128))
+    notify_raw_json: Mapped[str] = mapped_column(Text, nullable=False, default="")
 

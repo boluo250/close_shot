@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,7 +9,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.db.models import BioTemplate, Favorite, Photographer, PhotographerStatus, PortfolioItem, User, UserRole
+from app.db.models import BioTemplate, Favorite, Package, Photographer, PhotographerStatus, PortfolioItem, User, UserRole
 from app.db.session import get_db
 from app.schemas.me import (
     CertificationStatusOut,
@@ -17,7 +18,8 @@ from app.schemas.me import (
     TencentRealPersonVerifyIn,
     TencentRealPersonVerifyOut,
 )
-from app.schemas.photographer import PhotographerOut
+from app.schemas.photographer import PhotographerCardOut, PhotographerOut
+from app.services.membership import can_view_contact
 
 router = APIRouter()
 
@@ -83,19 +85,125 @@ def _build_certification_status(p: Photographer | None, db: Session) -> Certific
     )
 
 
-@router.get("/favorites", response_model=list[PhotographerOut])
+def _parse_rate_card(text: str | None) -> list[dict]:
+    if not text:
+        return []
+    try:
+        items = json.loads(text)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(items, list):
+        return []
+    out: list[dict] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip()
+        mode = str(item.get("mode") or "").strip()
+        price_cents = item.get("price_cents")
+        unit = item.get("unit")
+        if mode == "item":
+            mode = "photo"
+        if not name or mode not in {"hour", "photo"}:
+            continue
+        if not isinstance(price_cents, int):
+            continue
+        out.append(
+            {
+                "name": name,
+                "mode": mode,
+                "price_cents": price_cents,
+                "unit": str(unit).strip() if unit else None,
+            }
+        )
+    return out
+
+
+def _parse_csv(text: str | None) -> list[str]:
+    return [x.strip() for x in (text or "").split(",") if x.strip()]
+
+
+def _rate_min(items: list[dict], mode: str) -> int | None:
+    prices = [x["price_cents"] for x in items if x.get("mode") == mode and isinstance(x.get("price_cents"), int)]
+    return min(prices) if prices else None
+
+
+@router.get("/favorites", response_model=list[PhotographerCardOut])
 def my_favorites(
     me: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> list[PhotographerOut]:
+) -> list[PhotographerCardOut]:
+    price_sq = (
+        select(Package.photographer_id.label("pid"), func.min(Package.price_cents).label("starting_price_cents"))
+        .where(Package.is_active.is_(True))
+        .group_by(Package.photographer_id)
+        .subquery()
+    )
+    portfolio_count_sq = (
+        select(
+            PortfolioItem.photographer_id.label("pid"),
+            func.count(PortfolioItem.id).label("portfolio_count"),
+        )
+        .group_by(PortfolioItem.photographer_id)
+        .subquery()
+    )
+
     stmt = (
-        select(Photographer)
+        select(
+            Photographer,
+            User.display_name,
+            User.avatar_url,
+            price_sq.c.starting_price_cents,
+            portfolio_count_sq.c.portfolio_count,
+        )
         .join(Favorite, Favorite.photographer_id == Photographer.id)
+        .join(User, User.id == Photographer.user_id)
+        .outerjoin(price_sq, price_sq.c.pid == Photographer.id)
+        .outerjoin(portfolio_count_sq, portfolio_count_sq.c.pid == Photographer.id)
         .where(Favorite.user_id == me.id)
         .order_by(Favorite.created_at.desc())
     )
-    ps = db.scalars(stmt).all()
-    return [PhotographerOut.model_validate(p) for p in ps]
+    rows = db.execute(stmt).all()
+
+    pids = [p.id for (p, _display_name, _avatar_url, _sp, _pc) in rows]
+    preview_map: dict[int, list[str]] = {pid: [] for pid in pids}
+    if pids:
+        items = db.execute(
+            select(PortfolioItem.photographer_id, PortfolioItem.image_url)
+            .where(PortfolioItem.photographer_id.in_(pids))
+            .order_by(PortfolioItem.photographer_id.asc(), PortfolioItem.sort_order.asc(), PortfolioItem.id.asc())
+        ).all()
+        for pid, image_url in items:
+            if pid in preview_map and len(preview_map[pid]) < 3:
+                preview_map[pid].append(image_url)
+
+    out: list[PhotographerCardOut] = []
+    for p, display_name, avatar_url, starting_price_cents, portfolio_count in rows:
+        rate_card = _parse_rate_card(p.rate_card_json)
+        can_view, mode, lock_reason = can_view_contact(db, viewer=me, photographer=p)
+        out.append(
+            PhotographerCardOut(
+                **PhotographerOut.model_validate(p).model_dump(
+                    exclude={"display_name", "avatar_url", "equipment_list", "drone_models", "rate_card"}
+                ),
+                display_name=display_name,
+                avatar_url=avatar_url,
+                phone=p.phone if can_view else None,
+                wechat_id=p.wechat_id if can_view else None,
+                can_view_contact=can_view,
+                contact_access_mode=mode,
+                contact_lock_reason=lock_reason,
+                equipment_list=_parse_csv(p.equipment_list),
+                drone_models=_parse_csv(p.drone_models),
+                rate_card=rate_card,
+                starting_price_cents=int(starting_price_cents) if starting_price_cents is not None else None,
+                preview_image_urls=preview_map.get(p.id, []),
+                portfolio_count=int(portfolio_count or 0),
+                rate_hour_min_cents=_rate_min(rate_card, "hour"),
+                rate_item_min_cents=_rate_min(rate_card, "photo"),
+            )
+        )
+    return out
 
 
 @router.get("/identity", response_model=MeIdentityOut)
@@ -114,6 +222,8 @@ def my_identity(me: User = Depends(get_current_user)) -> MeIdentityOut:
         photographer_status=status,
         photographer_reject_reason=reason,
         certification_level=cert_level,
+        is_member=me.is_member,
+        member_expires_at=me.member_expires_at,
     )
 
 
