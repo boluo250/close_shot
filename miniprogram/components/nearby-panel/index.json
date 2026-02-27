@@ -1,4 +1,7 @@
 {
-  "component": true
+  "component": true,
+  "usingComponents": {
+    "photographer-card-list": "/components/photographer-card-list/index"
+  }
 }
 

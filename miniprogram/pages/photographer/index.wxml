@@ -19,9 +19,6 @@
           </button>
         </view>
 
-        <view class="meta-strip" wx:if="{{serviceRadiusKm}}">
-          <text class="meta-text">服务范围 {{serviceRadiusKm}} km</text>
-        </view>
         <view class="meta-strip" wx:if="{{distanceText}}">
           <text class="meta-text">{{distanceText}}</text>
         </view>
@@ -92,7 +89,9 @@
   <!-- 底部操作栏 -->
   <view class="bottom-bar">
     <button wx:if="{{isOwnerPhotographer}}" class="contact-btn" bindtap="goEditProfile">编辑我的主页</button>
-    <button wx:else class="contact-btn" bindtap="contact">联系摄影师</button>
+    <button wx:else class="contact-btn" bindtap="contact">
+      {{canViewContact ? '查看联系方式' : (contactAccessMode === 'member' ? '开通会员查看联系方式' : '联系摄影师')}}
+    </button>
   </view>
 
   <!-- 底部安全区占位 -->

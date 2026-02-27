@@ -1,9 +1,24 @@
 const { request } = require("../../utils/request");
+const theme = require("../../utils/theme");
 
 Page({
   data: {
     loading: false,
-    list: []
+    list: [],
+    theme: "classic",
+    themeClass: "cs-theme-classic"
+  },
+
+  onLoad() {
+    const t = theme.getTheme();
+    this.setData({ theme: t, themeClass: theme.getThemeClass(t) });
+    this._unsubTheme = theme.subscribe((next) => {
+      this.setData({ theme: next, themeClass: theme.getThemeClass(next) });
+    });
+  },
+
+  onUnload() {
+    if (this._unsubTheme) this._unsubTheme();
   },
 
   async onShow() {
@@ -16,7 +31,9 @@ Page({
       const list = await request("/me/favorites", { auth: true });
       this.setData({ list: list || [] });
     } catch (e) {
-      wx.showToast({ title: "加载失败（需要登录）", icon: "none" });
+      const msg = e?.message || "";
+      const needLogin = msg.includes("Missing bearer token") || msg.includes("Invalid token");
+      wx.showToast({ title: needLogin ? "请先登录" : "加载失败，请稍后重试", icon: "none" });
     } finally {
       this.setData({ loading: false });
     }

@@ -145,6 +145,15 @@ Page({
       const markerOverflow = fixed.length > 80;
       const markerSource = markerOverflow ? fixed.slice(0, 80) : fixed;
       const markerSize = markerOverflow ? 28 : 36;
+      const withMapAvatarStyle = (url) => {
+        if (!url || typeof url !== "string") return "";
+        if (!url.startsWith("http://") && !url.startsWith("https://")) return url;
+        if (!url.includes("/media/")) {
+          return `${base}/media/styled/avatar?style=map_avatar&v=2&url=${encodeURIComponent(url)}`;
+        }
+        const sep = url.includes("?") ? "&" : "?";
+        return `${url}${sep}style=map_avatar&v=2`;
+      };
       const markers = markerSource.map((p) => {
         const marker = {
           id: p.id,
@@ -155,7 +164,7 @@ Page({
           height: markerSize
         };
         if (p.avatar_url && (p.avatar_url.startsWith("http://") || p.avatar_url.startsWith("https://"))) {
-          marker.iconPath = p.avatar_url;
+          marker.iconPath = withMapAvatarStyle(p.avatar_url);
         } else if (!markerOverflow) {
           marker.label = {
             content: (p.display_name || "摄影师").slice(0, 1),

@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timedelta, timezone
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, inspect, select, text
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -35,6 +36,44 @@ class ContactAccessSettingIn(BaseModel):
 
 class ContactAccessSettingOut(BaseModel):
     mode: str
+
+
+class DbTableListOut(BaseModel):
+    tables: list[str]
+
+
+class DbTableRowsOut(BaseModel):
+    table: str
+    columns: list[str]
+    rows: list[dict[str, Any]]
+    total: int
+    limit: int
+    offset: int
+
+
+_DB_BROWSE_TABLES = {
+    "users",
+    "photographers",
+    "portfolio_items",
+    "packages",
+    "favorites",
+    "reviews",
+    "analytics_events",
+    "app_settings",
+    "membership_orders",
+    "schedule_blocks",
+    "bio_templates",
+}
+_SAFE_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _require_safe_table_name(table: str) -> str:
+    name = (table or "").strip()
+    if not _SAFE_IDENT.match(name):
+        raise HTTPException(status_code=400, detail="invalid table name")
+    if name not in _DB_BROWSE_TABLES:
+        raise HTTPException(status_code=403, detail="table is not allowed")
+    return name
 
 
 def _photographer_to_detail(p: Photographer) -> CertificationDetailOut:
@@ -164,6 +203,52 @@ def update_contact_access_setting(
     _require_admin(me)
     mode = set_contact_access_mode(db, payload.mode)
     return ContactAccessSettingOut(mode=mode)
+
+
+@router.get("/db/tables", response_model=DbTableListOut)
+def list_db_tables(
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DbTableListOut:
+    _require_admin(me)
+    try:
+        existing = set(inspect(db.bind).get_table_names())
+    except Exception as exc:  # pragma: no cover - metadata 兜底
+        raise HTTPException(status_code=500, detail="read database metadata failed") from exc
+    tables = sorted([name for name in _DB_BROWSE_TABLES if name in existing])
+    return DbTableListOut(tables=tables)
+
+
+@router.get("/db/table-preview", response_model=DbTableRowsOut)
+def preview_db_table(
+    table: str = Query(description="表名"),
+    limit: int = Query(default=20, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DbTableRowsOut:
+    _require_admin(me)
+    table_name = _require_safe_table_name(table)
+
+    columns = list(db.execute(text(f"SELECT * FROM {table_name} LIMIT 0")).keys())
+    total = db.scalar(text(f"SELECT COUNT(*) FROM {table_name}")) or 0
+    rows_raw = db.execute(
+        text(
+            f"SELECT * FROM {table_name} "
+            f"ORDER BY id DESC NULLS LAST "
+            f"LIMIT :limit OFFSET :offset"
+        ),
+        {"limit": limit, "offset": offset},
+    ).mappings().all()
+    rows = [dict(r) for r in rows_raw]
+    return DbTableRowsOut(
+        table=table_name,
+        columns=columns,
+        rows=rows,
+        total=int(total),
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/analytics/summary", response_model=AnalyticsSummaryOut)

@@ -35,6 +35,9 @@ Page({
     portfolioLoading: false,
     portfolioUploading: false,
     portfolioUploadCount: 0,
+    submittingAll: false,
+    pendingPortfolio: [],
+    profileDraftSaved: false,
     packagesLoading: false,
     scheduleLoading: false,
     lastUrl: "",
@@ -50,6 +53,7 @@ Page({
     },
     avatarObjectKey: "",
     coverObjectKey: "",
+    pendingAvatar: null,
     // 设备清单 & 无人机
     equipmentItems: [],
     newEquipment: "",
@@ -116,7 +120,12 @@ Page({
   saveDraft() {
     try {
       const draft = {
-        bio: this.data.profile.bio,
+        profile: this.data.profile,
+        equipmentItems: this.data.equipmentItems,
+        droneItems: this.data.droneItems,
+        pendingAvatar: this.data.pendingAvatar,
+        pendingPortfolio: this.data.pendingPortfolio,
+        profileDraftSaved: this.data.profileDraftSaved,
         newPackage: this.data.newPackage
       };
       wx.setStorageSync(DRAFT_KEY, JSON.stringify(draft));
@@ -130,11 +139,26 @@ Page({
       const raw = wx.getStorageSync(DRAFT_KEY);
       if (!raw) return;
       const draft = JSON.parse(raw);
-      if (draft.bio && !this.data.profile.bio) {
-        this.setData({ "profile.bio": draft.bio });
+      const patch = {};
+      if (draft.profile && typeof draft.profile === "object") {
+        patch.profile = {
+          ...this.data.profile,
+          ...draft.profile
+        };
       }
+      if (Array.isArray(draft.equipmentItems)) patch.equipmentItems = draft.equipmentItems;
+      if (Array.isArray(draft.droneItems)) patch.droneItems = draft.droneItems;
+      if (Array.isArray(draft.pendingPortfolio)) patch.pendingPortfolio = draft.pendingPortfolio;
+      if (draft.pendingAvatar && typeof draft.pendingAvatar === "object") {
+        patch.pendingAvatar = draft.pendingAvatar;
+      }
+      patch.profileDraftSaved = !!draft.profileDraftSaved;
       if (draft.newPackage && draft.newPackage.name) {
-        this.setData({ newPackage: draft.newPackage, showNewPackage: true });
+        patch.newPackage = draft.newPackage;
+        patch.showNewPackage = true;
+      }
+      if (Object.keys(patch).length > 0) {
+        this.setData(patch);
       }
     } catch (e) {
       // ignore
@@ -173,6 +197,7 @@ Page({
       }
       this.setData({ token: t || "", authorized: true });
       await this.refreshAll();
+      this.restoreDraft();
     } catch (e) {
       wx.showToast({ title: "身份校验失败", icon: "none" });
       wx.reLaunch({ url: "/pages/mine/index" });
@@ -330,28 +355,55 @@ Page({
     }
   },
 
-  async saveProfile() {
+  saveProfile() {
+    this.setData({ profileDraftSaved: true });
+    this.saveDraft();
+    wx.showToast({ title: "已保存到本地草稿", icon: "none" });
+  },
+
+  async submitProfileDraft({ silent = false } = {}) {
     if (!this.data.token) return;
-    this.setData({ profileSaving: true });
-    try {
-      const payload = {
-        bio: this.data.profile.bio,
-        tags: "",
-        avatar_url: this.data.profile.avatar_url,
-        avatar_object_key: this.data.avatarObjectKey || null,
-        cover_url: this.data.profile.cover_url,
-        cover_object_key: this.data.coverObjectKey || null,
-        equipment_list: this.data.equipmentItems.join(","),
-        drone_models: this.data.droneItems.join(",")
-      };
-      await this.studioRequest("/studio/me", { method: "PUT", data: payload });
-      this.setData({ "profile.tags": "", avatarObjectKey: "", coverObjectKey: "" });
-      this.clearDraft();
-      wx.showToast({ title: "资料已保存", icon: "none" });
-    } catch (e) {
-      wx.showToast({ title: "资料保存失败", icon: "none" });
-    } finally {
-      this.setData({ profileSaving: false });
+    let avatarUrl = this.data.profile.avatar_url;
+    let avatarObjectKey = null;
+
+    if (this.data.pendingAvatar?.tempFilePath) {
+      const up = await uploadImageToS3Like({
+        tempFilePath: this.data.pendingAvatar.tempFilePath,
+        filename: this.data.pendingAvatar.tempFilePath.split("/").pop() || "image.jpg",
+        contentType: this.data.pendingAvatar.fileType
+          ? `image/${this.data.pendingAvatar.fileType}`
+          : "image/jpeg",
+        prefix: "avatar",
+        compress: { maxSizeKB: 400, quality: 80 }
+      });
+      const app = getApp();
+      const base = app.globalData.apiBaseUrl;
+      avatarUrl = up.public_url || (up.proxy_url ? base + up.proxy_url : "");
+      avatarObjectKey = up.object_key || null;
+      if (!avatarUrl) throw new Error("no avatar url");
+    }
+
+    const payload = {
+      bio: this.data.profile.bio,
+      tags: "",
+      avatar_url: avatarUrl,
+      avatar_object_key: avatarObjectKey,
+      cover_url: this.data.profile.cover_url,
+      cover_object_key: this.data.coverObjectKey || null,
+      equipment_list: this.data.equipmentItems.join(","),
+      drone_models: this.data.droneItems.join(",")
+    };
+    await this.studioRequest("/studio/me", { method: "PUT", data: payload });
+    this.setData({
+      "profile.avatar_url": avatarUrl,
+      "profile.tags": "",
+      avatarObjectKey: "",
+      coverObjectKey: "",
+      pendingAvatar: null,
+      profileDraftSaved: false
+    });
+    if (!silent) {
+      wx.showToast({ title: "资料已上传", icon: "none" });
     }
   },
 
@@ -387,24 +439,22 @@ Page({
 
     try {
       const croppedPath = await this.maybeCrop(file.tempFilePath);
-      const up = await uploadImageToS3Like({
-        tempFilePath: croppedPath,
-        filename: croppedPath.split("/").pop() || "image.jpg",
-        contentType: file.fileType ? `image/${file.fileType}` : "image/jpeg",
-        prefix: type === "avatar" ? "avatar" : "cover"
-      });
-      const app = getApp();
-      const base = app.globalData.apiBaseUrl;
-      const imageUrl = up.public_url || (up.proxy_url ? base + up.proxy_url : "");
-      if (!imageUrl) throw new Error("no url");
       if (type === "avatar") {
-        this.setData({ "profile.avatar_url": imageUrl, avatarObjectKey: up.object_key || "" });
+        this.setData({
+          "profile.avatar_url": croppedPath,
+          pendingAvatar: {
+            tempFilePath: croppedPath,
+            fileType: file.fileType || ""
+          },
+          profileDraftSaved: true
+        });
       } else {
-        this.setData({ "profile.cover_url": imageUrl, coverObjectKey: up.object_key || "" });
+        this.setData({ "profile.cover_url": croppedPath, profileDraftSaved: true });
       }
-      await this.saveProfile();
+      this.saveDraft();
+      wx.showToast({ title: "已保存头像草稿", icon: "none" });
     } catch (e) {
-      wx.showToast({ title: "上传失败", icon: "none" });
+      wx.showToast({ title: "处理图片失败", icon: "none" });
     }
   },
 
@@ -452,17 +502,54 @@ Page({
     const files = choose?.tempFiles || [];
     if (!files.length) return;
 
-    this.setData({ portfolioUploading: true, portfolioUploadCount: files.length });
+    const pendingMap = new Map(
+      (this.data.pendingPortfolio || []).map((item) => [item.tempFilePath, item])
+    );
+    files.forEach((file) => {
+      if (!file?.tempFilePath) return;
+      pendingMap.set(file.tempFilePath, {
+        tempFilePath: file.tempFilePath,
+        fileType: file.fileType || ""
+      });
+    });
+    const pendingPortfolio = Array.from(pendingMap.values());
+    this.setData({
+      pendingPortfolio,
+      lastUrl: "已保存 " + pendingPortfolio.length + " 张待上传"
+    });
+    wx.showToast({ title: "已保存到待上传", icon: "none" });
+  },
+
+  removePendingPortfolio(e) {
+    const idx = e.currentTarget.dataset.index;
+    const pendingPortfolio = [...this.data.pendingPortfolio];
+    pendingPortfolio.splice(idx, 1);
+    this.setData({ pendingPortfolio });
+  },
+
+  async confirmUploadPortfolio({ silent = false } = {}) {
+    if (!this.data.token) {
+      if (!silent) wx.showToast({ title: "请先登录", icon: "none" });
+      return;
+    }
+    const pending = this.data.pendingPortfolio || [];
+    if (!pending.length) {
+      if (!silent) wx.showToast({ title: "暂无待上传图片", icon: "none" });
+      return;
+    }
+
+    this.setData({ portfolioUploading: true, portfolioUploadCount: pending.length });
     try {
       const app = getApp();
       const base = app.globalData.apiBaseUrl;
       await Promise.all(
-        files.map(async (file) => {
+        pending.map(async (file) => {
           const up = await uploadImageToS3Like({
             tempFilePath: file.tempFilePath,
             filename: file.tempFilePath.split("/").pop() || "image.jpg",
             contentType: file.fileType ? `image/${file.fileType}` : "image/jpeg",
-            prefix: "portfolio"
+            prefix: "portfolio",
+            compress: { maxSizeKB: 700, quality: 72 }
           });
           const imageUrl = up.public_url || (up.proxy_url ? base + up.proxy_url : "");
           if (!imageUrl) throw new Error("no url");
@@ -480,13 +567,45 @@ Page({
           });
         })
       );
-      this.setData({ lastUrl: "已上传 " + files.length + " 张" });
-      wx.showToast({ title: "已上传", icon: "none" });
+      this.setData({
+        pendingPortfolio: [],
+        lastUrl: "已上传 " + pending.length + " 张"
+      });
+      if (!silent) wx.showToast({ title: "上传成功", icon: "none" });
       await this.loadPortfolio();
+    } catch (e) {
+      if (!silent) wx.showToast({ title: "上传失败", icon: "none" });
+      throw e;
+    } finally {
+      this.setData({ portfolioUploading: false, portfolioUploadCount: 0 });
+    }
+  },
+
+  async submitAllChanges() {
+    if (!this.data.token) {
+      wx.showToast({ title: "请先登录", icon: "none" });
+      return;
+    }
+    const hasPendingPortfolio = (this.data.pendingPortfolio || []).length > 0;
+    if (!this.data.profileDraftSaved && !hasPendingPortfolio) {
+      wx.showToast({ title: "暂无待上传内容", icon: "none" });
+      return;
+    }
+
+    this.setData({ submittingAll: true });
+    try {
+      if (this.data.profileDraftSaved) {
+        await this.submitProfileDraft({ silent: true });
+      }
+      if (hasPendingPortfolio) {
+        await this.confirmUploadPortfolio({ silent: true });
+      }
+      this.clearDraft();
+      wx.showToast({ title: "已上传到服务器", icon: "none" });
     } catch (e) {
       wx.showToast({ title: "上传失败", icon: "none" });
     } finally {
-      this.setData({ portfolioUploading: false, portfolioUploadCount: 0 });
+      this.setData({ submittingAll: false });
     }
   },
 
@@ -640,7 +759,6 @@ Page({
         showNewPackage: false,
         newPackage: { name: "", price_yuan: "", duration_minutes: "", description: "", is_active: true }
       });
-      this.clearDraft();
       await this.loadPackages();
     } catch (e) {
       wx.showToast({ title: "创建失败", icon: "none" });

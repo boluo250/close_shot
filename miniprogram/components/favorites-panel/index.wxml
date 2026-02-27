@@ -1,24 +1,13 @@
-<view class="cs-page">
-  <view class="cs-card">
-    <view class="cs-row">
-      <view><text style="font-weight: 600">我的收藏</text></view>
-      <button class="cs-btn" size="mini" bindtap="refresh">刷新</button>
-    </view>
-    <view wx:if="{{loading}}" class="cs-muted" style="padding-top: 12rpx;">加载中...</view>
-    <view
-      wx:for="{{list}}"
-      wx:key="id"
-      class="cs-divider"
-      style="padding: 16rpx 0;"
-      bindtap="goDetail"
-      data-id="{{item.id}}"
-    >
-      <view>
-        摄影师 #{{item.id}} <text class="cs-muted">{{item.city || ''}}</text>
-      </view>
-      <view class="cs-muted" style="padding-top: 6rpx;">{{item.tags}}</view>
-    </view>
-    <view wx:if="{{!loading && list.length===0}}" class="cs-muted" style="padding-top: 12rpx;">暂无收藏</view>
+<view class="fav-page">
+  <photographer-card-list
+    list="{{list}}"
+    loading="{{loading}}"
+    source="favorites"
+    emptyTitle="还没有收藏"
+    emptyDesc="去附近页看看，先收藏几个心动摄影师吧"
+  />
+
+  <view class="refresh-wrap">
+    <view class="refresh-btn" bindtap="refresh">刷新</view>
   </view>
 </view>
-

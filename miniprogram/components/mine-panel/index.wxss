@@ -54,6 +54,26 @@
   color: #ffffff;
 }
 
+.mine-title-row {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.mine-vip-badge {
+  height: 44rpx;
+  padding: 0 18rpx;
+  line-height: 44rpx;
+  border-radius: 22rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+  letter-spacing: 1rpx;
+  color: #3f2900;
+  background: linear-gradient(120deg, #fff6cf 0%, #efd28b 48%, #b98a3a 100%);
+  border: 1rpx solid rgba(255, 236, 180, 0.7);
+  box-shadow: 0 8rpx 18rpx rgba(185, 138, 58, 0.35);
+}
+
 .mine-status-row {
   margin-top: 16rpx;
   display: flex;
@@ -69,12 +89,6 @@
   font-size: 22rpx;
   color: #ffffff;
   background: rgba(255, 255, 255, 0.1);
-}
-
-.mine-status-pill.active {
-  color: #000000;
-  background: #22c55e;
-  font-weight: 700;
 }
 
 .mine-stats-card {
@@ -175,6 +189,29 @@
   gap: 8rpx;
 }
 
+.mine-cell-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.mine-cell-title-strong {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.mine-membership-badge {
+  height: 34rpx;
+  line-height: 34rpx;
+  padding: 0 12rpx;
+  border-radius: 17rpx;
+  background: rgba(34, 197, 94, 0.2);
+  border: 1rpx solid rgba(74, 222, 128, 0.45);
+  color: #86efac;
+  font-size: 20rpx;
+  font-weight: 700;
+}
+
 .mine-cell-title {
   font-size: 32rpx;
   line-height: 44rpx;
@@ -185,6 +222,29 @@
   font-size: 24rpx;
   line-height: 34rpx;
   color: #7f7f7f;
+}
+
+.mine-cell-membership {
+  background: linear-gradient(120deg, rgba(34, 197, 94, 0.14) 0%, rgba(20, 20, 20, 0.65) 65%);
+  border-bottom-color: rgba(74, 222, 128, 0.24);
+}
+
+.mine-membership-cta {
+  min-width: 132rpx;
+  height: 58rpx;
+  padding: 0 20rpx;
+  line-height: 58rpx;
+  border-radius: 30rpx;
+  text-align: center;
+  font-size: 22rpx;
+  color: #0b0d12;
+  font-weight: 700;
+  background: var(--cs-gradient-primary);
+  box-shadow: var(--cs-shadow-glow);
+}
+
+.cs-theme-classic .mine-membership-cta {
+  color: #111827;
 }
 
 .mine-cell-arrow {
@@ -238,6 +298,15 @@
   color: #666666;
   font-size: 26rpx;
   line-height: 40rpx;
+}
+
+.mine-debug-link {
+  margin-top: 12rpx;
+  margin-bottom: 18rpx;
+  text-align: center;
+  color: #f59e0b;
+  font-size: 24rpx;
+  line-height: 36rpx;
 }
 
 .tap-hover {

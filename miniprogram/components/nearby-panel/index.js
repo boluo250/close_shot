@@ -1,4 +1,5 @@
 const { request } = require("../../utils/request");
+const { normalizePhotographerCard } = require("../../utils/photographerCard");
 
 Component({
   data: {
@@ -62,43 +63,16 @@ Component({
         const app = getApp();
         const base = app.globalData.apiBaseUrl;
 
-        const fixed = (list || []).map((p) => {
-          const displayName = p.display_name || `摄影师 #${p.id}`;
-          const avatarUrl =
-            p.avatar_url && p.avatar_url.startsWith("/") ? base + p.avatar_url : p.avatar_url || "";
-          const preview = Array.isArray(p.preview_image_urls) ? p.preview_image_urls : [];
-          const previewFixed = preview
-            .map((u) => (u && u.startsWith("/") ? base + u : u))
-            .filter(Boolean);
-          const portfolioCount =
-            typeof p.portfolio_count === "number" ? p.portfolio_count : previewFixed.length;
-          const rateHourMin =
-            typeof p.rate_hour_min_cents === "number" ? Math.round(p.rate_hour_min_cents / 100) : "";
-          const rateItemMin =
-            typeof p.rate_item_min_cents === "number" ? Math.round(p.rate_item_min_cents / 100) : "";
-          const rateParts = [];
-          if (rateHourMin) rateParts.push(`¥${rateHourMin}/小时起`);
-          if (rateItemMin) rateParts.push(`¥${rateItemMin}/张起`);
-
-          const distanceCopy = typeof p.distance_copy === "string" ? p.distance_copy : "";
-          return {
-            ...p,
-            display_name: displayName,
-            avatar_url: avatarUrl,
-            distanceCopy,
-            starting_price_yuan:
-              typeof p.starting_price_cents === "number"
-                ? Math.round(p.starting_price_cents / 100)
-                : "",
-            preview_image_urls: previewFixed,
-            preview_count: previewFixed.length,
-            preview_empty: previewFixed.length === 0,
-            portfolio_count: portfolioCount,
-            rate_hour_min_yuan: rateHourMin,
-            rate_item_min_yuan: rateItemMin,
-            rate_copy: rateParts.join(" · ")
-          };
-        });
+        const fixed = (list || []).map((p) => normalizePhotographerCard(p, base));
+        const withMapAvatarStyle = (url) => {
+          if (!url || typeof url !== "string") return "";
+          if (!url.startsWith("http://") && !url.startsWith("https://")) return url;
+          if (!url.includes("/media/")) {
+            return `${base}/media/styled/avatar?style=map_avatar&v=2&url=${encodeURIComponent(url)}`;
+          }
+          const sep = url.includes("?") ? "&" : "?";
+          return `${url}${sep}style=map_avatar&v=2`;
+        };
 
         const markers = fixed.map((p) => {
           const marker = {
@@ -110,7 +84,7 @@ Component({
             height: 36
           };
           if (p.avatar_url && (p.avatar_url.startsWith("http://") || p.avatar_url.startsWith("https://"))) {
-            marker.iconPath = p.avatar_url;
+            marker.iconPath = withMapAvatarStyle(p.avatar_url);
           } else {
             marker.label = {
               content: (p.display_name || "摄影师").slice(0, 1),
@@ -146,13 +120,8 @@ Component({
       const id = e.markerId;
       const p = (this.data.list || []).find((x) => x.id === id);
       if (!p) return;
-      wx.navigateTo({ url: `/pages/photographer/index?id=${id}` });
-    },
-
-    goDetail(e) {
-      const id = e.currentTarget.dataset.id;
-      const distance = encodeURIComponent(e.currentTarget.dataset.distance || "");
-      wx.navigateTo({ url: `/pages/photographer/index?id=${id}&distance=${distance}` });
+      const distance = encodeURIComponent(p.distanceCopy || "");
+      wx.navigateTo({ url: `/pages/photographer/index?id=${id}&distance=${distance}&from=nearby` });
     },
 
     onTapCity() {

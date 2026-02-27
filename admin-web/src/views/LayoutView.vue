@@ -11,6 +11,7 @@
       <el-menu-item index="/studio/packages">套餐</el-menu-item>
       <el-menu-item index="/admin/certifications">认证审核</el-menu-item>
       <el-menu-item index="/admin/analytics">埋点分析</el-menu-item>
+      <el-menu-item index="/admin/db">数据库浏览</el-menu-item>
       <el-menu-item index="/seed">开发 Seed</el-menu-item>
     </el-menu>
 

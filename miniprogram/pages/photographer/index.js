@@ -1,10 +1,12 @@
 const { request } = require("../../utils/request");
+const { getToken, ensureLogin } = require("../../utils/auth");
 const theme = require("../../utils/theme");
 
 Page({
   data: {
     id: null,
     distanceText: "",
+    fromSource: "",
     p: {},
     portfolio: [],
     packages: [],
@@ -15,6 +17,9 @@ Page({
     hasEquipment: false,
     serviceRadiusKm: 0,
     fav: false,
+    canViewContact: false,
+    contactAccessMode: "all",
+    contactLockReason: "",
     isOwnerPhotographer: false,
     theme: "classic",
     themeClass: "cs-theme-classic"
@@ -28,7 +33,11 @@ Page({
     });
 
     const id = Number(query.id);
-    this.setData({ id, distanceText: decodeURIComponent(query.distance || "") });
+    this.setData({
+      id,
+      distanceText: decodeURIComponent(query.distance || ""),
+      fromSource: decodeURIComponent(query.from || "")
+    });
     await this.load();
   },
 
@@ -46,7 +55,7 @@ Page({
     try {
       const app = getApp();
       const base = app.globalData.apiBaseUrl;
-      const data = await request(`/photographers/${this.data.id}`);
+      const data = await request(`/photographers/${this.data.id}`, { auth: !!getToken() });
       // 补全图片URL
       if (Array.isArray(data.portfolio_items)) {
         data.portfolio_items = data.portfolio_items.map((x) => ({
@@ -117,6 +126,10 @@ Page({
         droneModels,
         hasEquipment,
         serviceRadiusKm,
+        fav: !!data.is_favorited,
+        canViewContact: !!data.can_view_contact,
+        contactAccessMode: data.contact_access_mode || "all",
+        contactLockReason: data.contact_lock_reason || "",
       });
       await this.checkOwnerEditable(data);
     } catch (e) {
@@ -165,11 +178,62 @@ Page({
     }
   },
 
-  contact() {
-    wx.showModal({
-      title: "联系摄影师",
-      content: "可通过拨打电话或添加微信联系摄影师，功能即将上线。",
-      showCancel: false
+  async contact() {
+    if (!this.data.canViewContact) {
+      if (this.data.contactLockReason === "login_required") {
+        try {
+          await ensureLogin();
+          await this.load();
+          if (!this.data.canViewContact) {
+            wx.showToast({ title: "请开通会员后查看", icon: "none" });
+            return;
+          }
+        } catch (_e) {
+          wx.showToast({ title: "登录失败", icon: "none" });
+          return;
+        }
+      } else {
+        wx.showModal({
+          title: "会员可见",
+          content: "开通会员后可查看摄影师联系方式，会员功能即将上线。",
+          showCancel: false
+        });
+        return;
+      }
+    }
+
+    const phone = this.data.p?.phone || "";
+    const wechat = this.data.p?.wechat_id || "";
+    if (!phone && !wechat) {
+      wx.showToast({ title: "摄影师暂未填写联系方式", icon: "none" });
+      return;
+    }
+
+    const actions = [];
+    if (phone) actions.push("拨打电话");
+    if (wechat) actions.push("复制微信号");
+    actions.push("查看联系方式");
+    wx.showActionSheet({
+      itemList: actions,
+      success: ({ tapIndex }) => {
+        const key = actions[tapIndex];
+        if (key === "拨打电话") {
+          wx.makePhoneCall({ phoneNumber: phone });
+          return;
+        }
+        if (key === "复制微信号") {
+          wx.setClipboardData({
+            data: wechat,
+            success: () => wx.showToast({ title: "微信号已复制", icon: "none" })
+          });
+          return;
+        }
+        wx.showModal({
+          title: "联系方式",
+          content: `电话：${phone || "未填写"}\n微信：${wechat || "未填写"}`,
+          showCancel: false
+        });
+      }
     });
   },
 

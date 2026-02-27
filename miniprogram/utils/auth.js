@@ -3,7 +3,14 @@ function getToken() {
 }
 
 function setToken(token) {
-  wx.setStorageSync("token", token);
+  if (token) wx.setStorageSync("token", token);
+  else wx.removeStorageSync("token");
+}
+
+function clearAuthState() {
+  // 清理登录态与认证工作台草稿，避免账号切换/删号后看到旧数据
+  wx.removeStorageSync("token");
+  wx.removeStorageSync("studio_draft_v1");
 }
 
 async function ensureLogin() {
@@ -38,5 +45,5 @@ async function ensureLogin() {
   throw new Error(res.data?.detail || "微信登录失败");
 }
 
-module.exports = { getToken, setToken, ensureLogin };
+module.exports = { getToken, setToken, ensureLogin, clearAuthState };
 

@@ -1,4 +1,183 @@
-.cs-page {
-  padding-bottom: calc(160rpx + env(safe-area-inset-bottom)); /* 避免内容被自定义 TabBar 遮挡 */
+.fav-page {
+  min-height: 100vh;
+  padding: 24rpx 24rpx calc(160rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: var(--cs-color-bg);
+}
+
+.fav-hero {
+  border-radius: 30rpx;
+  padding: 24rpx;
+  border: 1px solid var(--cs-color-border);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.12) 0%, var(--cs-color-surface) 100%);
+  box-shadow: var(--cs-shadow-card);
+}
+
+.fav-hero-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.fav-title {
+  color: var(--cs-color-text);
+  font-size: 40rpx;
+  font-weight: 720;
+  line-height: 1.2;
+}
+
+.fav-subtitle {
+  margin-top: 8rpx;
+  color: var(--cs-color-muted);
+  font-size: 24rpx;
+}
+
+.refresh-btn {
+  flex-shrink: 0;
+  padding: 12rpx 24rpx;
+  border-radius: 999rpx;
+  border: 1px solid var(--cs-color-primary);
+  color: #07110d;
+  background: var(--cs-color-primary);
+  font-size: 24rpx;
+  font-weight: 700;
+  box-shadow: var(--cs-shadow-glow);
+}
+
+.cs-theme-classic .refresh-btn {
+  color: #111827;
+}
+
+.fav-pills {
+  margin-top: 20rpx;
+  display: inline-flex;
+  padding: 6rpx;
+  border-radius: 999rpx;
+  background: var(--cs-color-surface-2);
+  border: 1px solid var(--cs-color-border);
+}
+
+.fav-pill {
+  padding: 10rpx 22rpx;
+  border-radius: 999rpx;
+  color: var(--cs-color-muted);
+  font-size: 24rpx;
+}
+
+.fav-pill.active {
+  color: #07110d;
+  background: var(--cs-color-primary);
+  box-shadow: var(--cs-shadow-glow);
+}
+
+.cs-theme-classic .fav-pill.active {
+  color: #111827;
+}
+
+.fav-list {
+  margin-top: 20rpx;
+}
+
+.fav-card {
+  margin-top: 16rpx;
+  border-radius: 28rpx;
+  padding: 22rpx;
+  border: 1px solid var(--cs-color-border);
+  background: var(--cs-color-surface);
+  box-shadow: var(--cs-shadow-card);
+}
+
+.fav-card:first-child {
+  margin-top: 0;
+}
+
+.fav-card-hover {
+  transform: translateY(-2rpx);
+  opacity: 0.94;
+}
+
+.fav-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.fav-card-title {
+  color: var(--cs-color-text);
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.city-badge {
+  flex-shrink: 0;
+  max-width: 260rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  color: var(--cs-color-text-2);
+  background: var(--cs-color-surface-2);
+  border: 1px solid var(--cs-color-border);
+}
+
+.fav-card-desc {
+  margin-top: 14rpx;
+  color: var(--cs-color-text-3);
+  font-size: 24rpx;
+  line-height: 1.45;
+}
+
+.fav-card-foot {
+  margin-top: 18rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hint {
+  color: var(--cs-color-muted);
+  font-size: 22rpx;
+}
+
+.arrow {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 999rpx;
+  text-align: center;
+  line-height: 40rpx;
+  font-size: 30rpx;
+  color: #07110d;
+  background: var(--cs-color-primary);
+  box-shadow: var(--cs-shadow-glow);
+}
+
+.cs-theme-classic .arrow {
+  color: #111827;
+}
+
+.state-card {
+  margin-top: 20rpx;
+  padding: 30rpx 24rpx;
+  border-radius: 28rpx;
+  border: 1px solid var(--cs-color-border);
+  background: var(--cs-color-surface);
+  box-shadow: var(--cs-shadow-card);
+}
+
+.state-title {
+  color: var(--cs-color-text);
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.state-desc {
+  margin-top: 10rpx;
+  color: var(--cs-color-muted);
+  font-size: 24rpx;
+  line-height: 1.5;
 }
 

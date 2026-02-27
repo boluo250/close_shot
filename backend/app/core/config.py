@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     wechat_login_allow_mock: bool = False
     wechat_mock_openid_seed: str = "local-dev"
     membership_callback_secret: str = "dev-membership-callback"
+    analytics_report_timezone: str = "Asia/Shanghai"
+    analytics_daily_report_webhook_url: str | None = None
+    analytics_daily_report_webhook_secret: str | None = None
 
 
 settings = Settings()  # type: ignore[call-arg]

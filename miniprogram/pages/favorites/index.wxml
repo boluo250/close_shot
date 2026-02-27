@@ -1,24 +1,47 @@
-<view class="cs-page">
-  <view class="cs-card">
-    <view class="cs-row">
-      <view><text style="font-weight: 600">我的收藏</text></view>
-      <button class="cs-btn" size="mini" bindtap="refresh">刷新</button>
+<view class="fav-page {{themeClass}}">
+  <view class="fav-hero">
+    <view class="fav-hero-row">
+      <view>
+        <view class="fav-title">我的收藏</view>
+        <view class="fav-subtitle">把喜欢的摄影师装进灵感库</view>
+      </view>
+      <view class="refresh-btn" bindtap="refresh">刷新</view>
     </view>
-    <view wx:if="{{loading}}" class="cs-muted" style="padding-top: 12rpx;">加载中...</view>
+    <view class="fav-pills">
+      <view class="fav-pill active">收藏</view>
+      <view class="fav-pill">摄影师</view>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="state-card">
+    <view class="state-title">加载中...</view>
+    <view class="state-desc">正在同步你的收藏列表</view>
+  </view>
+
+  <view wx:if="{{!loading && list.length > 0}}" class="fav-list">
     <view
       wx:for="{{list}}"
       wx:key="id"
-      class="cs-divider"
-      style="padding: 16rpx 0;"
+      class="fav-card"
       bindtap="goDetail"
       data-id="{{item.id}}"
+      hover-class="fav-card-hover"
+      hover-stay-time="80"
     >
-      <view>
-        摄影师 #{{item.id}} <text class="cs-muted">{{item.city || ''}}</text>
+      <view class="fav-card-head">
+        <view class="fav-card-title">摄影师 #{{item.id}}</view>
+        <view class="city-badge">{{item.city || "未标注城市"}}</view>
       </view>
-      <view class="cs-muted" style="padding-top: 6rpx;">{{item.tags}}</view>
+      <view class="fav-card-desc">{{item.tags || "暂无标签，点击查看详情"}}</view>
+      <view class="fav-card-foot">
+        <view class="hint">进入详情</view>
+        <view class="arrow">›</view>
+      </view>
     </view>
-    <view wx:if="{{!loading && list.length===0}}" class="cs-muted" style="padding-top: 12rpx;">暂无收藏</view>
+  </view>
+
+  <view wx:if="{{!loading && list.length===0}}" class="state-card">
+    <view class="state-title">还没有收藏</view>
+    <view class="state-desc">去逛逛附近摄影师，先收藏几个喜欢的风格吧</view>
   </view>
 </view>
-

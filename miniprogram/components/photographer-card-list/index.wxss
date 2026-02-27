@@ -1,0 +1,131 @@
+.loading {
+  padding-top: 10rpx;
+}
+
+.p-card {
+  background: var(--cs-color-surface);
+  border-radius: var(--cs-radius-lg);
+  padding: var(--cs-space-6);
+  box-shadow: var(--cs-shadow-card);
+  margin-top: 16rpx;
+  border: 1px solid var(--cs-color-border);
+}
+
+.p-card:first-child {
+  margin-top: 0;
+}
+
+.p-top {
+  display: flex;
+  align-items: stretch;
+  gap: 18rpx;
+}
+
+.avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 28rpx;
+  background: var(--cs-color-surface-2);
+}
+
+.p-meta {
+  flex: 1;
+  min-width: 0;
+  min-height: 96rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.p-name-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.p-name {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--cs-color-text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.p-intro {
+  padding-top: 10rpx;
+  font-size: 24rpx;
+  color: var(--cs-color-text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.p-price {
+  font-weight: 750;
+  color: var(--cs-color-text);
+  white-space: nowrap;
+  line-height: 1.1;
+  font-size: 28rpx;
+}
+
+.p-price-muted {
+  font-weight: 650;
+  color: var(--cs-color-muted);
+}
+
+.p-footer {
+  margin-top: auto;
+}
+
+.p-subrow {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-end;
+  padding-top: 4rpx;
+}
+
+.shots {
+  padding-top: 16rpx;
+  white-space: nowrap;
+}
+
+.shot {
+  display: inline-block;
+  width: 220rpx;
+  height: 150rpx;
+  border-radius: 18rpx;
+  background: var(--cs-color-surface-2);
+  margin-right: 14rpx;
+}
+
+.shot.ph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty {
+  margin-top: 18rpx;
+  background: var(--cs-color-surface);
+  border-radius: var(--cs-radius-lg);
+  padding: 26rpx;
+  box-shadow: var(--cs-shadow-card);
+  border: 1px solid var(--cs-color-border);
+}
+
+.empty-title {
+  font-size: 30rpx;
+  font-weight: 650;
+  color: var(--cs-color-text);
+}
+
+.empty-desc {
+  padding-top: 10rpx;
+}
+
+.cs-muted {
+  color: var(--cs-color-muted);
+}

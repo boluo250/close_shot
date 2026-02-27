@@ -63,7 +63,7 @@
 .fav-btn {
   background: var(--cs-color-surface-2);
   color: var(--cs-color-text-2);
-  border: none;
+  border: 1rpx solid var(--cs-color-border);
   border-radius: 999rpx;
   padding: 8rpx 24rpx;
   font-size: 24rpx;
@@ -71,9 +71,14 @@
 }
 
 .fav-btn.fav-active {
-  background: var(--cs-color-text);
-  color: #ffffff;
+  background: var(--cs-gradient-primary);
+  border-color: transparent;
+  color: #0b0d12;
   box-shadow: var(--cs-shadow-glow);
+}
+
+.fav-btn::after {
+  border: none;
 }
 
 .p-bio {

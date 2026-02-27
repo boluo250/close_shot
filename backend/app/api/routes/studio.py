@@ -57,6 +57,8 @@ def _object_key_from_url(url: str) -> str | None:
 
 
 def _object_key_to_url(object_key: str) -> str:
+    if settings.storage_backend == "local":
+        return f"/media/{object_key}"
     public_base = settings.s3_public_base_url
     if public_base:
         return f"{public_base.rstrip('/')}/{object_key}"

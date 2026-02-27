@@ -38,7 +38,7 @@
         <view class="step-badge">1</view>
         <text class="card-title">基础资料（可编辑）</text>
       </view>
-      <button class="save-btn" size="mini" bindtap="saveProfile" loading="{{profileSaving}}">保存</button>
+      <button class="save-btn" size="mini" bindtap="saveProfile">保存草稿</button>
     </view>
 
     <!-- 头像 -->
@@ -55,6 +55,9 @@
     <!-- 简介：模板 + 输入 -->
     <view class="field-label">个人简介</view>
     <view class="section-tip">当前状态：{{profile.bio ? '已填写，可继续修改' : '未填写，建议补充'}}</view>
+    <view wx:if="{{profileDraftSaved}}" class="upload-hint" style="margin-bottom: 10rpx;">
+      已保存资料草稿，点击底部按钮后统一上传到服务器
+    </view>
     <view class="bio-templates">
       <view
         wx:for="{{bioTemplates}}"
@@ -121,6 +124,18 @@
     </button>
 
     <view wx:if="{{lastUrl}}" class="upload-result">{{lastUrl}}</view>
+    <view wx:if="{{pendingPortfolio.length > 0}}" class="upload-hint" style="margin-top: 10rpx;">
+      待上传 {{pendingPortfolio.length}} 张，点击底部按钮后才会上传到服务器
+    </view>
+    <view class="portfolio-grid" wx:if="{{pendingPortfolio.length > 0}}">
+      <view wx:for="{{pendingPortfolio}}" wx:key="tempFilePath" class="portfolio-cell">
+        <image mode="aspectFill" src="{{item.tempFilePath}}" class="portfolio-thumb" />
+        <view class="portfolio-actions">
+          <text class="action-link pending-text">待上传</text>
+          <text class="action-link danger" data-index="{{index}}" bindtap="removePendingPortfolio">移除</text>
+        </view>
+      </view>
+    </view>
 
     <!-- 作品列表 - 网格展示 -->
     <view wx:if="{{portfolioLoading}}" class="cs-muted" style="padding-top: 16rpx;">加载中...</view>
@@ -275,5 +290,16 @@
     </view>
   </view>
 
-  <view style="height: 40rpx;"></view>
+  <view class="submit-upload-bar" wx:if="{{authorized}}">
+    <button
+      class="submit-upload-btn"
+      bindtap="submitAllChanges"
+      loading="{{portfolioUploading || submittingAll}}"
+      disabled="{{!token || portfolioUploading || submittingAll || (!profileDraftSaved && pendingPortfolio.length === 0)}}"
+    >
+      {{(portfolioUploading || submittingAll) ? (portfolioUploadCount > 0 ? '上传中（' + portfolioUploadCount + '张）...' : '上传中...') : (profileDraftSaved || pendingPortfolio.length > 0 ? '一键上传到服务器（' + pendingPortfolio.length + '张作品）' : '一键上传到服务器')}}
+    </button>
+  </view>
+
+  <view style="height: 180rpx;"></view>
 </view>

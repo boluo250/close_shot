@@ -343,8 +343,9 @@
 
 /* ====== 作品网格 ====== */
 .portfolio-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
   gap: 12rpx;
   margin-top: 20rpx;
 }
@@ -352,6 +353,13 @@
 .portfolio-cell {
   display: flex;
   flex-direction: column;
+  width: calc((100% - 12rpx) / 2);
+}
+
+@media screen and (min-width: 768px) {
+  .portfolio-cell {
+    width: calc((100% - 24rpx) / 3);
+  }
 }
 
 .portfolio-thumb {
@@ -381,11 +389,44 @@
   color: var(--cs-color-danger);
 }
 
+.action-link.pending-text {
+  color: var(--cs-color-muted);
+}
+
 .empty-hint {
   text-align: center;
   padding: 40rpx 0 16rpx;
   color: var(--cs-color-muted);
   font-size: 26rpx;
+}
+
+.submit-upload-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 14rpx 24rpx calc(14rpx + env(safe-area-inset-bottom));
+  background: var(--cs-color-surface);
+  border-top: 1rpx solid var(--cs-color-border);
+  box-shadow: 0 -8rpx 24rpx rgba(0, 0, 0, 0.12);
+  z-index: 20;
+}
+
+.submit-upload-btn {
+  width: 100%;
+  height: 84rpx;
+  line-height: 84rpx;
+  border-radius: 999rpx;
+  border: none;
+  font-size: 28rpx;
+  font-weight: 600;
+  background: var(--cs-color-primary);
+  color: #0b0d12;
+  box-shadow: var(--cs-shadow-glow);
+}
+
+.submit-upload-btn[disabled] {
+  opacity: 0.45;
 }
 
 /* ====== 预设套餐 ====== */

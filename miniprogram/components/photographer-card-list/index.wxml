@@ -1,0 +1,59 @@
+<view>
+  <view wx:if="{{loading}}" class="cs-muted loading">加载中...</view>
+  <view wx:if="{{errorText}}" class="cs-muted loading">{{errorText}}</view>
+
+  <view
+    wx:for="{{list}}"
+    wx:key="id"
+    class="p-card"
+    bindtap="goDetail"
+    data-id="{{item.id}}"
+    data-distance="{{item.distanceCopy}}"
+  >
+    <view class="p-top">
+      <image
+        class="avatar"
+        mode="aspectFill"
+        src="{{item.avatar_url || ''}}"
+        style="{{item.avatar_url ? '' : 'background:#eef0f3;'}}"
+      />
+      <view class="p-meta">
+        <view class="p-name-row">
+          <text class="p-name">{{item.display_name}}</text>
+          <text class="p-price" wx:if="{{item.starting_price_yuan}}">¥{{item.starting_price_yuan}} 起</text>
+          <text class="p-price p-price-muted" wx:else>价格面议</text>
+        </view>
+
+        <view class="p-intro {{item.bio ? '' : 'cs-muted'}}">
+          {{item.bio || '暂无简介'}}
+        </view>
+
+        <view class="p-footer">
+          <view class="p-subrow">
+            <text class="cs-muted">{{item.distanceCopy || item.city || "未标注城市"}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <scroll-view class="shots" scroll-x enhanced show-scrollbar="{{false}}">
+      <image
+        wx:for="{{item.preview_image_urls}}"
+        wx:for-item="u"
+        wx:key="u"
+        class="shot"
+        mode="aspectFill"
+        lazy-load
+        src="{{u}}"
+      />
+      <view wx:if="{{item.preview_empty}}" class="shot ph">
+        <text class="cs-muted">暂无样片</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view wx:if="{{!loading && list.length===0}}" class="empty">
+    <view class="empty-title">{{emptyTitle}}</view>
+    <view wx:if="{{emptyDesc}}" class="cs-muted empty-desc">{{emptyDesc}}</view>
+  </view>
+</view>

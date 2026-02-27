@@ -1,20 +1,24 @@
-const { getToken, setToken, ensureLogin } = require("../../utils/auth");
+const { getToken, clearAuthState, ensureLogin } = require("../../utils/auth");
 const { request } = require("../../utils/request");
+const env = require("../../env");
 
 Page({
   data: {
+    enableDevTools: !!env.ENABLE_DEV_TOOLS,
     token: "",
     loading: false,
     identityLoading: false,
     role: "",
     photographerStatus: "",
     rejectReason: "",
-    stats: {
-      favoriteCount: 0
-    },
     profile: {
       nickname: "",
       avatarUrl: ""
+    },
+    membership: {
+      isMember: false,
+      expiresAt: "",
+      loading: false
     },
     uiText: {
       guestNickname: "游客",
@@ -33,6 +37,10 @@ Page({
       editProfileDesc: "更新主页信息、接单状态与作品展示",
       certTitle: "认证中心",
       certDesc: "查看认证进度和审核结果",
+      membershipTitle: "开通会员",
+      membershipDescGuest: "登录后立即开通，解锁联系方式查看",
+      membershipDescNonMember: "开通后可查看摄影师联系方式",
+      membershipDescMember: "会员已开通，可持续查看联系方式",
       statusGuest: "未登录",
       statusUser: "普通用户",
       statusAdmin: "管理员",
@@ -59,7 +67,7 @@ Page({
     this.setData({ token: getToken() || "" });
     this.syncViewState();
     this.loadIdentity();
-    this.loadFavoriteCount();
+    this.loadMembership();
   },
 
   syncViewState() {
@@ -91,20 +99,6 @@ Page({
     });
   },
 
-  async loadFavoriteCount() {
-    const token = getToken();
-    if (!token) {
-      this.setData({ "stats.favoriteCount": 0 });
-      return;
-    }
-    try {
-      const list = await request("/me/favorites", { auth: true });
-      this.setData({ "stats.favoriteCount": Array.isArray(list) ? list.length : 0 });
-    } catch (e) {
-      this.setData({ "stats.favoriteCount": 0 });
-    }
-  },
-
   async loadIdentity() {
     const token = getToken();
     if (!token) {
@@ -129,12 +123,43 @@ Page({
     }
   },
 
+  _formatMemberExpireText(expiresAt) {
+    if (!expiresAt) return "";
+    const dt = new Date(expiresAt);
+    if (Number.isNaN(dt.getTime())) return "";
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const d = String(dt.getDate()).padStart(2, "0");
+    return `${y}.${m}.${d} 到期`;
+  },
+
+  async loadMembership() {
+    const token = getToken();
+    if (!token) {
+      this.setData({ membership: { isMember: false, expiresAt: "", loading: false } });
+      return;
+    }
+    this.setData({ "membership.loading": true });
+    try {
+      const data = await request("/membership/me", { auth: true });
+      this.setData({
+        membership: {
+          isMember: !!data?.is_member,
+          expiresAt: this._formatMemberExpireText(data?.member_expires_at),
+          loading: false
+        }
+      });
+    } catch (_e) {
+      this.setData({ membership: { isMember: false, expiresAt: "", loading: false } });
+    }
+  },
+
   async login() {
     this.setData({ loading: true });
     try {
       const t = await ensureLogin();
       this.setData({ token: t || "" });
-      await Promise.all([this.loadIdentity(), this.loadFavoriteCount()]);
+      await Promise.all([this.loadIdentity(), this.loadMembership()]);
       this.syncViewState();
       wx.showToast({ title: "已登录", icon: "none" });
     } catch (e) {
@@ -145,20 +170,29 @@ Page({
   },
 
   logout() {
-    setToken("");
+    clearAuthState();
     this.setData({
       token: "",
       role: "",
       photographerStatus: "not_applied",
       rejectReason: "",
-      "stats.favoriteCount": 0
+      membership: { isMember: false, expiresAt: "", loading: false }
     });
     this.syncViewState();
     wx.showToast({ title: "已退出", icon: "none" });
   },
 
-  goFavorites() {
-    wx.navigateTo({ url: "/pages/favorites/index" });
+  clearLocalAuthCache() {
+    clearAuthState();
+    this.setData({
+      token: "",
+      role: "",
+      photographerStatus: "not_applied",
+      rejectReason: "",
+      membership: { isMember: false, expiresAt: "", loading: false }
+    });
+    this.syncViewState();
+    wx.showToast({ title: "本地认证缓存已清理", icon: "none" });
   },
 
   goEditPhotographerProfile() {
@@ -194,6 +228,45 @@ Page({
       }
     } catch (e) {
       wx.showToast({ title: "身份校验失败", icon: "none" });
+    } finally {
+      wx.hideLoading();
+    }
+  },
+
+  async goMembership() {
+    wx.showLoading({ title: "加载中..." });
+    try {
+      await ensureLogin();
+      const plans = await request("/membership/plans");
+      if (!Array.isArray(plans) || !plans.length) {
+        wx.showToast({ title: "暂无可购买套餐", icon: "none" });
+        return;
+      }
+      wx.hideLoading();
+      const itemList = plans.map((x) => `${x.title} ¥${((x.price_cents || 0) / 100).toFixed(0)}`);
+      const selected = await new Promise((resolve, reject) => {
+        wx.showActionSheet({
+          itemList,
+          success: (res) => resolve(res.tapIndex),
+          fail: reject
+        });
+      });
+      const idx = Number(selected);
+      const target = plans[idx];
+      if (!target) return;
+      await request("/membership/orders", {
+        method: "POST",
+        data: { plan_code: target.code },
+        auth: true
+      });
+      wx.showModal({
+        title: "订单已创建",
+        content: "支付能力接入中，订单已生成。接入支付后会自动完成会员开通。",
+        showCancel: false
+      });
+      await this.loadMembership();
+    } catch (_e) {
+      wx.showToast({ title: "暂未完成购买", icon: "none" });
     } finally {
       wx.hideLoading();
     }

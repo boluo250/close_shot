@@ -229,13 +229,14 @@ def nearby(
     preview_map: dict[int, list[str]] = {pid: [] for pid in pids}
     if pids:
         items = db.execute(
-            select(PortfolioItem.photographer_id, PortfolioItem.image_url)
+            select(PortfolioItem.photographer_id, PortfolioItem.watermark_url, PortfolioItem.image_url)
             .where(PortfolioItem.photographer_id.in_(pids))
             .order_by(PortfolioItem.photographer_id.asc(), PortfolioItem.sort_order.asc(), PortfolioItem.id.asc())
         ).all()
-        for pid, image_url in items:
+        for pid, watermark_url, image_url in items:
+            preview_url = watermark_url or image_url
             if pid in preview_map and len(preview_map[pid]) < 3:
-                preview_map[pid].append(image_url)
+                preview_map[pid].append(preview_url)
 
     out: list[PhotographerCardOut] = []
     for (
