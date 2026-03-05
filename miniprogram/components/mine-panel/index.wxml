@@ -46,7 +46,12 @@
       <text class="mine-cell-arrow">›</text>
     </button>
 
-    <button class="mine-cell" bindtap="goStudio" hover-class="mine-cell-hover">
+    <button
+      wx:if="{{!token || photographerStatus !== 'approved'}}"
+      class="mine-cell"
+      bindtap="goStudio"
+      hover-class="mine-cell-hover"
+    >
       <view class="mine-cell-main">
         <text class="mine-cell-title">{{uiText.certTitle}}</text>
         <text class="mine-cell-desc">{{uiText.certDesc}}</text>
