@@ -101,6 +101,7 @@
       <input class="equip-input" placeholder="输入无人机型号，如 DJI Air 3" value="{{newDrone}}" bindinput="onNewDrone" bindconfirm="addDrone" />
       <button class="equip-add-btn" size="mini" bindtap="addDrone">添加</button>
     </view>
+
   </view>
 
   <!-- ========== STEP 2: 作品上传（极简） ========== -->
@@ -254,8 +255,27 @@
     </view>
   </view>
 
+  <view class="cs-card location-card" wx:if="{{authorized}}">
+    <view class="location-soda-row">
+      <view class="location-pill">
+        <text class="location-pill-key">城市</text>
+        <text class="location-pill-value">{{serviceCityText}}</text>
+      </view>
+      <view class="location-pill location-pill-coord">
+        <text class="location-pill-key">坐标</text>
+        <text class="location-pill-value">{{serviceCoordText}}</text>
+      </view>
+      <button
+        class="location-refresh-btn location-refresh-soda-btn"
+        bindtap="refreshServiceLocation"
+        loading="{{locationRefreshing}}"
+        disabled="{{!token || locationRefreshing}}"
+      >{{locationRefreshing ? '刷新中' : '刷新'}}</button>
+    </view>
+  </view>
+
   <!-- ========== 档期管理（折叠） ========== -->
-  <view class="cs-card" wx:if="{{authorized}}">
+  <view class="cs-card" wx:if="{{authorized && showScheduleSection}}">
     <view class="card-header" bindtap="toggleScheduleExpanded">
       <view class="card-title-row">
         <text class="card-title">档期管理</text>
@@ -301,5 +321,5 @@
     </button>
   </view>
 
-  <view style="height: 180rpx;"></view>
+  <view style="height: 250rpx;"></view>
 </view>

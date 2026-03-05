@@ -80,10 +80,18 @@ Page({
     },
 
     scheduleExpanded: false,
+    showScheduleSection: false,
     scheduleYear: new Date().getFullYear(),
     scheduleMonth: new Date().getMonth() + 1,
     scheduleCells: [],
     scheduleMap: {},
+    serviceCenterLat: null,
+    serviceCenterLng: null,
+    serviceCity: "",
+    serviceCenterText: "服务城市：未设置 · 位置：未设置",
+    serviceCityText: "未设置",
+    serviceCoordText: "未设置",
+    locationRefreshing: false,
 
     theme: "classic",
     themeClass: "cs-theme-classic"
@@ -304,7 +312,7 @@ Page({
       this.loadProfile(),
       this.loadPortfolio(),
       this.loadPackages(),
-      this.loadSchedule()
+      ...(this.data.showScheduleSection ? [this.loadSchedule()] : [])
     ]);
   },
 
@@ -348,10 +356,66 @@ Page({
           cover_url: profile.cover_url || ""
         },
         equipmentItems,
-        droneItems
+        droneItems,
+        serviceCity: (profile.city || "").trim(),
+        serviceCenterLat:
+          typeof profile.service_center_lat === "number" ? profile.service_center_lat : null,
+        serviceCenterLng:
+          typeof profile.service_center_lng === "number" ? profile.service_center_lng : null
       });
+      this.updateServiceCenterText();
     } catch (e) {
       wx.showToast({ title: "加载资料失败", icon: "none" });
+    }
+  },
+
+  updateServiceCenterText() {
+    const lat = this.data.serviceCenterLat;
+    const lng = this.data.serviceCenterLng;
+    const city = (this.data.serviceCity || "").trim();
+    const hasLocation = typeof lat === "number" && typeof lng === "number";
+    const cityText = city || "未设置";
+    this.setData({
+      serviceCityText: cityText,
+      serviceCoordText: hasLocation ? `${lat.toFixed(4)}, ${lng.toFixed(4)}` : "未设置",
+      serviceCenterText: hasLocation
+        ? `服务城市：${cityText} · 坐标：${lat.toFixed(4)}, ${lng.toFixed(4)}`
+        : `服务城市：${cityText} · 位置：未设置`
+    });
+  },
+
+  async refreshServiceLocation() {
+    if (!this.data.token || this.data.locationRefreshing) return;
+    this.setData({ locationRefreshing: true });
+    try {
+      const loc = await new Promise((resolve, reject) => {
+        wx.getLocation({
+          type: "gcj02",
+          success: resolve,
+          fail: reject
+        });
+      });
+      const lat = loc.latitude;
+      const lng = loc.longitude;
+      const cityFromLocation = (loc.city || loc.locality || "").trim();
+      await this.studioRequest("/studio/me", {
+        method: "PUT",
+        data: {
+          service_center_lat: lat,
+          service_center_lng: lng
+        }
+      });
+      this.setData({
+        serviceCenterLat: lat,
+        serviceCenterLng: lng,
+        serviceCity: cityFromLocation || this.data.serviceCity || (this.data.profile.city || "").trim()
+      });
+      this.updateServiceCenterText();
+      wx.showToast({ title: "位置已刷新", icon: "none" });
+    } catch (e) {
+      wx.showToast({ title: "刷新位置失败", icon: "none" });
+    } finally {
+      this.setData({ locationRefreshing: false });
     }
   },
 
