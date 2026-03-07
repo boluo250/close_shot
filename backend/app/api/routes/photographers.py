@@ -4,7 +4,7 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, Header
 from jose import JWTError, jwt
-from sqlalchemy import Float, case, delete, func, select
+from sqlalchemy import Float, delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_user
@@ -172,16 +172,11 @@ def nearby(
         .subquery()
     )
 
-    # 排序：距离权重 + 活跃度 + 作品数量
-    d_km = (dist / 1000.0).cast(Float)
-    f_distance = func.exp(-(d_km / 8.0))
-    days_since_active = (func.extract("epoch", func.now() - Photographer.last_active_at) / 86400.0).cast(Float)
-    f_activity = func.exp(-(days_since_active / 14.0))
-    f_portfolio = case(
-        (func.coalesce(portfolio_count_sq.c.portfolio_count, 0) >= 40, 1.0),
-        else_=(func.coalesce(portfolio_count_sq.c.portfolio_count, 0) / 40.0),
-    ).cast(Float)
-    score = (0.5 * f_distance + 0.35 * f_activity + 0.15 * f_portfolio).label("score")
+    # 排序：离线 sort_score（质量/热度/活跃） - 实时距离惩罚
+    # 距离越远扣分越高，确保同质量下优先展示更近的摄影师。
+    distance_ratio = (dist / float(max(max_distance_m, 1))).cast(Float)
+    distance_penalty = (35.0 * distance_ratio).cast(Float)
+    score = (func.coalesce(Photographer.sort_score, 50.0) - distance_penalty).label("score")
 
     stmt = (
         select(

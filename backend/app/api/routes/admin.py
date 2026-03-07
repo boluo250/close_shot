@@ -21,6 +21,7 @@ from app.schemas.photographer import (
     CertificationReviewIn,
 )
 from app.services.membership import get_contact_access_mode, set_contact_access_mode
+from app.services.photographer_ranking import recalculate_photographer_sort_scores
 
 router = APIRouter()
 
@@ -36,6 +37,10 @@ class ContactAccessSettingIn(BaseModel):
 
 class ContactAccessSettingOut(BaseModel):
     mode: str
+
+
+class PhotographerQualityScoreIn(BaseModel):
+    score: float
 
 
 class DbTableListOut(BaseModel):
@@ -181,6 +186,28 @@ def review_certification(
         raise HTTPException(status_code=400, detail="action 必须是 approve 或 reject")
 
     db.commit()
+    db.refresh(p)
+    return _photographer_to_detail(p)
+
+
+@router.put("/photographers/{photographer_id}/quality-score", response_model=CertificationDetailOut)
+def update_photographer_quality_score(
+    photographer_id: int,
+    payload: PhotographerQualityScoreIn,
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CertificationDetailOut:
+    _require_admin(me)
+    if payload.score < 1 or payload.score > 10:
+        raise HTTPException(status_code=400, detail="score must be between 1 and 10")
+
+    p = db.scalar(select(Photographer).where(Photographer.id == photographer_id))
+    if not p:
+        raise HTTPException(status_code=404, detail="photographer not found")
+
+    p.quality_score = float(payload.score)
+    db.commit()
+    recalculate_photographer_sort_scores(db, photographer_ids=[photographer_id])
     db.refresh(p)
     return _photographer_to_detail(p)
 

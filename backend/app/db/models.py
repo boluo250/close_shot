@@ -107,6 +107,10 @@ class Photographer(TimestampMixin, Base):
     price_range: Mapped[str | None] = mapped_column(String(32))  # "199-399" / "399-699" / "699+"
     # 认证等级
     certification_level: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # 人工照片质量分（1-10），用于排序的基础质量因子
+    quality_score: Mapped[float] = mapped_column(Float, nullable=False, default=5.0)
+    # 预计算排序分（0-100），由定时任务刷新
+    sort_score: Mapped[float] = mapped_column(Float, nullable=False, default=50.0)
 
     # 服务中心点（非实时定位）：映射历史列名 lat/lng
     service_center_lat: Mapped[float | None] = mapped_column("lat", Float)
