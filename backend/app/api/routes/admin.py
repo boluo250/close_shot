@@ -12,7 +12,7 @@ from sqlalchemy import case, func, inspect, select, text
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.db.models import AnalyticsEvent, Photographer, PhotographerStatus, User, UserRole
+from app.db.models import AdminOperationLog, AnalyticsEvent, Favorite, Photographer, PhotographerStatus, User, UserRole
 from app.db.session import get_db
 from app.schemas.analytics import AnalyticsEventListOut, AnalyticsEventOut, AnalyticsSummaryItemOut, AnalyticsSummaryOut
 from app.schemas.photographer import (
@@ -24,6 +24,9 @@ from app.services.membership import get_contact_access_mode, set_contact_access_
 from app.services.photographer_ranking import recalculate_photographer_sort_scores
 
 router = APIRouter()
+
+DEFAULT_QUALITY_SCORE = 5.0
+INITIAL_APPROVED_QUALITY_SCORE = 6.0
 
 
 def _require_admin(me: User) -> None:
@@ -56,6 +59,45 @@ class DbTableRowsOut(BaseModel):
     offset: int
 
 
+class AdminOperationLogOut(BaseModel):
+    id: int
+    admin_user_id: int | None
+    username: str | None
+    method: str
+    path: str
+    query_string: str
+    status_code: int
+    client_ip: str | None
+    user_agent: str | None
+    request_body: str
+    created_at: datetime
+
+
+class AdminOperationLogListOut(BaseModel):
+    items: list[AdminOperationLogOut]
+    total: int
+
+
+class UserPortraitItemOut(BaseModel):
+    user_id: int
+    display_name: str | None
+    role: str
+    wechat_openid: str | None
+    is_member: bool
+    member_expires_at: datetime | None
+    last_active_at: datetime | None
+    last_lat: float | None
+    last_lng: float | None
+    favorite_count: int
+    favorite_photographers: list[str]
+    tags: list[str]
+
+
+class UserPortraitListOut(BaseModel):
+    items: list[UserPortraitItemOut]
+    total: int
+
+
 _DB_BROWSE_TABLES = {
     "users",
     "photographers",
@@ -68,6 +110,7 @@ _DB_BROWSE_TABLES = {
     "membership_orders",
     "schedule_blocks",
     "bio_templates",
+    "admin_operation_logs",
 }
 _SAFE_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -87,6 +130,41 @@ def _photographer_to_detail(p: Photographer) -> CertificationDetailOut:
     data["display_name"] = p.user.display_name if p.user else None
     data["avatar_url"] = p.user.avatar_url if p.user else None
     return CertificationDetailOut(**data)
+
+
+def _build_user_portrait_tags(
+    *,
+    user: User,
+    last_active_at: datetime | None,
+    favorite_count: int,
+    has_location: bool,
+) -> list[str]:
+    tags: list[str] = [f"角色:{user.role}"]
+    tags.append("会员用户" if user.is_member else "非会员")
+    if user.is_member and user.member_expires_at:
+        if user.member_expires_at >= datetime.now(timezone.utc):
+            tags.append("会员有效期内")
+        else:
+            tags.append("会员已过期")
+    if last_active_at:
+        delta = datetime.now(timezone.utc) - last_active_at
+        if delta.days <= 7:
+            tags.append("近7日活跃")
+        elif delta.days <= 30:
+            tags.append("近30日活跃")
+        else:
+            tags.append("沉默用户")
+    else:
+        tags.append("未记录活跃")
+    if has_location:
+        tags.append("有地理位置")
+    if favorite_count >= 5:
+        tags.append("高收藏")
+    elif favorite_count > 0:
+        tags.append("有收藏行为")
+    else:
+        tags.append("无收藏行为")
+    return tags
 
 
 # ---------- 认证列表 ----------
@@ -174,6 +252,9 @@ def review_certification(
         p.status = PhotographerStatus.approved.value
         p.reject_reason = None
         p.certification_level = max(p.certification_level, 1)  # 至少 Lv1
+        # 审核通过时给一个可见的初始质量分（仅当仍是系统默认分）
+        if p.quality_score == DEFAULT_QUALITY_SCORE:
+            p.quality_score = INITIAL_APPROVED_QUALITY_SCORE
         # 同步升级 user.role
         if p.user and p.user.role != UserRole.photographer.value:
             p.user.role = UserRole.photographer.value
@@ -186,6 +267,8 @@ def review_certification(
         raise HTTPException(status_code=400, detail="action 必须是 approve 或 reject")
 
     db.commit()
+    if payload.action == "approve":
+        recalculate_photographer_sort_scores(db, photographer_ids=[photographer_id])
     db.refresh(p)
     return _photographer_to_detail(p)
 
@@ -276,6 +359,164 @@ def preview_db_table(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/operation-logs", response_model=AdminOperationLogListOut)
+def list_admin_operation_logs(
+    limit: int = Query(default=20, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    keyword: str | None = Query(default=None, description="按账号/路径/方法模糊搜索"),
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AdminOperationLogListOut:
+    _require_admin(me)
+    stmt = select(AdminOperationLog)
+    count_stmt = select(func.count(AdminOperationLog.id))
+    if keyword:
+        like_pattern = f"%{keyword}%"
+        cond = (
+            AdminOperationLog.username.ilike(like_pattern)
+            | AdminOperationLog.path.ilike(like_pattern)
+            | AdminOperationLog.method.ilike(like_pattern)
+        )
+        stmt = stmt.where(cond)
+        count_stmt = count_stmt.where(cond)
+
+    total = int(db.scalar(count_stmt) or 0)
+    rows = db.scalars(
+        stmt.order_by(AdminOperationLog.created_at.desc(), AdminOperationLog.id.desc()).limit(limit).offset(offset)
+    ).all()
+    items = [
+        AdminOperationLogOut(
+            id=int(r.id),
+            admin_user_id=r.admin_user_id,
+            username=r.username,
+            method=r.method,
+            path=r.path,
+            query_string=r.query_string,
+            status_code=int(r.status_code),
+            client_ip=r.client_ip,
+            user_agent=r.user_agent,
+            request_body=r.request_body,
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
+    return AdminOperationLogListOut(items=items, total=total)
+
+
+@router.get("/user-portraits", response_model=UserPortraitListOut)
+def list_user_portraits(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    keyword: str | None = Query(default=None, description="按昵称/openid 搜索"),
+    role: str | None = Query(default=None, description="按角色过滤: customer/photographer/admin"),
+    only_member: bool = Query(default=False, description="仅查看会员"),
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserPortraitListOut:
+    _require_admin(me)
+
+    stmt = select(User).order_by(User.created_at.desc())
+    count_stmt = select(func.count(User.id))
+
+    if keyword:
+        like_pattern = f"%{keyword.strip()}%"
+        cond = (User.display_name.ilike(like_pattern)) | (User.wechat_openid.ilike(like_pattern))
+        stmt = stmt.where(cond)
+        count_stmt = count_stmt.where(cond)
+    if role:
+        stmt = stmt.where(User.role == role)
+        count_stmt = count_stmt.where(User.role == role)
+    if only_member:
+        stmt = stmt.where(User.is_member.is_(True))
+        count_stmt = count_stmt.where(User.is_member.is_(True))
+
+    total = int(db.scalar(count_stmt) or 0)
+    users = db.scalars(stmt.limit(limit).offset(offset)).all()
+    if not users:
+        return UserPortraitListOut(items=[], total=total)
+
+    user_ids = [int(u.id) for u in users]
+
+    # 最近活跃时间（以 analytics_events.user_id 为准）
+    active_rows = db.execute(
+        select(AnalyticsEvent.user_id, func.max(AnalyticsEvent.created_at))
+        .where(AnalyticsEvent.user_id.in_(user_ids))
+        .group_by(AnalyticsEvent.user_id)
+    ).all()
+    last_active_map: dict[int, datetime] = {
+        int(uid): ts for uid, ts in active_rows if uid is not None and isinstance(ts, datetime)
+    }
+
+    # 最近一次可用地理位置
+    location_rows = db.execute(
+        select(
+            AnalyticsEvent.user_id,
+            AnalyticsEvent.client_lat,
+            AnalyticsEvent.client_lng,
+            AnalyticsEvent.created_at,
+        )
+        .where(
+            AnalyticsEvent.user_id.in_(user_ids),
+            AnalyticsEvent.client_lat.is_not(None),
+            AnalyticsEvent.client_lng.is_not(None),
+        )
+        .order_by(AnalyticsEvent.user_id.asc(), AnalyticsEvent.created_at.desc())
+    ).all()
+    location_map: dict[int, tuple[float | None, float | None]] = {}
+    for uid, lat, lng, _created_at in location_rows:
+        if uid is None:
+            continue
+        user_id = int(uid)
+        if user_id in location_map:
+            continue
+        location_map[user_id] = (float(lat) if lat is not None else None, float(lng) if lng is not None else None)
+
+    # 收藏关系（当前用户收藏了哪些摄影师）
+    favorite_rows = db.execute(
+        select(Favorite.user_id, User.display_name)
+        .join(Photographer, Photographer.id == Favorite.photographer_id)
+        .join(User, User.id == Photographer.user_id)
+        .where(Favorite.user_id.in_(user_ids))
+        .order_by(Favorite.user_id.asc(), Favorite.created_at.desc())
+    ).all()
+    favorites_map: dict[int, list[str]] = {uid: [] for uid in user_ids}
+    for favorite_user_id, photographer_name in favorite_rows:
+        if favorite_user_id is None:
+            continue
+        uid = int(favorite_user_id)
+        if photographer_name:
+            favorites_map.setdefault(uid, []).append(photographer_name)
+
+    items: list[UserPortraitItemOut] = []
+    for u in users:
+        uid = int(u.id)
+        last_active_at = last_active_map.get(uid) or u.updated_at
+        last_lat, last_lng = location_map.get(uid, (None, None))
+        favorite_names = favorites_map.get(uid, [])
+        items.append(
+            UserPortraitItemOut(
+                user_id=uid,
+                display_name=u.display_name,
+                role=u.role,
+                wechat_openid=u.wechat_openid,
+                is_member=bool(u.is_member),
+                member_expires_at=u.member_expires_at,
+                last_active_at=last_active_at,
+                last_lat=last_lat,
+                last_lng=last_lng,
+                favorite_count=len(favorite_names),
+                favorite_photographers=favorite_names[:10],
+                tags=_build_user_portrait_tags(
+                    user=u,
+                    last_active_at=last_active_at,
+                    favorite_count=len(favorite_names),
+                    has_location=(last_lat is not None and last_lng is not None),
+                ),
+            )
+        )
+    return UserPortraitListOut(items=items, total=total)
 
 
 @router.get("/analytics/summary", response_model=AnalyticsSummaryOut)

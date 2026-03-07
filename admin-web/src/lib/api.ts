@@ -1,5 +1,6 @@
 import axios from "axios";
 import { useAuthStore } from "../stores/auth";
+import { ADMIN_LOGIN_PATH } from "./adminSecurity";
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8001";
 let isHandlingUnauthorized = false;
@@ -26,8 +27,8 @@ api.interceptors.response.use(
     if (status === 401 && auth.token && !isHandlingUnauthorized) {
       isHandlingUnauthorized = true;
       auth.logout();
-      if (window.location.pathname !== "/login") {
-        window.location.href = "/login";
+      if (window.location.pathname !== ADMIN_LOGIN_PATH) {
+        window.location.href = ADMIN_LOGIN_PATH;
       }
       setTimeout(() => {
         isHandlingUnauthorized = false;

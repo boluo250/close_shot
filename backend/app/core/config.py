@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me"
     jwt_alg: str = "HS256"
     jwt_expires_minutes: int = 60 * 24 * 7
+    # 管理端安全配置：使用复杂路径，避免默认 /admin 被直接扫描
+    admin_api_prefix: str = "/admin-x8r7m2q4p9"
+    admin_min_password_length: int = 12
 
     # 开发默认使用 local，避免本地必须起 MinIO；生产用环境变量改回 s3/COS
     storage_backend: str = "local"  # s3|local

@@ -24,19 +24,20 @@
 import { reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { api } from "../lib/api";
+import { ADMIN_HOME_PATH } from "../lib/adminSecurity";
 import { useAuthStore } from "../stores/auth";
 import { router } from "../router";
 
 const auth = useAuthStore();
 const loading = ref(false);
-const form = reactive({ username: "admin", password: "admin" });
+const form = reactive({ username: "", password: "" });
 
 async function onLogin() {
   loading.value = true;
   try {
     const { data } = await api.post("/auth/login", form);
     auth.setToken(data.access_token);
-    await router.push("/");
+    await router.push(ADMIN_HOME_PATH);
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.detail || "登录失败");
   } finally {

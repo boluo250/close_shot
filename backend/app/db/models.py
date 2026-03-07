@@ -238,3 +238,18 @@ class MembershipOrder(TimestampMixin, Base):
     transaction_id: Mapped[str | None] = mapped_column(String(128))
     notify_raw_json: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
+
+class AdminOperationLog(TimestampMixin, Base):
+    __tablename__ = "admin_operation_logs"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    admin_user_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    username: Mapped[str | None] = mapped_column(String(64), index=True)
+    method: Mapped[str] = mapped_column(String(16), nullable=False)
+    path: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    query_string: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    status_code: Mapped[int] = mapped_column(Integer, nullable=False)
+    client_ip: Mapped[str | None] = mapped_column(String(64))
+    user_agent: Mapped[str | None] = mapped_column(String(255))
+    request_body: Mapped[str] = mapped_column(Text, nullable=False, default="")
+

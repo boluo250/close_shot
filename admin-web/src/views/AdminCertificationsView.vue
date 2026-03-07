@@ -211,6 +211,7 @@
 import { onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api } from "../lib/api";
+import { withAdminApiPrefix } from "../lib/adminSecurity";
 
 // ---------- 类型 ----------
 type CertificationItem = {
@@ -269,7 +270,7 @@ async function load() {
     if (filters.keyword) params.keyword = filters.keyword;
 
     const { data } = await api.get<{ items: CertificationItem[]; total: number }>(
-      "/admin/certifications",
+      withAdminApiPrefix("/certifications"),
       { params }
     );
     items.value = data.items || [];
@@ -302,7 +303,7 @@ async function handleApprove(row: CertificationItem) {
   reviewing.value = true;
   try {
     const { data } = await api.post<CertificationItem>(
-      `/admin/certifications/${row.id}/review`,
+      withAdminApiPrefix(`/certifications/${row.id}/review`),
       { action: "approve" }
     );
     // 更新列表中的行
@@ -334,7 +335,7 @@ async function handleReject() {
   reviewing.value = true;
   try {
     const { data } = await api.post<CertificationItem>(
-      `/admin/certifications/${rejectTarget.value.id}/review`,
+      withAdminApiPrefix(`/certifications/${rejectTarget.value.id}/review`),
       { action: "reject", reject_reason: rejectReason.value.trim() }
     );
     const idx = items.value.findIndex((x) => x.id === rejectTarget.value!.id);

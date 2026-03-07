@@ -9,6 +9,7 @@ from app.core.security import create_access_token, hash_password, verify_passwor
 from app.db.models import PhotographerStatus, User, UserRole
 from app.db.session import get_db
 from app.schemas.auth import AdminLoginIn, TokenOut, WechatLoginIn
+from app.services.security_policy import validate_admin_password_strength, validate_admin_username
 from app.services.wechat_security import exchange_login_code
 
 router = APIRouter()
@@ -69,6 +70,10 @@ def admin_login(payload: AdminLoginIn, db: Session = Depends(get_db)) -> TokenOu
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    if user.role == UserRole.admin.value:
+        # 管理员强制使用复杂账号与强密码（弱口令需先重置）
+        validate_admin_username(user.username or "")
+        validate_admin_password_strength(payload.password)
     token = create_access_token(subject=str(user.id))
     return TokenOut(access_token=token)
 
@@ -119,6 +124,8 @@ def dev_create_admin(username: str, password: str, db: Session = Depends(get_db)
     开发便利：创建后台管理员账号。
     生产环境应移除或加严格保护。
     """
+    validate_admin_username(username)
+    validate_admin_password_strength(password)
     exists = db.scalar(select(User).where(User.username == username))
     if exists:
         raise HTTPException(status_code=400, detail="username already exists")

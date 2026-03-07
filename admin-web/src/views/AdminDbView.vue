@@ -62,6 +62,7 @@
 import { onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { api } from "../lib/api";
+import { withAdminApiPrefix } from "../lib/adminSecurity";
 
 type TableListResp = {
   tables: string[];
@@ -87,7 +88,7 @@ const page = ref(1);
 const pageSize = ref(20);
 
 async function loadTables() {
-  const { data } = await api.get<TableListResp>("/admin/db/tables");
+  const { data } = await api.get<TableListResp>(withAdminApiPrefix("/db/tables"));
   tables.value = data.tables || [];
   if (!tableName.value && tables.value.length) {
     tableName.value = tables.value[0];
@@ -98,7 +99,7 @@ async function loadRows() {
   if (!tableName.value) return;
   loadingRows.value = true;
   try {
-    const { data } = await api.get<RowsResp>("/admin/db/table-preview", {
+    const { data } = await api.get<RowsResp>(withAdminApiPrefix("/db/table-preview"), {
       params: {
         table: tableName.value,
         limit: pageSize.value,

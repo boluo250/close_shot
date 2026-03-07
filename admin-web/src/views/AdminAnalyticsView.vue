@@ -113,6 +113,7 @@
 import { onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { api } from "../lib/api";
+import { withAdminApiPrefix } from "../lib/adminSecurity";
 
 type SummaryItem = {
   photographer_id: number;
@@ -166,7 +167,7 @@ const summary = ref<SummaryResp>({
 async function loadSummary() {
   loadingSummary.value = true;
   try {
-    const { data } = await api.get<SummaryResp>("/admin/analytics/summary", {
+    const { data } = await api.get<SummaryResp>(withAdminApiPrefix("/analytics/summary"), {
       params: { days: days.value, limit: 30 }
     });
     summary.value = data;
@@ -187,9 +188,12 @@ async function loadEvents() {
     };
     if (eventType.value) params.event_type = eventType.value;
     if (keyword.value) params.keyword = keyword.value;
-    const { data } = await api.get<{ items: AnalyticsEventItem[]; total: number }>("/admin/analytics/events", {
+    const { data } = await api.get<{ items: AnalyticsEventItem[]; total: number }>(
+      withAdminApiPrefix("/analytics/events"),
+      {
       params
-    });
+      }
+    );
     events.value = data.items || [];
     total.value = data.total || 0;
   } catch (e: any) {

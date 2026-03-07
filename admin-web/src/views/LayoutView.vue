@@ -6,13 +6,13 @@
     </div>
 
     <el-menu mode="horizontal" router :default-active="$route.path" style="margin-bottom: 16px">
-      <el-menu-item index="/studio/profile">资料</el-menu-item>
-      <el-menu-item index="/studio/portfolio">作品</el-menu-item>
-      <el-menu-item index="/studio/packages">套餐</el-menu-item>
-      <el-menu-item index="/admin/certifications">认证审核</el-menu-item>
-      <el-menu-item index="/admin/analytics">埋点分析</el-menu-item>
-      <el-menu-item index="/admin/db">数据库浏览</el-menu-item>
-      <el-menu-item index="/seed">开发 Seed</el-menu-item>
+      <el-menu-item :index="withAdminWebBase('/studio/upload')">新增</el-menu-item>
+      <el-menu-item :index="withAdminWebBase('/admin/certifications')">认证审核</el-menu-item>
+      <el-menu-item :index="withAdminWebBase('/admin/analytics')">埋点分析</el-menu-item>
+      <el-menu-item :index="withAdminWebBase('/admin/user-portraits')">用户画像</el-menu-item>
+      <el-menu-item :index="withAdminWebBase('/admin/db')">数据库浏览</el-menu-item>
+      <el-menu-item :index="withAdminWebBase('/admin/operation-logs')">操作日志</el-menu-item>
+      <el-menu-item :index="withAdminWebBase('/seed')">开发 Seed</el-menu-item>
     </el-menu>
 
     <div class="cs-hint">
@@ -25,11 +25,12 @@
 <script setup lang="ts">
 import { useAuthStore } from "../stores/auth";
 import { router } from "../router";
+import { ADMIN_LOGIN_PATH, withAdminWebBase } from "../lib/adminSecurity";
 
 const auth = useAuthStore();
 function logout() {
   auth.logout();
-  router.push("/login");
+  router.push(ADMIN_LOGIN_PATH);
 }
 </script>
 
