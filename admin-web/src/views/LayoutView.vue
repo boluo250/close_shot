@@ -6,7 +6,6 @@
     </div>
 
     <el-menu mode="horizontal" router :default-active="$route.path" style="margin-bottom: 16px">
-      <el-menu-item :index="withAdminWebBase('/studio/upload')">新增</el-menu-item>
       <el-menu-item :index="withAdminWebBase('/admin/certifications')">认证审核</el-menu-item>
       <el-menu-item :index="withAdminWebBase('/admin/analytics')">埋点分析</el-menu-item>
       <el-menu-item :index="withAdminWebBase('/admin/user-portraits')">用户画像</el-menu-item>

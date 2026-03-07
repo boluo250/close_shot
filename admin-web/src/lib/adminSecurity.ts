@@ -11,7 +11,7 @@ export const ADMIN_API_PREFIX = normalizePrefix(
   import.meta.env.VITE_ADMIN_API_PREFIX || `/admin-${ADMIN_SECURITY_SUFFIX}`
 );
 export const ADMIN_LOGIN_PATH = `${ADMIN_WEB_BASE}/login`;
-export const ADMIN_HOME_PATH = `${ADMIN_WEB_BASE}/studio/upload`;
+export const ADMIN_HOME_PATH = `${ADMIN_WEB_BASE}/admin/certifications`;
 
 export function withAdminWebBase(subPath: string): string {
   const s = subPath.startsWith("/") ? subPath : `/${subPath}`;
