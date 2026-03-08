@@ -97,8 +97,10 @@
     <view class="mine-login-tip">{{uiText.loginTip}}</view>
   </view>
 
-  <view wx:if="{{identityState !== 'guest' && identityState !== 'unknown'}}" class="mine-logout-link" bindtap="logout">
-    {{uiText.logoutTitle}}
+  <view wx:if="{{identityState !== 'guest' && identityState !== 'unknown'}}" class="mine-logout-wrap">
+    <button class="mine-logout-btn" bindtap="logout" hover-class="mine-logout-btn-hover">
+      {{uiText.logoutTitle}}
+    </button>
   </view>
 
   <view wx:if="{{enableDevTools}}" class="mine-debug-link" bindtap="clearLocalAuthCache">
