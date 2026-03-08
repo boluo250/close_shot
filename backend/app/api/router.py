@@ -16,5 +16,6 @@ api_router.include_router(studio.router, prefix="/studio", tags=["studio"])
 api_router.include_router(upload.router, prefix="/upload", tags=["upload"])
 api_router.include_router(membership.router, prefix="/membership", tags=["membership"])
 api_router.include_router(admin.router, prefix=settings.admin_api_prefix, tags=["admin"])
-api_router.include_router(dev.router, prefix="/dev", tags=["dev"])
+if settings.is_dev:
+    api_router.include_router(dev.router, prefix="/dev", tags=["dev"])
 

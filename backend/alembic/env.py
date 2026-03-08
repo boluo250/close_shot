@@ -29,7 +29,7 @@ target_metadata = Base.metadata
 
 def get_url() -> str:
     # 运行 alembic 时，优先使用环境变量 DATABASE_URL；
-    # 否则回落到 `backend/.env`（由 pydantic-settings 自动加载）。
+    # 否则回落到配置文件（dev 默认 .env.develop，其他默认 .env）。
     return os.environ.get("DATABASE_URL") or settings.database_url
 
 

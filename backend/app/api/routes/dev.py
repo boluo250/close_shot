@@ -26,7 +26,7 @@ def seed(
     reset: bool = True,
     db: Session = Depends(get_db),
 ) -> dict:
-    if settings.env != "dev":
+    if not settings.is_dev:
         raise HTTPException(status_code=403, detail="seed is dev-only")
 
     n = min(max(n, 1), 50)

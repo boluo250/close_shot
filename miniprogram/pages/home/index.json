@@ -1,7 +1,6 @@
 {
   "navigationBarTitleText": "Close Shot",
   "usingComponents": {
-    "theme-switch": "/components/theme-switch/index",
     "nearby-panel": "/components/nearby-panel/index",
     "favorites-panel": "/components/favorites-panel/index",
     "mine-panel": "/components/mine-panel/index"

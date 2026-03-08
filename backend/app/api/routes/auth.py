@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, hash_password, verify_password
+from app.core.config import settings
 from app.db.models import PhotographerStatus, User, UserRole
 from app.db.session import get_db
 from app.schemas.auth import AdminLoginIn, TokenOut, WechatLoginIn
@@ -13,6 +14,11 @@ from app.services.security_policy import validate_admin_password_strength, valid
 from app.services.wechat_security import exchange_login_code
 
 router = APIRouter()
+
+
+def _ensure_dev_only_api() -> None:
+    if not settings.is_dev:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="dev api is disabled")
 
 
 def _get_user_by_wechat_identity(db: Session, openid: str, unionid: str | None) -> User | None:
@@ -124,6 +130,7 @@ def dev_create_admin(username: str, password: str, db: Session = Depends(get_db)
     开发便利：创建后台管理员账号。
     生产环境应移除或加严格保护。
     """
+    _ensure_dev_only_api()
     validate_admin_username(username)
     validate_admin_password_strength(password)
     exists = db.scalar(select(User).where(User.username == username))
@@ -142,6 +149,7 @@ def dev_create_photographer(username: str, password: str, db: Session = Depends(
     """
     开发便利：创建摄影师后台账号 + 对应 photographer profile。
     """
+    _ensure_dev_only_api()
     exists = db.scalar(select(User).where(User.username == username))
     if exists:
         raise HTTPException(status_code=400, detail="username already exists")

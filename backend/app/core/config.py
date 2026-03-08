@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file=None, env_file_encoding="utf-8", extra="ignore")
 
     app_name: str = "close-shot-api"
     env: str = "dev"
@@ -32,10 +35,65 @@ class Settings(BaseSettings):
     wechat_login_allow_mock: bool = False
     wechat_mock_openid_seed: str = "local-dev"
     membership_callback_secret: str = "dev-membership-callback"
+    upload_max_bytes: int = 10 * 1024 * 1024
+    upload_allowed_prefixes: str = "avatar,portfolio,watermark,uploads"
+    upload_allowed_content_types: str = "image/jpeg,image/png,image/webp,image/heic,image/heif"
+    media_avatar_allowed_hosts: str = "wx.qlogo.cn,thirdwx.qlogo.cn,mmbiz.qpic.cn"
     analytics_report_timezone: str = "Asia/Shanghai"
     analytics_daily_report_webhook_url: str | None = None
     analytics_daily_report_webhook_secret: str | None = None
 
+    @property
+    def env_lower(self) -> str:
+        return (self.env or "").strip().lower()
 
-settings = Settings()  # type: ignore[call-arg]
+    @property
+    def is_dev(self) -> bool:
+        return self.env_lower in {"dev", "develop", "development", "local"}
+
+    @property
+    def is_prod(self) -> bool:
+        return self.env_lower in {"prod", "production"}
+
+    def ensure_runtime_safety(self) -> None:
+        if not self.is_prod:
+            return
+        if self.jwt_secret in {"", "change-me"}:
+            raise RuntimeError("unsafe JWT_SECRET in production")
+        if len(self.jwt_secret) < 24:
+            raise RuntimeError("JWT_SECRET is too short in production")
+        if self.membership_callback_secret in {"", "dev-membership-callback"}:
+            raise RuntimeError("unsafe MEMBERSHIP_CALLBACK_SECRET in production")
+        if len(self.membership_callback_secret) < 24:
+            raise RuntimeError("MEMBERSHIP_CALLBACK_SECRET is too short in production")
+        if self.storage_backend == "s3":
+            missing = []
+            if not self.s3_access_key_id:
+                missing.append("S3_ACCESS_KEY_ID")
+            if not self.s3_secret_access_key:
+                missing.append("S3_SECRET_ACCESS_KEY")
+            if not self.s3_bucket:
+                missing.append("S3_BUCKET")
+            if missing:
+                raise RuntimeError(f"missing required S3 config in production: {', '.join(missing)}")
+
+
+def _resolve_env_file() -> str:
+    """
+    环境变量加载优先级：
+    1) 显式 ENV_FILE（推荐部署时指定）
+    2) 开发环境默认 .env.develop（存在时）
+    3) 默认 .env
+    """
+    explicit = (os.environ.get("ENV_FILE") or "").strip()
+    if explicit:
+        return explicit
+
+    env_name = (os.environ.get("ENV") or "").strip().lower()
+    if env_name in {"dev", "develop", "development", "local"} and Path(".env.develop").exists():
+        return ".env.develop"
+    return ".env"
+
+
+settings = Settings(_env_file=_resolve_env_file())  # type: ignore[call-arg]
 

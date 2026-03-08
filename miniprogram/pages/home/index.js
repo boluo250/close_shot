@@ -1,35 +1,17 @@
-const theme = require("../../utils/theme");
-
 Page({
   data: {
     activeTab: "nearby",
-    theme: "classic",
-    themeClass: "cs-theme-classic"
+    themeClass: "cs-theme-soda"
   },
 
   onLoad(query) {
-    // 首次进入：默认汽水风格（如果用户没手动选过）
-    try {
-      const stored = wx.getStorageSync(theme.STORAGE_KEY);
-      if (!stored) theme.setTheme("soda");
-    } catch (e) {
-      // ignore
-    }
-
-    const t = theme.getTheme();
-    this.setData({ theme: t, themeClass: theme.getThemeClass(t) });
-    this._unsubTheme = theme.subscribe((next) => {
-      this.setData({ theme: next, themeClass: theme.getThemeClass(next) });
-    });
+    // 首页固定为汽水风格
+    this.setData({ themeClass: "cs-theme-soda" });
 
     const tab = query?.tab;
     if (tab === "favorites" || tab === "mine" || tab === "nearby") {
       this.setData({ activeTab: tab });
     }
-  },
-
-  onUnload() {
-    if (this._unsubTheme) this._unsubTheme();
   },
 
   onReady() {
@@ -56,12 +38,6 @@ Page({
   onGoFavorites() {
     this.setData({ activeTab: "favorites" });
     this._maybeRefreshActive();
-  },
-
-  onThemeChange(e) {
-    const next = e?.detail?.value;
-    const t = theme.setTheme(next);
-    this.setData({ theme: t, themeClass: theme.getThemeClass(t) });
   },
 
   async _maybeRefreshActive(force = false) {

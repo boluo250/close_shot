@@ -6,8 +6,4 @@
     emptyTitle="还没有收藏"
     emptyDesc="去附近页看看，先收藏几个心动摄影师吧"
   />
-
-  <view class="refresh-wrap">
-    <view class="refresh-btn" bindtap="refresh">刷新</view>
-  </view>
 </view>

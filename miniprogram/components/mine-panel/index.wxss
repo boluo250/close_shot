@@ -328,13 +328,13 @@
 .mine-login-btn {
   width: 100%;
   min-width: 132rpx;
-  height: 58rpx;
-  line-height: 58rpx;
+  height: 70rpx;
+  line-height: 70rpx;
   border-radius: 30rpx;
   border: 0;
   padding: 0 20rpx;
   color: #0b0d12;
-  font-size: 22rpx;
+  font-size: 27rpx;
   font-weight: 700;
   background: var(--cs-gradient-primary);
   box-shadow: var(--cs-shadow-glow);

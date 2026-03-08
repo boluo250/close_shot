@@ -18,10 +18,18 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env  # 按需修改 DATABASE_URL/JWT_SECRET 等
+# 开发环境（默认读取 .env.develop）
+cp .env.example .env.develop
+# 生产环境（默认读取 .env）
+cp .env.example .env
 alembic upgrade head
 uvicorn app.main:app --reload --port 8001
 ```
+
+配置说明：
+- 开发默认优先读取 `.env.develop`（当 `ENV=dev/develop/development/local` 且文件存在）
+- 其他环境默认读取 `.env`
+- 可通过环境变量显式指定：`ENV_FILE=.env uvicorn app.main:app --port 8001`
 
 打开：
 - 健康检查：`http://localhost:8001/health`

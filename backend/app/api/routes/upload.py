@@ -5,11 +5,13 @@ import re
 import time
 from pathlib import PurePosixPath
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from app.schemas.upload import PresignIn, PresignOut
+from app.api.deps import get_current_user
 from app.core.config import settings
+from app.db.models import User
+from app.schemas.upload import PresignIn, PresignOut
 from app.services.storage import ensure_bucket, presign_put, put_object_bytes, verify_upload_token
 
 router = APIRouter()
@@ -21,10 +23,27 @@ def _safe_filename(name: str) -> str:
     return name or "file"
 
 
+def _split_csv(raw: str) -> set[str]:
+    return {x.strip().lower() for x in (raw or "").split(",") if x.strip()}
+
+
+def _validate_upload_constraints(prefix: str, content_type: str | None) -> None:
+    allowed_prefixes = _split_csv(settings.upload_allowed_prefixes)
+    if allowed_prefixes and prefix.lower() not in allowed_prefixes:
+        raise HTTPException(status_code=400, detail="invalid upload prefix")
+
+    if content_type:
+        normalized = content_type.split(";")[0].strip().lower()
+        allowed_types = _split_csv(settings.upload_allowed_content_types)
+        if allowed_types and normalized not in allowed_types:
+            raise HTTPException(status_code=400, detail="unsupported content type")
+
+
 @router.post("/presign", response_model=PresignOut)
-def presign(payload: PresignIn) -> PresignOut:
+def presign(payload: PresignIn, _me: User = Depends(get_current_user)) -> PresignOut:
     # s3 才需要 bucket；local 模式不依赖对象存储服务
     ensure_bucket()
+    _validate_upload_constraints(prefix=payload.prefix, content_type=payload.content_type)
     filename = _safe_filename(payload.filename)
     object_key = str(PurePosixPath(payload.prefix) / f"{int(time.time())}_{filename}")
     res = presign_put(object_key=object_key, content_type=payload.content_type)
@@ -56,7 +75,10 @@ async def put_local_object(object_key: str, request: Request, token: str | None 
     body = await request.body()
     if not body:
         raise HTTPException(status_code=400, detail="empty body")
+    if len(body) > settings.upload_max_bytes:
+        raise HTTPException(status_code=413, detail="file too large")
     content_type = request.headers.get("content-type")
+    _validate_upload_constraints(prefix=PurePosixPath(object_key).parts[0], content_type=content_type)
     put_object_bytes(object_key=object_key, data=body, content_type=content_type)
     return JSONResponse({"ok": True, "object_key": object_key})
 

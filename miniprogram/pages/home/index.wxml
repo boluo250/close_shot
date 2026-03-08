@@ -1,21 +1,28 @@
 <view class="home {{themeClass}}">
-  <view class="home-top">
-    <view class="seg">
-      <view class="seg-item {{activeTab==='nearby' ? 'active' : ''}}" data-tab="nearby" bindtap="onTabTap">附近</view>
-      <view class="seg-item {{activeTab==='favorites' ? 'active' : ''}}" data-tab="favorites" bindtap="onTabTap">收藏</view>
-      <view class="seg-item {{activeTab==='mine' ? 'active' : ''}}" data-tab="mine" bindtap="onTabTap">我的</view>
+  <view class="home-content">
+    <view wx:if="{{activeTab==='nearby'}}">
+      <nearby-panel id="nearbyPanel" />
     </view>
-    <theme-switch value="{{theme}}" bind:change="onThemeChange" />
+    <view wx:if="{{activeTab==='favorites'}}">
+      <favorites-panel id="favPanel" />
+    </view>
+    <view wx:if="{{activeTab==='mine'}}">
+      <mine-panel id="minePanel" bind:gofavorites="onGoFavorites" />
+    </view>
   </view>
 
-  <view wx:if="{{activeTab==='nearby'}}">
-    <nearby-panel id="nearbyPanel" />
-  </view>
-  <view wx:if="{{activeTab==='favorites'}}">
-    <favorites-panel id="favPanel" />
-  </view>
-  <view wx:if="{{activeTab==='mine'}}">
-    <mine-panel id="minePanel" bind:gofavorites="onGoFavorites" />
+  <view class="bottom-nav">
+    <view class="bottom-nav-inner">
+      <view class="bottom-nav-item {{activeTab==='nearby' ? 'active' : ''}}" data-tab="nearby" bindtap="onTabTap">
+        <text class="bottom-nav-text">附近</text>
+      </view>
+      <view class="bottom-nav-item {{activeTab==='favorites' ? 'active' : ''}}" data-tab="favorites" bindtap="onTabTap">
+        <text class="bottom-nav-text">收藏</text>
+      </view>
+      <view class="bottom-nav-item {{activeTab==='mine' ? 'active' : ''}}" data-tab="mine" bindtap="onTabTap">
+        <text class="bottom-nav-text">我的</text>
+      </view>
+    </view>
   </view>
 </view>
 

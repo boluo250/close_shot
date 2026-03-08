@@ -1,29 +1,5 @@
 .fav-page {
-  padding: 16rpx 20rpx calc(40rpx + env(safe-area-inset-bottom));
+  padding: 16rpx 20rpx calc(20rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
-}
-
-.refresh-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12rpx 24rpx;
-  border-radius: 999rpx;
-  border: 1px solid var(--cs-color-primary);
-  color: #07110d;
-  background: var(--cs-color-primary);
-  font-size: 24rpx;
-  font-weight: 700;
-  box-shadow: var(--cs-shadow-glow);
-}
-
-.cs-theme-classic .refresh-btn {
-  color: #111827;
-}
-
-.refresh-wrap {
-  margin-top: 20rpx;
-  display: flex;
-  justify-content: center;
 }
 

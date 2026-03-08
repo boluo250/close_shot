@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import ipaddress
+import socket
 from io import BytesIO
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from fastapi import APIRouter, HTTPException
 from PIL import Image, ImageDraw, ImageOps
 from starlette.responses import StreamingResponse
 
+from app.core.config import settings
 from app.services.storage import get_object_stream
 
 router = APIRouter()
@@ -17,6 +20,79 @@ try:
     _LANCZOS = Image.Resampling.LANCZOS
 except AttributeError:
     _LANCZOS = Image.LANCZOS
+
+_MAX_REDIRECTS = 2
+
+
+def _split_csv(raw: str) -> set[str]:
+    return {x.strip().lower() for x in (raw or "").split(",") if x.strip()}
+
+
+def _is_allowed_avatar_host(hostname: str) -> bool:
+    host = (hostname or "").strip().lower()
+    if not host:
+        return False
+    allowed = _split_csv(settings.media_avatar_allowed_hosts)
+    return any(host == item or host.endswith(f".{item}") for item in allowed)
+
+
+def _is_blocked_ip(ip_text: str) -> bool:
+    ip = ipaddress.ip_address(ip_text)
+    return (
+        ip.is_private
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_reserved
+        or ip.is_unspecified
+    )
+
+
+def _assert_public_resolved_host(hostname: str) -> None:
+    try:
+        resolved = socket.getaddrinfo(hostname, None)
+    except socket.gaierror as exc:
+        raise HTTPException(status_code=400, detail="invalid avatar host") from exc
+    for item in resolved:
+        addr = item[4][0]
+        if _is_blocked_ip(addr):
+            raise HTTPException(status_code=400, detail="avatar host is not public")
+
+
+def _validate_avatar_url(url: str) -> str:
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        raise HTTPException(status_code=400, detail="invalid avatar url")
+    if parsed.username or parsed.password:
+        raise HTTPException(status_code=400, detail="invalid avatar url")
+    host = parsed.hostname or ""
+    if not _is_allowed_avatar_host(host):
+        raise HTTPException(status_code=400, detail="avatar host is not allowed")
+    _assert_public_resolved_host(host)
+    return url
+
+
+def _fetch_avatar_bytes(url: str) -> tuple[bytes, str]:
+    current = _validate_avatar_url(url)
+    with httpx.Client(timeout=8.0, follow_redirects=False) as client:
+        for _ in range(_MAX_REDIRECTS + 1):
+            try:
+                resp = client.get(current)
+            except Exception as exc:
+                raise HTTPException(status_code=502, detail="fetch avatar failed") from exc
+            if resp.status_code in {301, 302, 303, 307, 308}:
+                location = resp.headers.get("location")
+                if not location:
+                    raise HTTPException(status_code=502, detail="fetch avatar failed")
+                current = _validate_avatar_url(urljoin(current, location))
+                continue
+            if resp.status_code >= 400:
+                raise HTTPException(status_code=502, detail="fetch avatar failed")
+            content_type = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
+            if not content_type.startswith("image/"):
+                raise HTTPException(status_code=400, detail="avatar is not image")
+            return resp.content, content_type
+    raise HTTPException(status_code=502, detail="too many redirects")
 
 
 def _render_map_avatar_marker(
@@ -57,20 +133,7 @@ def get_styled_avatar(url: str, style: str | None = "map_avatar"):
     """
     外链头像样式代理：后端拉取远程图片后按地图样式渲染，避免小程序端直接处理。
     """
-    parsed = urlparse(url)
-    if parsed.scheme not in {"http", "https"}:
-        raise HTTPException(status_code=400, detail="invalid avatar url")
-    try:
-        resp = httpx.get(url, timeout=8.0, follow_redirects=True)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail="fetch avatar failed") from exc
-    if resp.status_code >= 400:
-        raise HTTPException(status_code=502, detail="fetch avatar failed")
-    content_type = (resp.headers.get("content-type") or "").lower()
-    if not content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="avatar is not image")
-
-    raw = resp.content
+    raw, content_type = _fetch_avatar_bytes(url)
     headers = {"Cache-Control": "public, max-age=86400"}
     if style == "map_avatar":
         try:

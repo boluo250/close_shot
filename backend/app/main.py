@@ -4,9 +4,10 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from jose import JWTError, jwt
+from sqlalchemy import text
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -109,10 +110,11 @@ def _create_admin_audit_middleware(app: FastAPI) -> None:
 
 
 def create_app() -> FastAPI:
+    settings.ensure_runtime_safety()
     app = FastAPI(title=settings.app_name)
 
     # 开发联调：允许前端跨域访问
-    if settings.env == "dev":
+    if settings.is_dev:
         app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
@@ -124,6 +126,17 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health() -> dict:
         return {"ok": True, "name": settings.app_name, "env": settings.env}
+
+    @app.get("/health/ready")
+    def health_ready() -> dict:
+        db = SessionLocal()
+        try:
+            db.execute(text("SELECT 1"))
+            return {"ok": True}
+        except Exception:
+            raise HTTPException(status_code=503, detail="db not ready")
+        finally:
+            db.close()
 
     _create_admin_audit_middleware(app)
     app.include_router(api_router)
