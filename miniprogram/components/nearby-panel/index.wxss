@@ -1,6 +1,6 @@
 .page {
   min-height: 100vh;
-  padding-bottom: calc(220rpx + env(safe-area-inset-bottom)); /* CTA 预留空间 */
+  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
 }
 
 .top {
@@ -10,7 +10,7 @@
 
 .top-row {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
 }
 
@@ -27,17 +27,6 @@
 .loc-text {
   font-size: var(--cs-font-sm);
   color: var(--cs-color-text);
-}
-
-.search {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 999rpx;
-  background: var(--cs-color-surface);
-  border: 1px solid var(--cs-color-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .subtitle {
@@ -85,6 +74,31 @@
   font-size: var(--cs-font-lg);
   font-weight: 650;
   color: var(--cs-color-text);
+}
+
+.section-actions {
+  display: inline-flex;
+  align-items: center;
+}
+
+.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 160rpx;
+  height: 60rpx;
+  line-height: 60rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  border: 1px solid var(--cs-color-border);
+  background: var(--cs-color-surface-2);
+  color: var(--cs-color-text);
+  font-size: 24rpx;
+  font-weight: 650;
+}
+
+.refresh-btn::after {
+  border: none;
 }
 
 .p-card {
@@ -222,37 +236,5 @@
   font-size: 30rpx;
   font-weight: 650;
   color: var(--cs-color-text);
-}
-
-.cta-wrap {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(26rpx + env(safe-area-inset-bottom));
-  display: flex;
-  justify-content: center;
-  z-index: 10;
-  pointer-events: none;
-}
-
-.cta {
-  pointer-events: auto;
-  width: 480rpx;
-  height: 92rpx;
-  line-height: 92rpx;
-  border-radius: 999rpx;
-  background: var(--cs-gradient-primary);
-  color: #0b0d12;
-  font-weight: 750;
-  border: none;
-  box-shadow: var(--cs-shadow-glow);
-}
-
-.cs-theme-classic .cta {
-  color: #111827;
-}
-
-.cta::after {
-  border: none;
 }
 

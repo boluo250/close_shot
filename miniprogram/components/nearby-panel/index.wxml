@@ -6,7 +6,6 @@
         <text class="loc-icon">📍</text>
         <text class="loc-text">{{cityText}}</text>
       </view>
-      <view class="search" bindtap="onTapSearch">🔍</view>
     </view>
     <view class="subtitle">这附近，谁拍得好？</view>
   </view>
@@ -33,7 +32,9 @@
   <view class="cs-page" style="padding-top: 0;">
     <view class="section-row">
       <view class="section-title">附近摄影师</view>
-      <button class="cs-btn" size="mini" bindtap="refresh">刷新</button>
+      <view class="section-actions">
+        <button class="refresh-btn" bindtap="refresh">刷新列表</button>
+      </view>
     </view>
     <photographer-card-list
       list="{{list}}"
@@ -43,11 +44,6 @@
       emptyTitle="🌆 这个点有点安静"
       emptyDesc="试试放大地图，或换个时间看看"
     />
-  </view>
-
-  <!-- 主 CTA（悬浮按钮） -->
-  <view class="cta-wrap">
-    <button class="cta" bindtap="onShootCTA">📸 我要拍照</button>
   </view>
 </view>
 

@@ -132,21 +132,6 @@ Component({
       });
     },
 
-    onTapSearch() {
-      wx.showToast({ title: "搜索入口后续接入", icon: "none" });
-    },
-
-    onShootCTA() {
-      wx.showActionSheet({
-        itemList: ["情侣", "闺蜜", "个人", "清空筛选"],
-        success: async (res) => {
-          const idx = res.tapIndex;
-          const tag = idx === 0 ? "情侣" : idx === 1 ? "闺蜜" : idx === 2 ? "个人" : "";
-          this.setData({ activeTag: tag });
-          await this.refresh();
-        }
-      });
-    }
   }
 });
 
