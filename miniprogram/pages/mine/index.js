@@ -1,6 +1,7 @@
 const { getToken, clearAuthState, ensureLogin } = require("../../utils/auth");
 const { request } = require("../../utils/request");
 const env = require("../../env");
+const IDENTITY_CACHE_KEY = "mine_identity_cache_v1";
 
 Page({
   data: {
@@ -8,6 +9,7 @@ Page({
     token: "",
     loading: false,
     identityLoading: false,
+    identityState: "unknown",
     role: "",
     photographerStatus: "",
     rejectReason: "",
@@ -64,27 +66,57 @@ Page({
   },
 
   refresh() {
-    this.setData({ token: getToken() || "" });
+    const token = getToken() || "";
+    const cached = token ? this._readIdentityCache(token) : null;
+    if (!token) {
+      this.setData({
+        token: "",
+        identityLoading: false,
+        identityState: "guest",
+        role: "",
+        photographerStatus: "not_applied",
+        rejectReason: ""
+      });
+    } else if (cached) {
+      this.setData({
+        token,
+        identityLoading: false,
+        identityState: this._deriveIdentityState(token, cached.role, cached.photographerStatus),
+        role: cached.role || "",
+        photographerStatus: cached.photographerStatus || "not_applied",
+        rejectReason: cached.rejectReason || ""
+      });
+    } else {
+      this.setData({
+        token,
+        identityLoading: true,
+        identityState: "unknown",
+        role: "",
+        photographerStatus: "not_applied",
+        rejectReason: ""
+      });
+    }
     this.syncViewState();
     this.loadIdentity();
     this.loadMembership();
   },
 
   syncViewState() {
-    const { token, role, photographerStatus, identityLoading, profile, uiText } = this.data;
+    const { token, role, photographerStatus, identityState, profile, uiText } = this.data;
     let roleLabel = uiText.statusGuest;
     if (token) {
       roleLabel = role === "admin" ? uiText.statusAdmin : uiText.statusUser;
     }
 
     let certLabel = uiText.certNotApplied;
-    if (identityLoading && token) certLabel = uiText.certLoading;
-    else if (photographerStatus === "approved") certLabel = uiText.certApproved;
+    if (identityState === "unknown" && token) certLabel = uiText.certLoading;
+    else if (identityState === "verified_photographer") certLabel = uiText.certApproved;
     else if (photographerStatus === "pending") certLabel = uiText.certPending;
     else if (photographerStatus === "rejected") certLabel = uiText.certRejected;
 
     let studioDesc = uiText.studioDescGuest;
-    if (token) {
+    if (identityState === "unknown") studioDesc = uiText.certLoading;
+    else if (token) {
       studioDesc = photographerStatus === "approved" ? uiText.studioDescApproved : uiText.studioDescDefault;
     }
 
@@ -102,25 +134,87 @@ Page({
   async loadIdentity() {
     const token = getToken();
     if (!token) {
-      this.setData({ role: "", photographerStatus: "not_applied", rejectReason: "", identityLoading: false });
+      this.setData({
+        role: "",
+        photographerStatus: "not_applied",
+        rejectReason: "",
+        identityLoading: false,
+        identityState: "guest"
+      });
       this.syncViewState();
       return;
     }
-    this.setData({ identityLoading: true });
+    if (this.data.identityState === "unknown") {
+      this.setData({ identityLoading: true });
+    }
     this.syncViewState();
     try {
       const data = await request("/me/identity", { auth: true });
+      const role = data.role || "";
+      const photographerStatus = data.photographer_status || "not_applied";
+      const rejectReason = data.photographer_reject_reason || "";
       this.setData({
-        role: data.role || "",
-        photographerStatus: data.photographer_status || "not_applied",
-        rejectReason: data.photographer_reject_reason || ""
+        role,
+        photographerStatus,
+        rejectReason,
+        identityState: this._deriveIdentityState(token, role, photographerStatus)
       });
+      this._writeIdentityCache(token, { role, photographerStatus, rejectReason });
     } catch (e) {
-      this.setData({ role: "", photographerStatus: "not_applied", rejectReason: "" });
+      if (this.data.identityState === "unknown") {
+        this.setData({
+          role: "",
+          photographerStatus: "not_applied",
+          rejectReason: "",
+          identityState: "logged_in_unverified"
+        });
+      }
     } finally {
       this.setData({ identityLoading: false });
       this.syncViewState();
     }
+  },
+
+  _deriveIdentityState(token, role, photographerStatus) {
+    if (!token) return "guest";
+    if (role === "admin" || photographerStatus === "approved") return "verified_photographer";
+    return "logged_in_unverified";
+  },
+
+  _tokenFingerprint(token) {
+    if (!token) return "";
+    return token.slice(-16);
+  },
+
+  _readIdentityCache(token) {
+    try {
+      const cache = wx.getStorageSync(IDENTITY_CACHE_KEY);
+      if (!cache || typeof cache !== "object") return null;
+      if (cache.tokenFingerprint !== this._tokenFingerprint(token)) return null;
+      if (Date.now() - (cache.cachedAt || 0) > 1000 * 60 * 60 * 24 * 3) return null;
+      return {
+        role: cache.role || "",
+        photographerStatus: cache.photographerStatus || "not_applied",
+        rejectReason: cache.rejectReason || ""
+      };
+    } catch (_e) {
+      return null;
+    }
+  },
+
+  _writeIdentityCache(token, payload) {
+    if (!token) return;
+    wx.setStorageSync(IDENTITY_CACHE_KEY, {
+      tokenFingerprint: this._tokenFingerprint(token),
+      role: payload.role || "",
+      photographerStatus: payload.photographerStatus || "not_applied",
+      rejectReason: payload.rejectReason || "",
+      cachedAt: Date.now()
+    });
+  },
+
+  _clearIdentityCache() {
+    wx.removeStorageSync(IDENTITY_CACHE_KEY);
   },
 
   _formatMemberExpireText(expiresAt) {
@@ -158,7 +252,7 @@ Page({
     this.setData({ loading: true });
     try {
       const t = await ensureLogin();
-      this.setData({ token: t || "" });
+      this.setData({ token: t || "", identityLoading: true, identityState: "unknown" });
       await Promise.all([this.loadIdentity(), this.loadMembership()]);
       this.syncViewState();
       wx.showToast({ title: "已登录", icon: "none" });
@@ -171,8 +265,11 @@ Page({
 
   logout() {
     clearAuthState();
+    this._clearIdentityCache();
     this.setData({
       token: "",
+      identityLoading: false,
+      identityState: "guest",
       role: "",
       photographerStatus: "not_applied",
       rejectReason: "",
@@ -184,8 +281,11 @@ Page({
 
   clearLocalAuthCache() {
     clearAuthState();
+    this._clearIdentityCache();
     this.setData({
       token: "",
+      identityLoading: false,
+      identityState: "guest",
       role: "",
       photographerStatus: "not_applied",
       rejectReason: "",

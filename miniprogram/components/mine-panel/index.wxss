@@ -229,6 +229,62 @@
   border-bottom-color: rgba(74, 222, 128, 0.24);
 }
 
+.mine-skeleton-card {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.mine-skeleton-block,
+.mine-skeleton-line,
+.mine-skeleton-pill,
+.mine-skeleton-btn {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.06) 100%);
+  background-size: 200% 100%;
+  animation: mineShimmer 1.2s ease-in-out infinite;
+}
+
+.mine-skeleton-title {
+  width: 220rpx;
+  height: 44rpx;
+  border-radius: 10rpx;
+}
+
+.mine-skeleton-pill {
+  width: 140rpx;
+}
+
+.mine-skeleton-cell-title {
+  width: 180rpx;
+  height: 36rpx;
+  border-radius: 8rpx;
+}
+
+.mine-skeleton-cell-desc {
+  width: 340rpx;
+  height: 30rpx;
+  border-radius: 8rpx;
+}
+
+.mine-skeleton-btn {
+  min-width: 132rpx;
+  height: 58rpx;
+  border-radius: 30rpx;
+}
+
+.mine-skeleton-arrow {
+  width: 24rpx;
+  height: 24rpx;
+  border-radius: 8rpx;
+}
+
+@keyframes mineShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 .mine-membership-cta {
   min-width: 132rpx;
   height: 58rpx;

@@ -1,70 +1,103 @@
 <view class="cs-page mine-page">
   <view class="safe-top"></view>
 
-  <view class="mine-header-card">
-    <view class="mine-head">
-      <view class="mine-avatar">{{viewState.avatarText}}</view>
-      <view class="mine-head-copy">
-        <view class="mine-title">{{viewState.nickname}}</view>
-        <view class="mine-status-row">
-          <text class="mine-status-pill active">{{viewState.roleLabel}}</text>
-          <text class="mine-status-pill">{{viewState.certLabel}}</text>
+  <block wx:if="{{identityState === 'unknown'}}">
+    <view class="mine-header-card mine-skeleton-card">
+      <view class="mine-head">
+        <view class="mine-avatar mine-skeleton-block"></view>
+        <view class="mine-head-copy">
+          <view class="mine-title mine-skeleton-line mine-skeleton-title"></view>
+          <view class="mine-status-row">
+            <text class="mine-status-pill mine-skeleton-pill"></text>
+            <text class="mine-status-pill mine-skeleton-pill"></text>
+          </view>
         </view>
       </view>
     </view>
-  </view>
-
-  <view class="mine-cell-group">
-    <button class="mine-cell mine-cell-membership" bindtap="goMembership" hover-class="mine-cell-hover">
-      <view class="mine-cell-main">
-        <view class="mine-cell-title-row">
-          <text class="mine-cell-title mine-cell-title-strong">{{uiText.membershipTitle}}</text>
-          <text class="mine-membership-badge">HOT</text>
+    <view class="mine-cell-group mine-skeleton-card">
+      <view class="mine-cell">
+        <view class="mine-cell-main">
+          <view class="mine-cell-title mine-skeleton-line mine-skeleton-cell-title"></view>
+          <view class="mine-cell-desc mine-skeleton-line mine-skeleton-cell-desc"></view>
         </view>
-        <text class="mine-cell-desc" wx:if="{{!token}}">{{uiText.membershipDescGuest}}</text>
-        <text class="mine-cell-desc" wx:elif="{{membership.loading}}">会员状态加载中</text>
-        <text class="mine-cell-desc" wx:elif="{{membership.isMember}}">
-          {{uiText.membershipDescMember}}{{membership.expiresAt ? ' · ' + membership.expiresAt : ''}}
-        </text>
-        <text class="mine-cell-desc" wx:else>{{uiText.membershipDescNonMember}}</text>
+        <view class="mine-membership-cta mine-skeleton-btn"></view>
       </view>
-      <view class="mine-membership-cta">{{membership.isMember ? '查看权益' : '立即开通'}}</view>
-    </button>
-
-    <button
-      wx:if="{{token && photographerStatus === 'approved'}}"
-      class="mine-cell"
-      bindtap="goEditPhotographerProfile"
-      hover-class="mine-cell-hover"
-    >
-      <view class="mine-cell-main">
-        <text class="mine-cell-title">{{uiText.editProfileTitle}}</text>
-        <text class="mine-cell-desc">{{uiText.editProfileDesc}}</text>
+      <view class="mine-cell">
+        <view class="mine-cell-main">
+          <view class="mine-cell-title mine-skeleton-line mine-skeleton-cell-title"></view>
+          <view class="mine-cell-desc mine-skeleton-line mine-skeleton-cell-desc"></view>
+        </view>
+        <view class="mine-cell-arrow mine-skeleton-line mine-skeleton-arrow"></view>
       </view>
-      <text class="mine-cell-arrow">›</text>
-    </button>
-
-    <button class="mine-cell" bindtap="goStudio" hover-class="mine-cell-hover">
-      <view class="mine-cell-main">
-        <text class="mine-cell-title">{{uiText.certTitle}}</text>
-        <text class="mine-cell-desc">{{uiText.certDesc}}</text>
-      </view>
-      <text class="mine-cell-arrow">›</text>
-    </button>
-
-    <view wx:if="{{token && photographerStatus === 'rejected' && rejectReason}}" class="mine-reject-tip">
-      驳回原因：{{rejectReason}}
     </view>
-  </view>
+  </block>
 
-  <view wx:if="{{!token}}" class="mine-login-wrap">
+  <block wx:else>
+    <view class="mine-header-card">
+      <view class="mine-head">
+        <view class="mine-avatar">{{viewState.avatarText}}</view>
+        <view class="mine-head-copy">
+          <view class="mine-title">{{viewState.nickname}}</view>
+          <view class="mine-status-row">
+            <text class="mine-status-pill active">{{viewState.roleLabel}}</text>
+            <text class="mine-status-pill">{{viewState.certLabel}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="mine-cell-group">
+      <button class="mine-cell mine-cell-membership" bindtap="goMembership" hover-class="mine-cell-hover">
+        <view class="mine-cell-main">
+          <view class="mine-cell-title-row">
+            <text class="mine-cell-title mine-cell-title-strong">{{uiText.membershipTitle}}</text>
+            <text class="mine-membership-badge">HOT</text>
+          </view>
+          <text class="mine-cell-desc" wx:if="{{identityState === 'guest'}}">{{uiText.membershipDescGuest}}</text>
+          <text class="mine-cell-desc" wx:elif="{{membership.loading}}">会员状态加载中</text>
+          <text class="mine-cell-desc" wx:elif="{{membership.isMember}}">
+            {{uiText.membershipDescMember}}{{membership.expiresAt ? ' · ' + membership.expiresAt : ''}}
+          </text>
+          <text class="mine-cell-desc" wx:else>{{uiText.membershipDescNonMember}}</text>
+        </view>
+        <view class="mine-membership-cta">{{membership.isMember ? '查看权益' : '立即开通'}}</view>
+      </button>
+
+      <button
+        wx:if="{{identityState === 'verified_photographer'}}"
+        class="mine-cell"
+        bindtap="goEditPhotographerProfile"
+        hover-class="mine-cell-hover"
+      >
+        <view class="mine-cell-main">
+          <text class="mine-cell-title">{{uiText.editProfileTitle}}</text>
+          <text class="mine-cell-desc">{{uiText.editProfileDesc}}</text>
+        </view>
+        <text class="mine-cell-arrow">›</text>
+      </button>
+
+      <button wx:if="{{identityState === 'guest' || identityState === 'logged_in_unverified'}}" class="mine-cell" bindtap="goStudio" hover-class="mine-cell-hover">
+        <view class="mine-cell-main">
+          <text class="mine-cell-title">{{uiText.certTitle}}</text>
+          <text class="mine-cell-desc">{{uiText.certDesc}}</text>
+        </view>
+        <text class="mine-cell-arrow">›</text>
+      </button>
+
+      <view wx:if="{{identityState === 'logged_in_unverified' && photographerStatus === 'rejected' && rejectReason}}" class="mine-reject-tip">
+        驳回原因：{{rejectReason}}
+      </view>
+    </view>
+  </block>
+
+  <view wx:if="{{identityState === 'guest'}}" class="mine-login-wrap">
     <button class="mine-login-btn" bindtap="login" disabled="{{loading}}" hover-class="tap-hover">
       {{loading ? uiText.loggingInTitle : uiText.loginTitle}}
     </button>
     <view class="mine-login-tip">{{uiText.loginTip}}</view>
   </view>
 
-  <view wx:if="{{token}}" class="mine-logout-link" bindtap="logout">
+  <view wx:if="{{identityState !== 'guest' && identityState !== 'unknown'}}" class="mine-logout-link" bindtap="logout">
     {{uiText.logoutTitle}}
   </view>
 
