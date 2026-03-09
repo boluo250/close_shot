@@ -93,6 +93,82 @@ module.exports = {
 - `miniprogram/`：微信小程序用户端（骨架）
 - `infra/`：docker-compose（Postgres/PostGIS、MinIO 等）
 
+## Docker + Nginx 部署（新增）
+
+已提供部署模板文件：
+- `backend/Dockerfile`：后端服务镜像
+- `admin-web/Dockerfile`：后台 Web 镜像（Vue3 构建产物）
+- `infra/nginx/default.conf`：Nginx 反向代理配置
+- `infra/docker-compose.deploy.yml`：一键启动 `db + minio + api + admin-web + nginx`
+
+部署步骤（服务器）：
+
+```bash
+# 1) 准备后端生产环境变量（首次）
+cd backend
+cp .env.example .env
+
+# 2) 回到基础设施目录并启动
+cd ../infra
+docker compose -f docker-compose.deploy.yml up -d --build
+```
+
+验证：
+- API 健康检查：`http://<服务器IP或域名>/health`
+- API 文档：`http://<服务器IP或域名>/docs`
+- 后台登录页：`http://<服务器IP或域名>/ops-x8r7m2q4p9/login`
+
+说明：
+- Nginx 对外端口默认 `80/443`，可通过环境变量 `NGINX_HTTP_PORT`、`NGINX_HTTPS_PORT` 覆盖
+- `DATABASE_URL` 会在 compose 内自动改为容器网络地址（`db:5432`）
+- 默认挂载 `backend_local_media` 持久化本地媒体文件
+- 管理端 API 前缀默认 `http://<域名>/admin-x8r7m2q4p9/*`（由 Nginx 转发到后端）
+
+### 线上域名 + HTTPS（Let's Encrypt）
+
+`infra/docker-compose.deploy.yml` 已内置 `nginx + certbot` 所需配置。  
+首次签发证书请按下面顺序执行（在服务器）：
+
+```bash
+cd /opt/close_shot
+cp backend/.env.example backend/.env
+
+# 必填：线上域名与邮箱
+export DOMAIN=your-domain.com
+export EMAIL=you@example.com
+
+# 先启动非 nginx 服务（避免 certbot 占用 80 端口冲突）
+cd infra
+docker compose -f docker-compose.deploy.yml up -d db minio api admin-web
+
+# 首次签发证书（standalone）
+docker compose --profile ops -f docker-compose.deploy.yml run --rm --service-ports certbot \
+  certonly --standalone \
+  -d "$DOMAIN" \
+  --email "$EMAIL" \
+  --agree-tos --no-eff-email
+
+# 启动 nginx（80/443）
+docker compose -f docker-compose.deploy.yml up -d nginx
+```
+
+验证：
+- `https://<你的域名>/health`
+- `https://<你的域名>/docs`
+- `https://<你的域名>/ops-x8r7m2q4p9/login`
+
+证书续期（可放 cron，每月一次）：
+
+```bash
+cd /opt/close_shot/infra
+export DOMAIN=your-domain.com
+
+# standalone 续期需要临时释放 80 端口，会短暂中断
+docker compose -f docker-compose.deploy.yml stop nginx
+docker compose --profile ops -f docker-compose.deploy.yml run --rm --service-ports certbot renew
+docker compose -f docker-compose.deploy.yml up -d nginx
+```
+
 ## MVP 已覆盖
 - LBS：按经纬度 + 半径查询附近摄影师（PostGIS 优先，未启用 PostGIS 时可切换 Haversine 兜底）
 - 摄影师详情：作品/套餐/评分聚合

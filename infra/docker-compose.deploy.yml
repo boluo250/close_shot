@@ -1,0 +1,90 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: close-shot-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-close_shot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-close_shot}
+      POSTGRES_DB: ${POSTGRES_DB:-close_shot}
+    volumes:
+      - close_shot_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-close_shot} -d ${POSTGRES_DB:-close_shot}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2025-01-20T00-00-00Z
+    container_name: close-shot-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - close_shot_minio:/data
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: close-shot-api
+    restart: unless-stopped
+    env_file:
+      - ../backend/.env
+    environment:
+      ENV: ${ENV:-prod}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-close_shot}:${POSTGRES_PASSWORD:-close_shot}@db:5432/${POSTGRES_DB:-close_shot}
+      # 如果在容器内使用 MinIO，请确保 .env 中 STORAGE_BACKEND=s3，并提供以下变量。
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    volumes:
+      - backend_local_media:/app/local_media
+
+  admin-web:
+    build:
+      context: ../admin-web
+      dockerfile: Dockerfile
+    container_name: close-shot-admin-web
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: close-shot-nginx
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+    depends_on:
+      - api
+      - admin-web
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/templates/default.conf.template:ro
+      - certbot_www:/var/www/certbot
+      - letsencrypt:/etc/letsencrypt
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: close-shot-certbot
+    profiles: ["ops"]
+    ports:
+      - "80:80"
+    volumes:
+      - certbot_www:/var/www/certbot
+      - letsencrypt:/etc/letsencrypt
+
+volumes:
+  close_shot_pgdata:
+  close_shot_minio:
+  backend_local_media:
+  certbot_www:
+  letsencrypt:

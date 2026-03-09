@@ -2,7 +2,8 @@ import axios from "axios";
 import { useAuthStore } from "../stores/auth";
 import { ADMIN_LOGIN_PATH } from "./adminSecurity";
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8001";
+const envBaseURL = import.meta.env.VITE_API_BASE_URL;
+const baseURL = typeof envBaseURL === "string" ? envBaseURL : (import.meta.env.DEV ? "http://localhost:8001" : "");
 let isHandlingUnauthorized = false;
 
 export const api = axios.create({
