@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -15,6 +16,60 @@ from app.api.router import api_router
 from app.core.config import settings
 from app.db.models import AdminOperationLog, User
 from app.db.session import SessionLocal
+
+
+_SUSPICIOUS_404_PREFIXES = (
+    "/admin",
+    "/login",
+    "/wp-admin",
+    "/wp-login.php",
+    "/webfig",
+    "/console",
+    "/phpmyadmin",
+    "/jenkins",
+    "/manager",
+    "/jasperserver",
+    "/sici.cgi",
+    "/actuator",
+    "/api/session/properties",
+    "/inventry",
+    "/.env",
+    "/.git",
+)
+
+
+def _is_suspicious_404_path(path: str) -> bool:
+    normalized = (path or "/").split("?", 1)[0].lower()
+    return any(
+        normalized == prefix
+        or normalized.startswith(f"{prefix}/")
+        or normalized.startswith(f"{prefix}.")
+        or normalized.startswith(f"{prefix}-")
+        for prefix in _SUSPICIOUS_404_PREFIXES
+    )
+
+
+class _UvicornAccessNoiseFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if not isinstance(args, tuple) or len(args) < 5:
+            return True
+        try:
+            path = str(args[2])
+            status_code = int(args[4])
+        except (ValueError, TypeError):
+            return True
+        # Suppress noisy scanner probes that only generate expected 404s.
+        if status_code == 404 and _is_suspicious_404_path(path):
+            return False
+        return True
+
+
+def _install_uvicorn_access_log_filter() -> None:
+    access_logger = logging.getLogger("uvicorn.access")
+    if any(isinstance(existing, _UvicornAccessNoiseFilter) for existing in access_logger.filters):
+        return
+    access_logger.addFilter(_UvicornAccessNoiseFilter())
 
 
 def _extract_client_ip(request: Request) -> str | None:
@@ -111,6 +166,7 @@ def _create_admin_audit_middleware(app: FastAPI) -> None:
 
 def create_app() -> FastAPI:
     settings.ensure_runtime_safety()
+    _install_uvicorn_access_log_filter()
     app = FastAPI(title=settings.app_name)
 
     # 开发联调：允许前端跨域访问
