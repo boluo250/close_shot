@@ -34,7 +34,7 @@
 .bottom-nav-item {
   flex: 1;
   min-width: 0;
-  height: 66rpx;
+  height: 80rpx;
   border-radius: 999rpx;
   display: flex;
   flex-direction: row;

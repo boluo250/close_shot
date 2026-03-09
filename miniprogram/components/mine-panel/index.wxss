@@ -328,8 +328,8 @@
 .mine-login-btn {
   width: 100%;
   min-width: 132rpx;
-  height: 70rpx;
-  line-height: 70rpx;
+  height: 80rpx;
+  line-height: 80rpx;
   border-radius: 30rpx;
   border: 0;
   padding: 0 20rpx;
