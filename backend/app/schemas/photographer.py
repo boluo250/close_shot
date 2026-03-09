@@ -153,6 +153,8 @@ class CertificationDetailOut(TimestampOut):
     # 可选
     city: str | None = None
     price_range: str | None = None
+    # 作品图（审核评分用）
+    portfolio_image_urls: list[str] = Field(default_factory=list)
 
 class CertificationReviewIn(BaseModel):
     """管理端审核操作"""

@@ -12,7 +12,16 @@ from sqlalchemy import case, func, inspect, select, text
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.db.models import AdminOperationLog, AnalyticsEvent, Favorite, Photographer, PhotographerStatus, User, UserRole
+from app.db.models import (
+    AdminOperationLog,
+    AnalyticsEvent,
+    Favorite,
+    Photographer,
+    PhotographerStatus,
+    PortfolioItem,
+    User,
+    UserRole,
+)
 from app.db.session import get_db
 from app.schemas.analytics import AnalyticsEventListOut, AnalyticsEventOut, AnalyticsSummaryItemOut, AnalyticsSummaryOut
 from app.schemas.photographer import (
@@ -21,6 +30,7 @@ from app.schemas.photographer import (
     CertificationReviewIn,
 )
 from app.services.membership import get_contact_access_mode, set_contact_access_mode
+from app.services.media_url import object_key_to_url
 from app.services.photographer_ranking import recalculate_photographer_sort_scores
 
 router = APIRouter()
@@ -124,11 +134,61 @@ def _require_safe_table_name(table: str) -> str:
     return name
 
 
-def _photographer_to_detail(p: Photographer) -> CertificationDetailOut:
+def _build_portfolio_preview_map(
+    *,
+    db: Session,
+    photographer_ids: list[int],
+    limit_per_photographer: int = 9,
+) -> dict[int, list[str]]:
+    if not photographer_ids:
+        return {}
+    rows = db.execute(
+        select(
+            PortfolioItem.photographer_id,
+            PortfolioItem.image_object_key,
+            PortfolioItem.image_url,
+            PortfolioItem.watermark_object_key,
+            PortfolioItem.watermark_url,
+        )
+        .where(PortfolioItem.photographer_id.in_(photographer_ids))
+        .order_by(
+            PortfolioItem.photographer_id.asc(),
+            PortfolioItem.is_pinned.desc(),
+            PortfolioItem.sort_order.asc(),
+            PortfolioItem.id.asc(),
+        )
+    ).all()
+
+    preview_map: dict[int, list[str]] = {pid: [] for pid in photographer_ids}
+    for pid, image_object_key, image_url, watermark_object_key, watermark_url in rows:
+        if pid is None:
+            continue
+        photographer_id = int(pid)
+        items = preview_map.setdefault(photographer_id, [])
+        if len(items) >= limit_per_photographer:
+            continue
+        resolved_url = (
+            object_key_to_url(image_object_key)
+            or image_url
+            or object_key_to_url(watermark_object_key)
+            or watermark_url
+        )
+        if not resolved_url or resolved_url in items:
+            continue
+        items.append(resolved_url)
+    return preview_map
+
+
+def _photographer_to_detail(
+    p: Photographer,
+    *,
+    portfolio_preview_map: dict[int, list[str]] | None = None,
+) -> CertificationDetailOut:
     """将 ORM 对象转为输出 schema，附带 user 字段"""
     data = CertificationDetailOut.model_validate(p).model_dump()
     data["display_name"] = p.user.display_name if p.user else None
     data["avatar_url"] = p.user.avatar_url if p.user else None
+    data["portfolio_image_urls"] = (portfolio_preview_map or {}).get(int(p.id), [])
     return CertificationDetailOut(**data)
 
 
@@ -206,8 +266,12 @@ def list_certifications(
         q.order_by(Photographer.created_at.desc()).limit(limit).offset(offset)
     ).all()
 
+    preview_map = _build_portfolio_preview_map(
+        db=db,
+        photographer_ids=[int(p.id) for p in photographers],
+    )
     return CertificationListOut(
-        items=[_photographer_to_detail(p) for p in photographers],
+        items=[_photographer_to_detail(p, portfolio_preview_map=preview_map) for p in photographers],
         total=total,
     )
 
@@ -225,7 +289,8 @@ def get_certification(
     p = db.scalar(select(Photographer).where(Photographer.id == photographer_id))
     if not p:
         raise HTTPException(status_code=404, detail="photographer not found")
-    return _photographer_to_detail(p)
+    preview_map = _build_portfolio_preview_map(db=db, photographer_ids=[int(p.id)])
+    return _photographer_to_detail(p, portfolio_preview_map=preview_map)
 
 
 # ---------- 审核操作（通过 / 驳回） ----------
@@ -270,7 +335,8 @@ def review_certification(
     if payload.action == "approve":
         recalculate_photographer_sort_scores(db, photographer_ids=[photographer_id])
     db.refresh(p)
-    return _photographer_to_detail(p)
+    preview_map = _build_portfolio_preview_map(db=db, photographer_ids=[int(p.id)])
+    return _photographer_to_detail(p, portfolio_preview_map=preview_map)
 
 
 @router.put("/photographers/{photographer_id}/quality-score", response_model=CertificationDetailOut)
@@ -292,7 +358,8 @@ def update_photographer_quality_score(
     db.commit()
     recalculate_photographer_sort_scores(db, photographer_ids=[photographer_id])
     db.refresh(p)
-    return _photographer_to_detail(p)
+    preview_map = _build_portfolio_preview_map(db=db, photographer_ids=[int(p.id)])
+    return _photographer_to_detail(p, portfolio_preview_map=preview_map)
 
 
 @router.get("/settings/contact-access", response_model=ContactAccessSettingOut)

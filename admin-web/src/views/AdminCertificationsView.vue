@@ -166,6 +166,20 @@
         </el-descriptions-item>
       </el-descriptions>
 
+      <el-divider content-position="left">摄影作品（用于评分）</el-divider>
+      <div v-if="(currentItem.portfolio_image_urls || []).length" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px">
+        <el-image
+          v-for="(url, idx) in currentItem.portfolio_image_urls"
+          :key="`${currentItem.id}-portfolio-${idx}`"
+          :src="url"
+          :preview-src-list="currentItem.portfolio_image_urls"
+          :initial-index="idx"
+          style="width: 100%; height: 120px; border-radius: 8px"
+          fit="cover"
+        />
+      </div>
+      <el-empty v-else description="暂无已上传作品图" :image-size="80" />
+
       <div v-if="currentItem.reject_reason" style="margin-top: 16px">
         <el-alert :title="`驳回原因：${currentItem.reject_reason}`" type="error" :closable="false" />
       </div>
@@ -232,6 +246,7 @@ type CertificationItem = {
   wechat_id: string | null;
   city: string | null;
   price_range: string | null;
+  portfolio_image_urls: string[];
   created_at: string;
   updated_at: string;
 };

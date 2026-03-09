@@ -3,7 +3,11 @@ import { useAuthStore } from "../stores/auth";
 import { ADMIN_LOGIN_PATH } from "./adminSecurity";
 
 const envBaseURL = import.meta.env.VITE_API_BASE_URL;
-const baseURL = typeof envBaseURL === "string" ? envBaseURL : (import.meta.env.DEV ? "http://localhost:8001" : "");
+const DEFAULT_API_BASE_URL = "https://bianpai.xyz";
+const baseURL =
+  typeof envBaseURL === "string" && envBaseURL.trim()
+    ? envBaseURL.trim()
+    : DEFAULT_API_BASE_URL;
 let isHandlingUnauthorized = false;
 
 export const api = axios.create({

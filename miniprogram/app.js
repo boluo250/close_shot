@@ -2,13 +2,7 @@ const theme = require("./utils/theme");
 const env = require("./env");
 
 function resolveApiBaseUrl() {
-  // 允许通过 storage 临时覆盖，便于不同网络快速切换
-  const customApiBaseUrl = wx.getStorageSync("apiBaseUrl");
-  if (customApiBaseUrl) {
-    return customApiBaseUrl;
-  }
-
-  // 优先使用内网穿透地址（Cloudflare Tunnel）
+  // 优先使用 env 中配置的线上地址，确保默认直连部署后端
   if (env.API_BASE_URL) {
     return env.API_BASE_URL.replace(/\/+$/, "");
   }
