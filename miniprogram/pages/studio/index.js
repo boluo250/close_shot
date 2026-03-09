@@ -444,13 +444,13 @@ Page({
       const base = app.globalData.apiBaseUrl;
       avatarUrl = up.public_url || (up.proxy_url ? base + up.proxy_url : "");
       avatarObjectKey = up.object_key || null;
-      if (!avatarUrl) throw new Error("no avatar url");
+      if (!avatarObjectKey) throw new Error("no avatar object key");
     }
 
     const payload = {
       bio: this.data.profile.bio,
       tags: "",
-      avatar_url: avatarUrl,
+      avatar_url: avatarUrl || null,
       avatar_object_key: avatarObjectKey,
       cover_url: this.data.profile.cover_url,
       cover_object_key: this.data.coverObjectKey || null,
@@ -604,8 +604,6 @@ Page({
 
     this.setData({ portfolioUploading: true, portfolioUploadCount: pending.length });
     try {
-      const app = getApp();
-      const base = app.globalData.apiBaseUrl;
       await Promise.all(
         pending.map(async (file) => {
           const up = await uploadImageToS3Like({
@@ -615,8 +613,7 @@ Page({
             prefix: "portfolio",
             compress: { maxSizeKB: 700, quality: 72 }
           });
-          const imageUrl = up.public_url || (up.proxy_url ? base + up.proxy_url : "");
-          if (!imageUrl) throw new Error("no url");
+          if (!up.object_key) throw new Error("no object key");
           await this.studioRequest("/studio/portfolio", {
             method: "POST",
             data: {
@@ -625,7 +622,6 @@ Page({
               category: "",
               is_pinned: false,
               sort_order: 0,
-              image_url: imageUrl,
               image_object_key: up.object_key || null
             }
           });

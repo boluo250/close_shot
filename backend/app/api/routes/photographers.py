@@ -21,6 +21,7 @@ from app.schemas.photographer import (
     PortfolioItemOut,
 )
 from app.services.geo import haversine_distance_m
+from app.services.media_url import object_key_to_url
 from app.services.membership import can_view_contact
 
 router = APIRouter()
@@ -224,13 +225,24 @@ def nearby(
     preview_map: dict[int, list[str]] = {pid: [] for pid in pids}
     if pids:
         items = db.execute(
-            select(PortfolioItem.photographer_id, PortfolioItem.watermark_url, PortfolioItem.image_url)
+            select(
+                PortfolioItem.photographer_id,
+                PortfolioItem.watermark_object_key,
+                PortfolioItem.watermark_url,
+                PortfolioItem.image_object_key,
+                PortfolioItem.image_url,
+            )
             .where(PortfolioItem.photographer_id.in_(pids))
             .order_by(PortfolioItem.photographer_id.asc(), PortfolioItem.sort_order.asc(), PortfolioItem.id.asc())
         ).all()
-        for pid, watermark_url, image_url in items:
-            preview_url = watermark_url or image_url
-            if pid in preview_map and len(preview_map[pid]) < 3:
+        for pid, watermark_object_key, watermark_url, image_object_key, image_url in items:
+            preview_url = (
+                object_key_to_url(watermark_object_key)
+                or watermark_url
+                or object_key_to_url(image_object_key)
+                or image_url
+            )
+            if preview_url and pid in preview_map and len(preview_map[pid]) < 3:
                 preview_map[pid].append(preview_url)
 
     out: list[PhotographerCardOut] = []
@@ -325,6 +337,13 @@ def get_detail(
             )
         )
     can_view, mode, lock_reason = can_view_contact(db, viewer=viewer, photographer=p)
+    portfolio_out: list[PortfolioItemOut] = []
+    for item in portfolio:
+        payload = PortfolioItemOut.model_validate(item).model_dump()
+        payload["image_url"] = object_key_to_url(item.image_object_key) or item.image_url
+        payload["watermark_url"] = object_key_to_url(item.watermark_object_key) or item.watermark_url
+        portfolio_out.append(PortfolioItemOut(**payload))
+
     return PhotographerDetailOut(
         **PhotographerOut.model_validate(p).model_dump(
             exclude={
@@ -351,7 +370,7 @@ def get_detail(
         drone_models=_parse_csv(p.drone_models),
         rate_card=rate_card,
         is_favorited=is_favorited,
-        portfolio_items=[PortfolioItemOut.model_validate(i) for i in portfolio],
+        portfolio_items=portfolio_out,
         packages=[PackageOut.model_validate(i) for i in packages],
     )
 

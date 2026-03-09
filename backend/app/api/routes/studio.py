@@ -9,7 +9,6 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.core.config import settings
 from app.db.models import Package, Photographer, PortfolioItem, ScheduleBlock, User, UserRole
 from app.db.session import get_db
 from app.schemas.photographer import PackageOut, PhotographerOut, PortfolioItemOut
@@ -27,6 +26,7 @@ from app.schemas.studio import (
     StudioMeOut,
 )
 from app.services.image_watermark import add_text_watermark
+from app.services.media_url import object_key_from_url, object_key_to_url
 from app.services.storage import get_object_stream, put_object_bytes
 from app.services.wechat_security import ensure_image_safe_bytes, ensure_text_safe
 
@@ -45,24 +45,10 @@ def _get_my_photographer(db: Session, me: User) -> Photographer:
     return p
 
 
-def _object_key_from_url(url: str) -> str | None:
-    if url.startswith("/media/"):
-        return url.replace("/media/", "", 1)
-    if "/media/" in url:
-        return url.split("/media/", 1)[1]
-    public_base = settings.s3_public_base_url
-    if public_base and url.startswith(public_base.rstrip("/") + "/"):
-        return url[len(public_base.rstrip("/") + "/") :]
-    return None
-
-
-def _object_key_to_url(object_key: str) -> str:
-    if settings.storage_backend == "local":
-        return f"/media/{object_key}"
-    public_base = settings.s3_public_base_url
-    if public_base:
-        return f"{public_base.rstrip('/')}/{object_key}"
-    return f"/media/{object_key}"
+def _resolve_portfolio_urls(*, image_url: str | None, image_object_key: str | None, watermark_url: str | None, watermark_object_key: str | None) -> tuple[str | None, str | None]:
+    resolved_image = object_key_to_url(image_object_key) or image_url
+    resolved_watermark = object_key_to_url(watermark_object_key) or watermark_url
+    return resolved_image, resolved_watermark
 
 
 def _ensure_texts_safe(values: list[str | None]) -> None:
@@ -116,9 +102,13 @@ def update_me(
     if data.get("avatar_object_key"):
         stream, _ = get_object_stream(data["avatar_object_key"])
         ensure_image_safe_bytes(stream.read())
+        if p.user and data.get("avatar_url") is None:
+            data["avatar_url"] = object_key_to_url(data["avatar_object_key"])
     if data.get("cover_object_key"):
         stream, _ = get_object_stream(data["cover_object_key"])
         ensure_image_safe_bytes(stream.read())
+        if data.get("cover_url") is None:
+            data["cover_url"] = object_key_to_url(data["cover_object_key"])
     if data.get("avatar_url") is not None and p.user:
         p.user.avatar_url = data.pop("avatar_url")
     data.pop("avatar_object_key", None)
@@ -148,7 +138,19 @@ def list_portfolio(me: User = Depends(get_current_user), db: Session = Depends(g
         .where(PortfolioItem.photographer_id == p.id)
         .order_by(PortfolioItem.is_pinned.desc(), PortfolioItem.sort_order.asc(), PortfolioItem.id.asc())
     ).all()
-    return PortfolioListOut(items=[PortfolioItemOut.model_validate(i) for i in items])
+    out: list[PortfolioItemOut] = []
+    for i in items:
+        image_url, watermark_url = _resolve_portfolio_urls(
+            image_url=i.image_url,
+            image_object_key=i.image_object_key,
+            watermark_url=i.watermark_url,
+            watermark_object_key=i.watermark_object_key,
+        )
+        payload = PortfolioItemOut.model_validate(i).model_dump()
+        payload["image_url"] = image_url or i.image_url
+        payload["watermark_url"] = watermark_url
+        out.append(PortfolioItemOut(**payload))
+    return PortfolioListOut(items=out)
 
 
 @router.post("/portfolio", response_model=PortfolioItemOut)
@@ -161,7 +163,7 @@ def create_portfolio(
     p = _get_my_photographer(db, me)
     data = payload.model_dump()
     _ensure_texts_safe([data.get("title"), data.get("tags"), data.get("category")])
-    image_object_key = data.get("image_object_key") or _object_key_from_url(data["image_url"])
+    image_object_key = data.get("image_object_key") or object_key_from_url(data.get("image_url"))
     if not image_object_key:
         raise HTTPException(status_code=400, detail="image_object_key required for security checks")
     stream, _ = get_object_stream(image_object_key)
@@ -171,8 +173,9 @@ def create_portfolio(
     watermark_bytes, watermark_content_type = add_text_watermark(image_bytes, watermark_text="边拍")
     put_object_bytes(object_key=watermark_key, data=watermark_bytes, content_type=watermark_content_type)
     data["image_object_key"] = image_object_key
+    data["image_url"] = object_key_to_url(image_object_key) or data.get("image_url")
     data["watermark_object_key"] = watermark_key
-    data["watermark_url"] = _object_key_to_url(watermark_key)
+    data["watermark_url"] = object_key_to_url(watermark_key)
     item = PortfolioItem(photographer_id=p.id, **data)
     db.add(item)
     db.commit()
@@ -195,7 +198,7 @@ def update_portfolio(
     data = payload.model_dump(exclude_unset=True)
     _ensure_texts_safe([data.get("title"), data.get("tags"), data.get("category")])
     if data.get("image_object_key") or data.get("image_url"):
-        image_object_key = data.get("image_object_key") or _object_key_from_url(data.get("image_url") or "")
+        image_object_key = data.get("image_object_key") or object_key_from_url(data.get("image_url"))
         if not image_object_key:
             raise HTTPException(status_code=400, detail="image_object_key required for security checks")
         stream, _ = get_object_stream(image_object_key)
@@ -205,8 +208,9 @@ def update_portfolio(
         watermark_bytes, watermark_content_type = add_text_watermark(image_bytes, watermark_text="边拍")
         put_object_bytes(object_key=watermark_key, data=watermark_bytes, content_type=watermark_content_type)
         data["image_object_key"] = image_object_key
+        data["image_url"] = object_key_to_url(image_object_key) or data.get("image_url")
         data["watermark_object_key"] = watermark_key
-        data["watermark_url"] = _object_key_to_url(watermark_key)
+        data["watermark_url"] = object_key_to_url(watermark_key)
     for k, v in data.items():
         setattr(item, k, v)
     db.add(item)

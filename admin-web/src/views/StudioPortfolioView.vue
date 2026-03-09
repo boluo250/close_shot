@@ -16,7 +16,7 @@
 
     <el-row :gutter="12" style="margin-bottom: 12px">
       <el-col :span="18">
-        <el-input v-model="createForm.image_url" placeholder="图片 URL（可用下方上传自动填充）" />
+        <el-input v-model="createForm.image_object_key" placeholder="对象键（上传后自动填充）" />
       </el-col>
       <el-col :span="6">
         <el-upload
@@ -103,7 +103,7 @@ const items = ref<PortfolioItem[]>([]);
 
 const createForm = reactive({
   title: "",
-  image_url: "",
+  image_object_key: "",
   sort_order: 0,
   tags: ""
 });
@@ -123,12 +123,12 @@ async function load() {
 async function onUploadCreate(opts: UploadRequestOptions) {
   uploading.value = true;
   try {
-    const { publicUrl } = await uploadViaPresign(opts, { prefix: "portfolio" });
-    if (!publicUrl) throw new Error("后端未配置公开访问 URL（S3_PUBLIC_BASE_URL）");
-    createForm.image_url = publicUrl;
+    const { objectKey } = await uploadViaPresign(opts, { prefix: "portfolio" });
+    if (!objectKey) throw new Error("上传结果缺少 object_key");
+    createForm.image_object_key = objectKey;
     ElMessage.success("上传成功");
     // ElementPlus 需要手动触发回调
-    opts.onSuccess?.({ url: publicUrl } as any);
+    opts.onSuccess?.({ object_key: objectKey } as any);
   } catch (e: any) {
     ElMessage.error(e?.message || "上传失败");
     opts.onError?.(e);
@@ -138,7 +138,7 @@ async function onUploadCreate(opts: UploadRequestOptions) {
 }
 
 async function create() {
-  if (!createForm.image_url) {
+  if (!createForm.image_object_key) {
     ElMessage.warning("请先填写或上传图片");
     return;
   }
@@ -147,7 +147,7 @@ async function create() {
     const { data } = await api.post<PortfolioItem>("/studio/portfolio", createForm);
     items.value.unshift(data);
     createForm.title = "";
-    createForm.image_url = "";
+    createForm.image_object_key = "";
     createForm.sort_order = 0;
     createForm.tags = "";
     ElMessage.success("已新增");

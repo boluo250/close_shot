@@ -166,8 +166,8 @@ Page({
       const app = getApp();
       const base = app.globalData.apiBaseUrl;
       const imageUrl = up.public_url || (up.proxy_url ? base + up.proxy_url : "");
-      if (!imageUrl) throw new Error("no url");
-      this.setData({ avatarUrl: imageUrl, avatarObjectKey: up.object_key || "" });
+      if (!up.object_key) throw new Error("no object key");
+      this.setData({ avatarUrl: imageUrl || "", avatarObjectKey: up.object_key || "" });
     } catch (e) {
       wx.showToast({ title: "头像上传失败", icon: "none" });
     }
@@ -227,8 +227,6 @@ Page({
 
     this.setData({ portfolioUploading: true, portfolioUploadCount: files.length });
     try {
-      const app = getApp();
-      const base = app.globalData.apiBaseUrl;
       const ups = await Promise.all(
         files.map(async (file) => {
           const up = await uploadImageToS3Like({
@@ -237,9 +235,11 @@ Page({
             contentType: file.fileType ? `image/${file.fileType}` : "image/jpeg",
             prefix: "portfolio"
           });
+          if (!up.object_key) throw new Error("no object key");
+          const app = getApp();
+          const base = app.globalData.apiBaseUrl;
           const imageUrl = up.public_url || (up.proxy_url ? base + up.proxy_url : "");
-          if (!imageUrl) throw new Error("no url");
-          return { image_url: imageUrl, image_object_key: up.object_key || null };
+          return { image_url: imageUrl || "", image_object_key: up.object_key || null };
         })
       );
       this.setData({ portfolioDraft: [...this.data.portfolioDraft, ...ups] });
@@ -633,8 +633,8 @@ Page({
 
       // 2) 写入会在详情页展示的资料（选填）
       const profilePayload = {
-        avatar_url: this.data.avatarUrl || null,
         avatar_object_key: this.data.avatarObjectKey || null,
+        avatar_url: this.data.avatarUrl || null,
         bio: this.data.bio || null,
         // 标签能力已移除：这里显式清空，避免历史数据残留
         tags: "",
@@ -659,7 +659,6 @@ Page({
             category: "",
             is_pinned: false,
             sort_order: 0,
-            image_url: it.image_url,
             image_object_key: it.image_object_key || null
           },
           auth: true

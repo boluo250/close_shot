@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class RateCardItemIn(BaseModel):
@@ -38,7 +38,7 @@ class StudioMeOut(BaseModel):
 
 class PortfolioCreateIn(BaseModel):
     title: str | None = Field(default=None, max_length=128)
-    image_url: str = Field(min_length=1, max_length=512)
+    image_url: str | None = Field(default=None, max_length=512)
     image_object_key: str | None = Field(default=None, max_length=512)
     watermark_url: str | None = Field(default=None, max_length=512)
     watermark_object_key: str | None = Field(default=None, max_length=512)
@@ -46,6 +46,12 @@ class PortfolioCreateIn(BaseModel):
     tags: str = ""
     category: str = ""
     is_pinned: bool = False
+
+    @model_validator(mode="after")
+    def validate_image_source(self) -> "PortfolioCreateIn":
+        if not self.image_url and not self.image_object_key:
+            raise ValueError("image_url or image_object_key is required")
+        return self
 
 
 class PortfolioUpdateIn(BaseModel):

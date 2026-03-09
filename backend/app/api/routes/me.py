@@ -19,6 +19,7 @@ from app.schemas.me import (
     TencentRealPersonVerifyOut,
 )
 from app.schemas.photographer import PhotographerCardOut, PhotographerOut
+from app.services.media_url import object_key_to_url
 from app.services.membership import can_view_contact
 
 router = APIRouter()
@@ -169,13 +170,25 @@ def my_favorites(
     preview_map: dict[int, list[str]] = {pid: [] for pid in pids}
     if pids:
         items = db.execute(
-            select(PortfolioItem.photographer_id, PortfolioItem.image_url)
+            select(
+                PortfolioItem.photographer_id,
+                PortfolioItem.watermark_object_key,
+                PortfolioItem.watermark_url,
+                PortfolioItem.image_object_key,
+                PortfolioItem.image_url,
+            )
             .where(PortfolioItem.photographer_id.in_(pids))
             .order_by(PortfolioItem.photographer_id.asc(), PortfolioItem.sort_order.asc(), PortfolioItem.id.asc())
         ).all()
-        for pid, image_url in items:
-            if pid in preview_map and len(preview_map[pid]) < 3:
-                preview_map[pid].append(image_url)
+        for pid, watermark_object_key, watermark_url, image_object_key, image_url in items:
+            preview_url = (
+                object_key_to_url(watermark_object_key)
+                or watermark_url
+                or object_key_to_url(image_object_key)
+                or image_url
+            )
+            if preview_url and pid in preview_map and len(preview_map[pid]) < 3:
+                preview_map[pid].append(preview_url)
 
     out: list[PhotographerCardOut] = []
     for p, display_name, avatar_url, starting_price_cents, portfolio_count in rows:
