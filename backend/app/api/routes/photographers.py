@@ -4,7 +4,7 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, Header
 from jose import JWTError, jwt
-from sqlalchemy import Float, delete, func, select
+from sqlalchemy import Float, case, delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_user
@@ -131,26 +131,16 @@ def _rate_min(items: list[dict], mode: str) -> int | None:
     return min(prices) if prices else None
 
 
-@router.get("/nearby", response_model=list[PhotographerCardOut])
-def nearby(
+def _build_nearby_stmt(
+    *,
     lat: float,
     lng: float,
-    max_distance_m: int = 5000,
-    limit: int = 20,
-    offset: int = 0,
-    tag: str | None = None,
-    db: Session = Depends(get_db),
-) -> list[PhotographerCardOut]:
-    # 参数校验复用 schema 的约束
-    _ = NearbyQuery(
-        lat=lat,
-        lng=lng,
-        max_distance_m=max_distance_m,
-        limit=limit,
-        offset=offset,
-        tag=tag,
-    )
-
+    radius_m: int,
+    limit: int,
+    offset: int,
+    tag: str | None,
+    sort_mode: str,
+):
     dist = haversine_distance_m(
         lat_col=Photographer.service_center_lat,
         lng_col=Photographer.service_center_lng,
@@ -173,11 +163,21 @@ def nearby(
         .subquery()
     )
 
-    # 排序：离线 sort_score（质量/热度/活跃） - 实时距离惩罚
-    # 距离越远扣分越高，确保同质量下优先展示更近的摄影师。
-    distance_ratio = (dist / float(max(max_distance_m, 1))).cast(Float)
-    distance_penalty = (35.0 * distance_ratio).cast(Float)
-    score = (func.coalesce(Photographer.sort_score, 50.0) - distance_penalty).label("score")
+    base_score = func.coalesce(Photographer.sort_score, 50.0)
+    if sort_mode == "far":
+        distance_ratio_far = func.least(dist / 300000.0, 1.0).cast(Float)
+        distance_penalty = (12.0 * distance_ratio_far).cast(Float)
+        travel_bonus = case(
+            (Photographer.service_radius_m >= 50000, 5.0),
+            (Photographer.service_radius_m >= 20000, 2.5),
+            else_=0.0,
+        ).cast(Float)
+        score = (base_score - distance_penalty + travel_bonus).label("score")
+    else:
+        # 近距离排序使用固定 50km 惩罚基准，避免因搜索半径变大导致近距优势被稀释
+        distance_ratio_near = func.least(dist / 50000.0, 1.0).cast(Float)
+        distance_penalty = (35.0 * distance_ratio_near).cast(Float)
+        score = (base_score - distance_penalty).label("score")
 
     stmt = (
         select(
@@ -194,21 +194,21 @@ def nearby(
         .outerjoin(portfolio_count_sq, portfolio_count_sq.c.pid == Photographer.id)
         .where(
             Photographer.status == PhotographerStatus.approved.value,
+            Photographer.is_accepting_orders.is_(True),
             Photographer.service_center_lat.is_not(None),
             Photographer.service_center_lng.is_not(None),
-            dist <= max_distance_m,
+            dist <= radius_m,
         )
         .order_by(score.desc(), dist.asc())
         .limit(limit)
         .offset(offset)
     )
-
     if tag:
-        # MVP：tags 字段为逗号分隔文本，简单 contains
         stmt = stmt.where(Photographer.tags.ilike(f"%{tag}%"))
+    return stmt
 
-    rows = db.execute(stmt).all()
 
+def _build_nearby_cards(db: Session, rows) -> list[PhotographerCardOut]:
     # 一次性取出这些摄影师的前 3 张作品，用于首页卡片预览（避免 N+1）
     pids = [
         p.id
@@ -264,16 +264,13 @@ def nearby(
 
         # 距离文案：明确是“服务中心点/服务范围”语义，避免暗示实时位置
         if p.service_radius_m >= 20000:
-            distance_copy = "覆盖你所在区域"
+            distance_copy = f"可覆盖你附近 · 约 {round(distance_km, 1)} km"
         else:
             km = 1 if distance_km < 1 else round(distance_km, 1)
             distance_copy = f"服务于你附近 · 约 {km} km"
 
         out.append(
             PhotographerCardOut(
-                # `PhotographerOut` 里包含 display_name/avatar_url（来自 users 表），
-                # 但 `p` 是 Photographer ORM，本身没有这两个字段。
-                # 这里需要排除，避免再显式传入时出现重复关键字错误。
                 **PhotographerOut.model_validate(p).model_dump(
                     exclude={
                         "display_name",
@@ -309,6 +306,79 @@ def nearby(
             )
         )
     return out
+
+
+@router.get("/nearby", response_model=list[PhotographerCardOut])
+def nearby(
+    lat: float,
+    lng: float,
+    max_distance_m: int = 5000,
+    limit: int = 20,
+    offset: int = 0,
+    tag: str | None = None,
+    auto_expand: bool = False,
+    db: Session = Depends(get_db),
+) -> list[PhotographerCardOut]:
+    # 参数校验复用 schema 的约束
+    _ = NearbyQuery(
+        lat=lat,
+        lng=lng,
+        max_distance_m=max_distance_m,
+        limit=limit,
+        offset=offset,
+        tag=tag,
+        auto_expand=auto_expand,
+    )
+    if not auto_expand:
+        rows = db.execute(
+            _build_nearby_stmt(
+                lat=lat,
+                lng=lng,
+                radius_m=max_distance_m,
+                limit=limit,
+                offset=offset,
+                tag=tag,
+                sort_mode="near",
+            )
+        ).all()
+        return _build_nearby_cards(db, rows)
+
+    # 自动扩圈：近距离优先，不足则扩展到省内/跨省/全国可服务
+    target_total = limit + offset
+    tier_specs = [
+        {"radius_m": 50000, "sort_mode": "near"},      # 0-50km
+        {"radius_m": 300000, "sort_mode": "far"},      # 50-300km
+        {"radius_m": 1000000, "sort_mode": "far"},     # 300-1000km
+        {"radius_m": 5000000, "sort_mode": "far"},     # 全国兜底
+    ]
+
+    dedup_ids: set[int] = set()
+    merged_rows = []
+    per_tier_limit = min(max(20, target_total * 2), 100)
+    for tier in tier_specs:
+        if len(merged_rows) >= target_total:
+            break
+        rows = db.execute(
+            _build_nearby_stmt(
+                lat=lat,
+                lng=lng,
+                radius_m=tier["radius_m"],
+                limit=per_tier_limit,
+                offset=0,
+                tag=tag,
+                sort_mode=tier["sort_mode"],
+            )
+        ).all()
+        for row in rows:
+            photographer = row[0]
+            if photographer.id in dedup_ids:
+                continue
+            dedup_ids.add(photographer.id)
+            merged_rows.append(row)
+            if len(merged_rows) >= target_total:
+                break
+
+    return _build_nearby_cards(db, merged_rows[offset : offset + limit])
 
 
 @router.get("/{photographer_id}", response_model=PhotographerDetailOut)

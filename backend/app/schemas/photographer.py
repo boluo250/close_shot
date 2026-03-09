@@ -120,6 +120,7 @@ class NearbyQuery(BaseModel):
     limit: int = Field(default=20, ge=1, le=100)
     offset: int = Field(default=0, ge=0, le=10000)
     tag: str | None = None
+    auto_expand: bool = False
 
 
 # ---- 管理后台认证审核 Schema ----

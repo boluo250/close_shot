@@ -56,7 +56,8 @@ Component({
             lng,
             max_distance_m: 50000,
             limit: 20,
-            tag: this.data.activeTag || undefined
+            tag: this.data.activeTag || undefined,
+            auto_expand: true
           }
         });
 
