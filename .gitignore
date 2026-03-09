@@ -77,3 +77,6 @@ typings/
 # ===== Docker / infra =====
 *.pid
 
+# ===== Local uploaded media (do NOT commit) =====
+backend/local_media/
+
