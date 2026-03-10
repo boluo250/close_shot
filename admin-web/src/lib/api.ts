@@ -3,7 +3,7 @@ import { useAuthStore } from "../stores/auth";
 import { ADMIN_LOGIN_PATH } from "./adminSecurity";
 
 const envBaseURL = import.meta.env.VITE_API_BASE_URL;
-const DEFAULT_API_BASE_URL = "https://bianpai.xyz";
+const DEFAULT_API_BASE_URL = "http://122.51.73.82";
 const baseURL =
   typeof envBaseURL === "string" && envBaseURL.trim()
     ? envBaseURL.trim()

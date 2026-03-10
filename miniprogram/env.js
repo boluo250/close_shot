@@ -1,6 +1,6 @@
 module.exports = {
   // 默认直连线上后端
-  API_BASE_URL: "https://bianpai.xyz",
+  API_BASE_URL: "http://122.51.73.82",
 
   // 兜底：局域网直连模式
   DEV_API_HOST: "192.168.1.100",
