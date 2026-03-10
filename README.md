@@ -101,6 +101,16 @@ module.exports = {
 - `infra/nginx/default.conf`：Nginx 反向代理配置
 - `infra/docker-compose.deploy.yml`：一键启动 `db + minio + api + admin-web + nginx`
 
+### 服务器依赖（Ubuntu）
+
+- **Docker**：部署与运行容器必需（若未装请先 `sudo apt-get update && sudo apt-get install -y docker.io docker-compose-plugin`）。
+- **定时备份（可选）**：若需使用 [PostgreSQL 每日备份](backend/scripts/README-BACKUP.md)（pg_dump 上传 COS），需在宿主机安装：
+  ```bash
+  sudo apt-get update
+  sudo apt-get install -y postgresql-client awscli
+  ```
+  或使用部署脚本一键安装：`./infra/deploy.sh install-backup-deps`
+
 部署步骤（服务器）：
 
 ```bash

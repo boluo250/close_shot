@@ -4,14 +4,17 @@
 
 ## 依赖（Ubuntu）
 
-```bash
-# PostgreSQL 客户端
-sudo apt-get update
-sudo apt-get install -y postgresql-client
+在项目根目录执行（推荐）：
 
-# AWS CLI（用于上传到 S3/COS）
-sudo apt-get install -y awscli
-# 或：pip install awscli
+```bash
+./infra/deploy.sh install-backup-deps
+```
+
+或手动安装：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y postgresql-client awscli
 ```
 
 ## 配置
