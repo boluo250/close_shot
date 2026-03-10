@@ -10,8 +10,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt /app/requirements.txt
-RUN pip install -r /app/requirements.txt
+COPY requirements.lock.txt /app/requirements.lock.txt
+RUN pip install -r /app/requirements.lock.txt
 
 COPY . /app
 
