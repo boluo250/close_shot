@@ -1,20 +1,12 @@
 name: deploy-production
 
 on:
-  workflow_run:
-    workflows:
-      - backend-smoke
-    types:
-      - completed
-    branches:
-      - main
-      - test
   workflow_dispatch:
     inputs:
       deploy_ref:
         description: Git branch to deploy
         required: false
-        default: test
+        default: main
 
 concurrency:
   group: deploy-production
@@ -22,37 +14,51 @@ concurrency:
 
 jobs:
   deploy:
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Resolve deploy ref
-        id: resolve_ref
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust deploy host
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT != '' && secrets.SSH_PORT || '22' }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "deploy_ref=${{ github.event.inputs.deploy_ref }}" >>"$GITHUB_OUTPUT"
-          else
-            echo "deploy_ref=${{ github.event.workflow_run.head_branch }}" >>"$GITHUB_OUTPUT"
-          fi
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Backup database on server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT != '' && secrets.SSH_PORT || '22' }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "cd \"$DEPLOY_PATH/backend\" && chmod +x scripts/pg-backup.sh && ./scripts/pg-backup.sh"
 
       - name: Deploy on server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          script_stop: true
-          script: |
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT != '' && secrets.SSH_PORT || '22' }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_REF: ${{ github.event.inputs.deploy_ref }}
+          DEPLOY_DOMAIN: ${{ secrets.DEPLOY_DOMAIN }}
+        run: |
+          set -euo pipefail
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "
             set -euo pipefail
-            cd "${{ secrets.DEPLOY_PATH }}"
+            cd \"$DEPLOY_PATH\"
             git fetch origin --prune
-            git checkout "${{ steps.resolve_ref.outputs.deploy_ref }}"
-            git pull --ff-only origin "${{ steps.resolve_ref.outputs.deploy_ref }}"
-            ./infra/deploy.sh update --domain "${{ secrets.DEPLOY_DOMAIN }}"
+            git checkout \"$DEPLOY_REF\"
+            git pull --ff-only origin \"$DEPLOY_REF\"
+            ./infra/deploy.sh update --domain \"$DEPLOY_DOMAIN\"
+          "
 
       - name: Verify readiness
         env:
@@ -69,3 +75,12 @@ jobs:
             exit 0
           fi
           curl --fail --silent --show-error --retry 5 --retry-delay 5 "$url"
+
+      - name: Show rollback hint on failure
+        if: failure()
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_DOMAIN: ${{ secrets.DEPLOY_DOMAIN }}
+        run: |
+          echo "Deployment failed. Roll back on the server with:"
+          echo "cd \"$DEPLOY_PATH\" && git checkout \"\$(git rev-parse ORIG_HEAD)\" && ./infra/deploy.sh update --domain \"$DEPLOY_DOMAIN\""
