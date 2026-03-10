@@ -20,7 +20,7 @@ sudo apt-get install -y awscli
 ## 配置
 
 - **数据库**：使用 `.env` 中的 `DATABASE_URL` 提取用户名、密码、库名；实际备份时不走 `host:port`，而是进入 `db` 容器执行 `pg_dump`。
-- **对象存储**：使用 `.env` 中的 `S3_*`（腾讯云 COS 已兼容 S3 API）。
+- **对象存储**：使用 `.env` 中的 `S3_*`（腾讯云 COS 已兼容 S3 API）。脚本会自动强制 `awscli` 使用 COS 所需的 virtual-host-style，无需手动改 `~/.aws/config`。
 - 无需改脚本即可使用当前 `.env`；若需覆盖路径或保留天数，可用环境变量（见下）。
 
 ## 可选环境变量

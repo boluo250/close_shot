@@ -16,6 +16,15 @@ KEEP_LOCAL_DAYS="${KEEP_LOCAL_DAYS:-3}"
 KEEP_REMOTE_DAYS="${KEEP_REMOTE_DAYS:-14}"
 LOG_DIR="${LOG_DIR:-${BACKEND_DIR}/.backups/logs}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+AWS_CONFIG_TMP_FILE=""
+
+cleanup() {
+  if [[ -n "$AWS_CONFIG_TMP_FILE" && -f "$AWS_CONFIG_TMP_FILE" ]]; then
+    rm -f "$AWS_CONFIG_TMP_FILE"
+  fi
+}
+
+trap cleanup EXIT
 
 # 加载 .env（只导出非注释、非空行中的 KEY=VALUE）
 load_env() {
@@ -55,6 +64,7 @@ check_commands() {
   local missing=()
   command -v docker >/dev/null 2>&1 || missing+=(docker)
   command -v aws >/dev/null 2>&1 || missing+=(aws)
+  command -v mktemp >/dev/null 2>&1 || missing+=(mktemp)
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "[$(date -Iseconds)] ERROR: missing commands: ${missing[*]}. Install: docker, awscli" >&2
     exit 1
@@ -86,6 +96,20 @@ do_dump() {
   echo "$dump_file"
 }
 
+setup_aws_cli_config() {
+  AWS_CONFIG_TMP_FILE="$(mktemp)"
+  cat >"$AWS_CONFIG_TMP_FILE" <<EOF
+[default]
+region = ${S3_REGION:-ap-shanghai}
+s3 =
+  addressing_style = virtual
+EOF
+}
+
+aws_s3_cmd() {
+  AWS_CONFIG_FILE="$AWS_CONFIG_TMP_FILE" aws "$@"
+}
+
 upload_s3() {
   local dump_file="$1"
   local object_key="${S3_PREFIX}/close_shot_${TIMESTAMP}.dump"
@@ -100,7 +124,7 @@ upload_s3() {
     exit 1
   fi
   echo "[$(date -Iseconds)] Uploading to s3://${S3_BUCKET}/${object_key} ..."
-  aws s3 cp "$dump_file" "s3://${S3_BUCKET}/${object_key}" \
+  aws_s3_cmd s3 cp "$dump_file" "s3://${S3_BUCKET}/${object_key}" \
     --endpoint-url "${S3_ENDPOINT_URL}" \
     --region "${S3_REGION:-ap-shanghai}" \
     --only-show-errors
@@ -121,14 +145,14 @@ clean_remote() {
   local cutoff
   cutoff=$(date -d "${KEEP_REMOTE_DAYS} days ago" +%Y%m%d 2>/dev/null) || true
   if [[ -z "$cutoff" ]]; then return; fi
-  aws s3 ls "s3://${S3_BUCKET}/${S3_PREFIX}/" --recursive --endpoint-url "${S3_ENDPOINT_URL}" --region "${S3_REGION:-ap-shanghai}" 2>/dev/null | while read -r _ _ _ key; do
+  aws_s3_cmd s3 ls "s3://${S3_BUCKET}/${S3_PREFIX}/" --recursive --endpoint-url "${S3_ENDPOINT_URL}" --region "${S3_REGION:-ap-shanghai}" 2>/dev/null | while read -r _ _ _ key; do
     [[ -z "$key" ]] && continue
     local basename="${key##*/}"
     local date_part="${basename#close_shot_}"
     date_part="${date_part%%_*}"
     if [[ "$basename" == close_shot_*.dump && "$date_part" < "$cutoff" ]]; then
       echo "[$(date -Iseconds)] Deleting s3://${S3_BUCKET}/${key}"
-      aws s3 rm "s3://${S3_BUCKET}/${key}" --endpoint-url "${S3_ENDPOINT_URL}" --region "${S3_REGION:-ap-shanghai}" 2>/dev/null || true
+      aws_s3_cmd s3 rm "s3://${S3_BUCKET}/${key}" --endpoint-url "${S3_ENDPOINT_URL}" --region "${S3_REGION:-ap-shanghai}" 2>/dev/null || true
     fi
   done
 }
@@ -141,6 +165,7 @@ main() {
     load_env
     parse_db_url
     check_db_container
+    setup_aws_cli_config
     dump_file=$(do_dump)
     [[ -f "$dump_file" ]] || { echo "[$(date -Iseconds)] ERROR: dump file not created" >&2; exit 1; }
     upload_s3 "$dump_file"
