@@ -333,15 +333,15 @@ restart() {
   compose restart
 }
 
-# 在 Ubuntu 宿主机安装定时备份依赖：postgresql-client, awscli（供 pg-backup.sh 使用）
+# 在 Ubuntu 宿主机安装定时备份依赖：awscli（pg_dump 在 db 容器内执行）
 install_backup_deps() {
   if command -v apt-get >/dev/null 2>&1; then
-    echo "Installing backup deps (postgresql-client, awscli) ..."
+    echo "Installing backup deps (awscli) ..."
     sudo apt-get update
-    sudo apt-get install -y postgresql-client awscli
+    sudo apt-get install -y awscli
     echo "Done. Configure cron for daily backup: see backend/scripts/README-BACKUP.md"
   else
-    echo "apt-get not found. On Ubuntu run: sudo apt-get install -y postgresql-client awscli"
+    echo "apt-get not found. On Ubuntu run: sudo apt-get install -y awscli"
     exit 1
   fi
 }
@@ -381,7 +381,7 @@ Usage:
   ./infra/deploy.sh status [--domain bianpai.xyz]
   ./infra/deploy.sh restart [--domain bianpai.xyz]
   ./infra/deploy.sh down [--domain bianpai.xyz]
-  ./infra/deploy.sh install-backup-deps   # 安装 pg_dump + awscli（Ubuntu，用于定时备份）
+  ./infra/deploy.sh install-backup-deps   # 安装 awscli（Ubuntu，用于定时备份）
 EOF
     exit 1
     ;;

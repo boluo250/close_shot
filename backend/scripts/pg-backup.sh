@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# PostgreSQL 每日备份：pg_dump -> 本地 -> 上传至 S3/COS，并清理过期备份
-# 依赖：postgresql-client, aws-cli（或 pip install awscli）
+# PostgreSQL 每日备份：docker exec 到 db 容器执行 pg_dump -> 本地 -> 上传至 S3/COS，并清理本地/远端过期备份
+# 依赖：docker, aws-cli（或 pip install awscli）
 # 使用：在 backend 目录执行，或设置 BACKEND_DIR；可被 cron 每日调用
 
 set -euo pipefail
@@ -10,6 +10,7 @@ BACKEND_DIR="${BACKEND_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 ENV_FILE="${BACKEND_DIR}/.env"
 # 默认本地备份目录（可改为 /var/backups/close_shot_pg 等需 root 的路径）
 LOCAL_BACKUP_DIR="${LOCAL_BACKUP_DIR:-${BACKEND_DIR}/.backups/pg}"
+DB_CONTAINER_NAME="${DB_CONTAINER_NAME:-close-shot-db}"
 S3_PREFIX="${S3_PREFIX:-pg-backup}"
 KEEP_LOCAL_DAYS="${KEEP_LOCAL_DAYS:-3}"
 KEEP_REMOTE_DAYS="${KEEP_REMOTE_DAYS:-14}"
@@ -33,7 +34,7 @@ load_env() {
   set +a
 }
 
-# 从 DATABASE_URL 解析 PG 连接信息（格式：postgresql+psycopg://user:pass@host:port/dbname）
+# 从 DATABASE_URL 解析 PG 认证信息（格式：postgresql+psycopg://user:pass@host:port/dbname）
 parse_db_url() {
   local url="${DATABASE_URL:-}"
   if [[ -z "$url" ]]; then
@@ -45,36 +46,46 @@ parse_db_url() {
   local hostportdb="${rest#*@}"
   export PGUSER="${userpass%%:*}"
   export PGPASSWORD="${userpass#*:}"
-  export PGHOST="${hostportdb%%:*}"
-  local port_db="${hostportdb#*:}"
-  export PGPORT="${port_db%%/*}"
-  export DBNAME="${port_db#*/}"
-  # 若 URL 带查询参数，去掉
+  export DBNAME="${hostportdb#*/}"
   DBNAME="${DBNAME%%\?*}"
   export PGPASSWORD
 }
 
-# 检查命令
 check_commands() {
   local missing=()
-  command -v pg_dump >/dev/null 2>&1 || missing+=(pg_dump)
+  command -v docker >/dev/null 2>&1 || missing+=(docker)
   command -v aws >/dev/null 2>&1 || missing+=(aws)
   if [[ ${#missing[@]} -gt 0 ]]; then
-    echo "[$(date -Iseconds)] ERROR: missing commands: ${missing[*]}. Install: postgresql-client, awscli" >&2
+    echo "[$(date -Iseconds)] ERROR: missing commands: ${missing[*]}. Install: docker, awscli" >&2
     exit 1
   fi
 }
 
-# 本地 pg_dump
+check_db_container() {
+  if ! docker inspect "$DB_CONTAINER_NAME" >/dev/null 2>&1; then
+    echo "[$(date -Iseconds)] ERROR: DB container not found: $DB_CONTAINER_NAME" >&2
+    exit 1
+  fi
+  local running
+  running="$(docker inspect -f '{{.State.Running}}' "$DB_CONTAINER_NAME" 2>/dev/null || true)"
+  if [[ "$running" != "true" ]]; then
+    echo "[$(date -Iseconds)] ERROR: DB container is not running: $DB_CONTAINER_NAME" >&2
+    exit 1
+  fi
+}
+
+# 在 db 容器内执行 pg_dump，并将 dump 输出到宿主机文件
 do_dump() {
   mkdir -p "$LOCAL_BACKUP_DIR"
   local dump_file="${LOCAL_BACKUP_DIR}/close_shot_${TIMESTAMP}.dump"
-  echo "[$(date -Iseconds)] pg_dump to $dump_file ..."
-  PGPASSWORD="$PGPASSWORD" pg_dump -U "$PGUSER" -h "$PGHOST" -p "$PGPORT" -d "$DBNAME" -F c -f "$dump_file"
+  echo "[$(date -Iseconds)] pg_dump from container ${DB_CONTAINER_NAME} to $dump_file ..." >&2
+  docker exec \
+    -e PGPASSWORD="$PGPASSWORD" \
+    "$DB_CONTAINER_NAME" \
+    pg_dump -U "$PGUSER" -d "$DBNAME" -F c >"$dump_file"
   echo "$dump_file"
 }
 
-# 上传到 S3/COS
 upload_s3() {
   local dump_file="$1"
   local object_key="${S3_PREFIX}/close_shot_${TIMESTAMP}.dump"
@@ -84,6 +95,10 @@ upload_s3() {
     echo "[$(date -Iseconds)] WARN: S3 credentials not set, skip upload" >&2
     return 0
   fi
+  if [[ ! -f "$dump_file" ]]; then
+    echo "[$(date -Iseconds)] ERROR: dump file not found: $dump_file" >&2
+    exit 1
+  fi
   echo "[$(date -Iseconds)] Uploading to s3://${S3_BUCKET}/${object_key} ..."
   aws s3 cp "$dump_file" "s3://${S3_BUCKET}/${object_key}" \
     --endpoint-url "${S3_ENDPOINT_URL}" \
@@ -92,14 +107,12 @@ upload_s3() {
   echo "[$(date -Iseconds)] Upload done."
 }
 
-# 清理本地过期备份
 clean_local() {
   if [[ ! -d "$LOCAL_BACKUP_DIR" ]]; then return; fi
   echo "[$(date -Iseconds)] Cleaning local backups older than ${KEEP_LOCAL_DAYS} days ..."
   find "$LOCAL_BACKUP_DIR" -name 'close_shot_*.dump' -type f -mtime +"$((KEEP_LOCAL_DAYS - 1))" -delete
 }
 
-# 清理远端过期备份（按对象 key 日期前缀）
 clean_remote() {
   export AWS_ACCESS_KEY_ID="${S3_ACCESS_KEY_ID:-}"
   export AWS_SECRET_ACCESS_KEY="${S3_SECRET_ACCESS_KEY:-}"
@@ -108,19 +121,18 @@ clean_remote() {
   local cutoff
   cutoff=$(date -d "${KEEP_REMOTE_DAYS} days ago" +%Y%m%d 2>/dev/null) || true
   if [[ -z "$cutoff" ]]; then return; fi
-  aws s3 ls "s3://${S3_BUCKET}/${S3_PREFIX}/" --endpoint-url "${S3_ENDPOINT_URL}" --region "${S3_REGION:-ap-shanghai}" 2>/dev/null | while read -r _ _ _ key; do
+  aws s3 ls "s3://${S3_BUCKET}/${S3_PREFIX}/" --recursive --endpoint-url "${S3_ENDPOINT_URL}" --region "${S3_REGION:-ap-shanghai}" 2>/dev/null | while read -r _ _ _ key; do
     [[ -z "$key" ]] && continue
-    # key 形如 close_shot_20250310_030001.dump
-    local date_part="${key#close_shot_}"
+    local basename="${key##*/}"
+    local date_part="${basename#close_shot_}"
     date_part="${date_part%%_*}"
-    if [[ "$date_part" < "$cutoff" ]]; then
+    if [[ "$basename" == close_shot_*.dump && "$date_part" < "$cutoff" ]]; then
       echo "[$(date -Iseconds)] Deleting s3://${S3_BUCKET}/${key}"
-      aws s3 rm "s3://${S3_BUCKET}/${S3_PREFIX}/${key}" --endpoint-url "${S3_ENDPOINT_URL}" --region "${S3_REGION:-ap-shanghai}" 2>/dev/null || true
+      aws s3 rm "s3://${S3_BUCKET}/${key}" --endpoint-url "${S3_ENDPOINT_URL}" --region "${S3_REGION:-ap-shanghai}" 2>/dev/null || true
     fi
   done
 }
 
-# 主流程
 main() {
   mkdir -p "$LOG_DIR"
   local log_file="${LOG_DIR}/pg-backup.log"
@@ -128,7 +140,9 @@ main() {
     check_commands
     load_env
     parse_db_url
+    check_db_container
     dump_file=$(do_dump)
+    [[ -f "$dump_file" ]] || { echo "[$(date -Iseconds)] ERROR: dump file not created" >&2; exit 1; }
     upload_s3 "$dump_file"
     clean_local
     clean_remote

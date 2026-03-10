@@ -104,10 +104,10 @@ module.exports = {
 ### 服务器依赖（Ubuntu）
 
 - **Docker**：部署与运行容器必需（若未装请先 `sudo apt-get update && sudo apt-get install -y docker.io docker-compose-plugin`）。
-- **定时备份（可选）**：若需使用 [PostgreSQL 每日备份](backend/scripts/README-BACKUP.md)（pg_dump 上传 COS），需在宿主机安装：
+- **定时备份（可选）**：若需使用 [PostgreSQL 每日备份](backend/scripts/README-BACKUP.md)（宿主机触发，进入 `db` 容器执行 `pg_dump` 后上传 COS），需在宿主机安装：
   ```bash
   sudo apt-get update
-  sudo apt-get install -y postgresql-client awscli
+  sudo apt-get install -y awscli
   ```
   或使用部署脚本一键安装：`./infra/deploy.sh install-backup-deps`
 
