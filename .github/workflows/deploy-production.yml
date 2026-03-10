@@ -1,0 +1,71 @@
+name: deploy-production
+
+on:
+  workflow_run:
+    workflows:
+      - backend-smoke
+    types:
+      - completed
+    branches:
+      - main
+      - test
+  workflow_dispatch:
+    inputs:
+      deploy_ref:
+        description: Git branch to deploy
+        required: false
+        default: test
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Resolve deploy ref
+        id: resolve_ref
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "deploy_ref=${{ github.event.inputs.deploy_ref }}" >>"$GITHUB_OUTPUT"
+          else
+            echo "deploy_ref=${{ github.event.workflow_run.head_branch }}" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH }}"
+            git fetch origin --prune
+            git checkout "${{ steps.resolve_ref.outputs.deploy_ref }}"
+            git pull --ff-only origin "${{ steps.resolve_ref.outputs.deploy_ref }}"
+            ./infra/deploy.sh update --domain "${{ secrets.DEPLOY_DOMAIN }}"
+
+      - name: Verify readiness
+        env:
+          DEPLOY_DOMAIN: ${{ secrets.DEPLOY_DOMAIN }}
+          DEPLOY_HEALTHCHECK_URL: ${{ secrets.DEPLOY_HEALTHCHECK_URL }}
+        run: |
+          set -euo pipefail
+          url="${DEPLOY_HEALTHCHECK_URL}"
+          if [ -z "$url" ] && [ -n "$DEPLOY_DOMAIN" ]; then
+            url="https://${DEPLOY_DOMAIN}/readyz"
+          fi
+          if [ -z "$url" ]; then
+            echo "No healthcheck URL configured; skipping verification."
+            exit 0
+          fi
+          curl --fail --silent --show-error --retry 5 --retry-delay 5 "$url"

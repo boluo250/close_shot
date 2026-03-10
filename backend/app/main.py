@@ -164,6 +164,16 @@ def _create_admin_audit_middleware(app: FastAPI) -> None:
         return response
 
 
+def _check_database_readiness() -> None:
+    db = SessionLocal()
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="db not ready") from exc
+    finally:
+        db.close()
+
+
 def create_app() -> FastAPI:
     settings.ensure_runtime_safety()
     _install_uvicorn_access_log_filter()
@@ -183,16 +193,11 @@ def create_app() -> FastAPI:
     def health() -> dict:
         return {"ok": True, "name": settings.app_name, "env": settings.env}
 
+    @app.get("/readyz")
     @app.get("/health/ready")
     def health_ready() -> dict:
-        db = SessionLocal()
-        try:
-            db.execute(text("SELECT 1"))
-            return {"ok": True}
-        except Exception:
-            raise HTTPException(status_code=503, detail="db not ready")
-        finally:
-            db.close()
+        _check_database_readiness()
+        return {"ok": True, "checks": {"database": "ok"}}
 
     _create_admin_audit_middleware(app)
     app.include_router(api_router)
