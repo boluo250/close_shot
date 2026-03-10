@@ -80,3 +80,6 @@ typings/
 # ===== Local uploaded media (do NOT commit) =====
 backend/local_media/
 
+# ===== DB backup (local dumps & logs) =====
+backend/.backups/
+
