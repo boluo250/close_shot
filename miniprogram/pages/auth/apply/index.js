@@ -45,6 +45,7 @@ Page({
     // Step 3: 联系方式
     phone: "",
     wechatId: "",
+    agreeLegal: false,
 
     // 可选
     city: "",
@@ -453,6 +454,19 @@ Page({
     this._validateStep3();
   },
 
+  toggleAgreeLegal() {
+    this.setData({ agreeLegal: !this.data.agreeLegal });
+    this._validateStep3();
+  },
+
+  goAgreement() {
+    wx.navigateTo({ url: "/pages/agreement/index" });
+  },
+
+  goPrivacy() {
+    wx.navigateTo({ url: "/pages/privacy/index" });
+  },
+
   onCityInput(e) {
     this.setData({ city: e.detail.value });
   },
@@ -580,8 +594,8 @@ Page({
   },
 
   _validateStep3() {
-    const { phone, wechatId } = this.data;
-    const valid = /^1\d{10}$/.test(phone) && wechatId.length > 0;
+    const { phone, wechatId, agreeLegal } = this.data;
+    const valid = /^1\d{10}$/.test(phone) && wechatId.length > 0 && agreeLegal;
     this.setData({ step3Valid: valid });
   },
 
@@ -609,7 +623,7 @@ Page({
     if (this.data.submitting) return;
 
     if (!this.data.step3Valid) {
-      wx.showToast({ title: "请填写联系方式", icon: "none" });
+      wx.showToast({ title: "请填写信息并同意协议", icon: "none" });
       return;
     }
 

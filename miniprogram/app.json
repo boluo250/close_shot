@@ -5,6 +5,8 @@
     "pages/favorites/index",
     "pages/mine/index",
     "pages/photographer/index",
+    "pages/agreement/index",
+    "pages/privacy/index",
     "pages/studio/index",
     "pages/auth/apply/index",
     "pages/auth/review/index",
