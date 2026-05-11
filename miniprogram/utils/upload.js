@@ -7,7 +7,8 @@ function _safeName(name) {
 async function presign(filename, contentType, prefix) {
   return await request("/upload/presign", {
     method: "POST",
-    data: { filename: _safeName(filename), content_type: contentType || null, prefix: prefix || "uploads" }
+    data: { filename: _safeName(filename), content_type: contentType || null, prefix: prefix || "uploads" },
+    auth: true
   });
 }
 
@@ -82,4 +83,3 @@ async function uploadImageToS3Like({ tempFilePath, filename, contentType, prefix
 }
 
 module.exports = { uploadImageToS3Like };
-

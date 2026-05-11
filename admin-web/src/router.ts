@@ -13,6 +13,8 @@ import AdminCertificationsView from "./views/AdminCertificationsView.vue";
 import AdminAnalyticsView from "./views/AdminAnalyticsView.vue";
 import AdminDbView from "./views/AdminDbView.vue";
 
+const isDev = import.meta.env.DEV;
+
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -22,7 +24,7 @@ export const router = createRouter({
       component: LayoutView,
       children: [
         { path: "", redirect: ADMIN_HOME_PATH },
-        { path: "seed", component: SeedView },
+        ...(isDev ? [{ path: "seed", component: SeedView }] : []),
         { path: "studio/upload", component: StudioUploadView },
         { path: "studio/profile", component: StudioProfileView },
         { path: "studio/portfolio", component: StudioPortfolioView },
@@ -50,4 +52,3 @@ router.beforeEach((to) => {
   if (to.path !== ADMIN_LOGIN_PATH && !auth.token) return ADMIN_LOGIN_PATH;
   if (to.path === ADMIN_LOGIN_PATH && auth.token) return ADMIN_HOME_PATH;
 });
-

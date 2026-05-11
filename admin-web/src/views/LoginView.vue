@@ -13,7 +13,7 @@
           <el-button type="primary" :loading="loading" @click="onLogin">登录</el-button>
         </el-form-item>
       </el-form>
-      <div style="color: #888; font-size: 12px">
+      <div v-if="isDev" style="color: #888; font-size: 12px">
         开发环境可用后端接口创建管理员：<code>/auth/dev/create-admin</code>
       </div>
     </el-card>
@@ -29,6 +29,7 @@ import { useAuthStore } from "../stores/auth";
 import { router } from "../router";
 
 const auth = useAuthStore();
+const isDev = import.meta.env.DEV;
 const loading = ref(false);
 const form = reactive({ username: "", password: "" });
 
@@ -45,4 +46,3 @@ async function onLogin() {
   }
 }
 </script>
-

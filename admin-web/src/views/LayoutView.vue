@@ -11,7 +11,7 @@
       <el-menu-item :index="withAdminWebBase('/admin/user-portraits')">用户画像</el-menu-item>
       <el-menu-item :index="withAdminWebBase('/admin/db')">数据库浏览</el-menu-item>
       <el-menu-item :index="withAdminWebBase('/admin/operation-logs')">操作日志</el-menu-item>
-      <el-menu-item :index="withAdminWebBase('/seed')">开发 Seed</el-menu-item>
+      <el-menu-item v-if="isDev" :index="withAdminWebBase('/seed')">开发 Seed</el-menu-item>
     </el-menu>
 
     <div class="cs-hint">
@@ -27,9 +27,10 @@ import { router } from "../router";
 import { ADMIN_LOGIN_PATH, withAdminWebBase } from "../lib/adminSecurity";
 
 const auth = useAuthStore();
+const isDev = import.meta.env.DEV;
+
 function logout() {
   auth.logout();
   router.push(ADMIN_LOGIN_PATH);
 }
 </script>
-

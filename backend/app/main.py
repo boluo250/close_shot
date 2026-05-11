@@ -37,6 +37,13 @@ _SUSPICIOUS_404_PREFIXES = (
     "/.git",
 )
 
+_USER_AUDIT_PREFIXES = (
+    "/upload/",
+    "/studio/",
+    "/me/photographer/",
+    "/membership/orders",
+)
+
 
 def _is_suspicious_404_path(path: str) -> bool:
     normalized = (path or "/").split("?", 1)[0].lower()
@@ -91,7 +98,8 @@ def _resolve_user_from_bearer_token(token: str | None) -> tuple[int | None, str 
         user = db.get(User, user_id)
         if not user:
             return None, None
-        return user.id, user.username
+        actor_name = user.username or user.display_name or f"user:{user.id}"
+        return user.id, actor_name
     except (JWTError, ValueError, TypeError):
         return None, None
     finally:
@@ -123,22 +131,30 @@ def _extract_bearer_token(request: Request) -> str | None:
     return token or None
 
 
+def _should_audit_request(request: Request) -> bool:
+    path = request.url.path
+    if path.startswith(settings.admin_api_prefix):
+        return True
+    if request.method not in {"POST", "PUT", "PATCH", "DELETE"}:
+        return False
+    return any(path.startswith(prefix) for prefix in _USER_AUDIT_PREFIXES)
+
+
 def _create_admin_audit_middleware(app: FastAPI) -> None:
     @app.middleware("http")
     async def admin_audit_log_middleware(request: Request, call_next: Callable[[Request], Any]) -> Response:
-        is_admin_path = request.url.path.startswith(settings.admin_api_prefix)
+        should_audit = _should_audit_request(request)
         request_body_preview = ""
         admin_user_id: int | None = None
         username: str | None = None
-        if is_admin_path:
-            if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
-                request_body_preview = _sanitize_request_body(await request.body())
+        if should_audit:
+            request_body_preview = _sanitize_request_body(await request.body())
             token = _extract_bearer_token(request)
             admin_user_id, username = _resolve_user_from_bearer_token(token)
 
         response = await call_next(request)
 
-        if not is_admin_path:
+        if not should_audit:
             return response
 
         db = SessionLocal()
@@ -200,4 +216,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-
