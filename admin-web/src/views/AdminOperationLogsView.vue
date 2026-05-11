@@ -11,7 +11,7 @@
       style="margin-bottom: 12px"
       type="info"
       :closable="false"
-      title="记录管理员在后台接口上的访问与操作，用于审计与追踪。"
+      title="记录后台管理员操作，以及用户侧关键写操作（如认证提交、头像上传、资料保存），用于审计与排查。"
     />
 
     <el-row :gutter="12" style="margin-bottom: 12px">
@@ -36,7 +36,7 @@
           {{ formatTime(row.created_at) }}
         </template>
       </el-table-column>
-      <el-table-column prop="username" label="管理员账号" width="160" />
+      <el-table-column prop="username" label="操作人" width="180" />
       <el-table-column prop="method" label="方法" width="90" />
       <el-table-column prop="status_code" label="状态码" width="100" />
       <el-table-column prop="client_ip" label="IP" width="140" />
@@ -118,4 +118,3 @@ onMounted(() => {
   void loadLogs();
 });
 </script>
-
