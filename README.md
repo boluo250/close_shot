@@ -47,6 +47,7 @@ npm run dev
 - 用微信开发者工具打开 `miniprogram/`
 - 开发环境建议关闭域名校验（已在 `project.config.json` 里设置 `urlCheck:false`）
 - 小程序后端地址统一在 `miniprogram/env.js` 配置
+  - 真机必须使用 `https://` 域名，不能使用裸 IP 或 `http://`
   - 局域网模式：改 `DEV_API_HOST`
   - 内网穿透模式：改 `API_BASE_URL`（推荐 Cloudflare）
 
@@ -133,6 +134,7 @@ docker compose -f docker-compose.deploy.yml up -d --build
 - `DATABASE_URL` 会在 compose 内自动改为容器网络地址（`db:5432`）
 - 默认挂载 `backend_local_media` 持久化本地媒体文件
 - 管理端 API 前缀默认 `http://<域名>/admin-x8r7m2q4p9/*`（由 Nginx 转发到后端）
+- `admin-web` 默认会跟随当前页面域名请求 API；如需单独指定，再设置 `VITE_API_BASE_URL`
 
 ### 线上域名 + HTTPS（Let's Encrypt）
 
@@ -146,6 +148,11 @@ cp backend/.env.example backend/.env
 # 必填：线上域名与邮箱
 export DOMAIN=your-domain.com
 export EMAIL=you@example.com
+
+# 必填：小程序真实密钥（否则真机微信登录会失败）
+# 编辑 backend/.env:
+#   WECHAT_APPID=你的小程序 AppID
+#   WECHAT_SECRET=你的小程序 AppSecret
 
 # 先启动非 nginx 服务（避免 certbot 占用 80 端口冲突）
 cd infra
@@ -185,4 +192,3 @@ docker compose -f docker-compose.deploy.yml up -d nginx
 - 收藏：收藏/取消/列表
 - 上传：MinIO/S3 兼容预签名（开发环境）
 - 摄影师后台（最小）：`/studio/*` 管理资料/作品/套餐/在线状态
-

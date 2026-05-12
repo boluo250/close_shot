@@ -1,6 +1,6 @@
 module.exports = {
-  // 默认直连线上后端
-  API_BASE_URL: "http://122.51.73.82",
+  // 真机必须使用已备案/已配置到 request 合法域名的 HTTPS 地址，不能用裸 IP 或 HTTP
+  API_BASE_URL: "https://bianpai.xyz",
 
   // 兜底：局域网直连模式
   DEV_API_HOST: "192.168.1.100",

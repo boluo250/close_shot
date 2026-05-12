@@ -142,6 +142,30 @@ ensure_infra_env() {
   upsert_env "$INFRA_ENV" "NGINX_HTTPS_PORT" "443"
 }
 
+require_wechat_credentials() {
+  local appid
+  local secret
+  appid="$(read_env_value "$BACKEND_ENV" "WECHAT_APPID")"
+  secret="$(read_env_value "$BACKEND_ENV" "WECHAT_SECRET")"
+
+  if [[ -z "$appid" || "$appid" == "你的小程序AppID" ]]; then
+    cat <<EOF
+WECHAT_APPID is required.
+Edit backend/.env and set the real mini program AppID before deploying.
+EOF
+    exit 1
+  fi
+
+  if [[ -z "$secret" || "$secret" == "你的小程序AppSecret" ]]; then
+    cat <<EOF
+WECHAT_SECRET is required.
+Edit backend/.env and set the real mini program secret before deploying.
+Without it, real-device WeChat one-click login will fail.
+EOF
+    exit 1
+  fi
+}
+
 require_email_for_init() {
   if [[ -z "$EMAIL" ]]; then
     cat <<EOF
@@ -274,6 +298,7 @@ init() {
   require_cmd docker
   require_email_for_init
   ensure_backend_env
+  require_wechat_credentials
   ensure_infra_env
   issue_certificate
   compose up -d --build
@@ -289,6 +314,7 @@ init_local_cert() {
   require_cmd docker
   require_cert_dir_for_local_init
   ensure_backend_env
+  require_wechat_credentials
   ensure_infra_env
   install_local_certificate
   compose up -d --build
@@ -303,6 +329,8 @@ init_local_cert() {
 update() {
   require_cmd git
   require_cmd docker
+  ensure_backend_env
+  require_wechat_credentials
   ensure_infra_env
   git -C "$REPO_ROOT" pull --ff-only
   compose up -d --build

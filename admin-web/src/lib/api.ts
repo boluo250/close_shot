@@ -3,7 +3,8 @@ import { useAuthStore } from "../stores/auth";
 import { ADMIN_LOGIN_PATH } from "./adminSecurity";
 
 const envBaseURL = import.meta.env.VITE_API_BASE_URL;
-const DEFAULT_API_BASE_URL = "http://122.51.73.82";
+const DEFAULT_API_BASE_URL =
+  typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
 const baseURL =
   typeof envBaseURL === "string" && envBaseURL.trim()
     ? envBaseURL.trim()
@@ -42,4 +43,3 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
