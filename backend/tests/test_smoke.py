@@ -134,6 +134,35 @@ def test_upload_presign_smoke(client, app, monkeypatch):
     assert payload["object_key"] == "uploads/avatar.png"
 
 
+def test_upload_presign_normalizes_generic_image_type(client, app, monkeypatch):
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id=1)
+    monkeypatch.setattr(upload_routes, "ensure_bucket", lambda: None)
+
+    captured: dict[str, str | None] = {}
+
+    def fake_presign_put(**kwargs):
+        captured["content_type"] = kwargs["content_type"]
+        return SimpleNamespace(
+            method="PUT",
+            url="https://example.com/upload",
+            headers={"Content-Type": kwargs["content_type"]},
+            public_url="https://cdn.example.com/avatar.jpg",
+            object_key="avatar/avatar.jpg",
+        )
+
+    monkeypatch.setattr(upload_routes, "presign_put", fake_presign_put)
+
+    response = client.post(
+        "/upload/presign",
+        json={"filename": "avatar.jpg", "prefix": "avatar", "content_type": "image"},
+        headers={"Authorization": "Bearer ignored-by-override"},
+    )
+
+    assert response.status_code == 200
+    assert captured["content_type"] == "image/jpeg"
+    assert response.json()["headers"]["Content-Type"] == "image/jpeg"
+
+
 def test_membership_callback_smoke(client, app, monkeypatch):
     expected_expiry = datetime(2030, 1, 1, tzinfo=timezone.utc)
     order = SimpleNamespace(

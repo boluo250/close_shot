@@ -165,7 +165,7 @@ Page({
       });
       const app = getApp();
       const base = app.globalData.apiBaseUrl;
-      const imageUrl = up.public_url || (up.proxy_url ? base + up.proxy_url : "");
+      const imageUrl = (up.proxy_url ? base + up.proxy_url : "") || up.public_url || "";
       if (!up.object_key) throw new Error("no object key");
       this.setData({ avatarUrl: imageUrl || "", avatarObjectKey: up.object_key || "" });
     } catch (e) {
@@ -238,7 +238,7 @@ Page({
           if (!up.object_key) throw new Error("no object key");
           const app = getApp();
           const base = app.globalData.apiBaseUrl;
-          const imageUrl = up.public_url || (up.proxy_url ? base + up.proxy_url : "");
+          const imageUrl = (up.proxy_url ? base + up.proxy_url : "") || up.public_url || "";
           return { image_url: imageUrl || "", image_object_key: up.object_key || null };
         })
       );

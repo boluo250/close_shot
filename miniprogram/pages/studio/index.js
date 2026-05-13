@@ -442,7 +442,7 @@ Page({
       });
       const app = getApp();
       const base = app.globalData.apiBaseUrl;
-      avatarUrl = up.public_url || (up.proxy_url ? base + up.proxy_url : "");
+      avatarUrl = (up.proxy_url ? base + up.proxy_url : "") || up.public_url || "";
       avatarObjectKey = up.object_key || null;
       if (!avatarObjectKey) throw new Error("no avatar object key");
     }

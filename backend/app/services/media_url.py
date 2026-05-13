@@ -5,15 +5,22 @@ from urllib.parse import urlparse
 from app.core.config import settings
 
 
+def _public_base_url() -> str | None:
+    public_base = (settings.s3_public_base_url or "").strip()
+    if not public_base or "your-bucket-appid" in public_base:
+        return None
+    return public_base.rstrip("/")
+
+
 def object_key_to_url(object_key: str | None) -> str | None:
     if not object_key:
         return None
     object_key = object_key.lstrip("/")
     if settings.storage_backend == "local":
         return f"/media/{object_key}"
-    public_base = settings.s3_public_base_url
+    public_base = _public_base_url()
     if public_base:
-        return f"{public_base.rstrip('/')}/{object_key}"
+        return f"{public_base}/{object_key}"
     return f"/media/{object_key}"
 
 
@@ -28,9 +35,9 @@ def object_key_from_url(url: str | None) -> str | None:
     if "/media/" in raw:
         return raw.split("/media/", 1)[1]
 
-    public_base = settings.s3_public_base_url
-    if public_base and raw.startswith(public_base.rstrip("/") + "/"):
-        return raw[len(public_base.rstrip("/") + "/") :]
+    public_base = _public_base_url()
+    if public_base and raw.startswith(public_base + "/"):
+        return raw[len(public_base + "/") :]
 
     parsed = urlparse(raw)
     if not parsed.scheme or not parsed.netloc:
@@ -45,4 +52,3 @@ def object_key_from_url(url: str | None) -> str | None:
     if cos_host and parsed.netloc == cos_host:
         return path
     return None
-

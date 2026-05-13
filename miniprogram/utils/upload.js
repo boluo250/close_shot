@@ -1,7 +1,46 @@
 const { request } = require("./request");
 
+const IMAGE_CONTENT_TYPE_MAP = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  heic: "image/heic",
+  heif: "image/heif"
+};
+
 function _safeName(name) {
   return (name || "file").replace(/[^\w.\-]+/g, "-");
+}
+
+function _contentTypeFromFilename(name) {
+  const safeName = _safeName(name || "");
+  const match = safeName.match(/\.([^.]+)$/);
+  if (!match) return "";
+  return IMAGE_CONTENT_TYPE_MAP[(match[1] || "").toLowerCase()] || "";
+}
+
+function _resolveImageContentType(filename, providedType) {
+  const normalized = String(providedType || "")
+    .trim()
+    .toLowerCase();
+
+  if (normalized === "image/jpg") return "image/jpeg";
+  if (normalized.startsWith("image/") && IMAGE_CONTENT_TYPE_MAP[normalized.slice(6)]) {
+    return IMAGE_CONTENT_TYPE_MAP[normalized.slice(6)];
+  }
+  if (IMAGE_CONTENT_TYPE_MAP[normalized]) {
+    return IMAGE_CONTENT_TYPE_MAP[normalized];
+  }
+
+  const inferred = _contentTypeFromFilename(filename);
+  if (normalized === "image" || normalized === "image/*" || normalized === "image/image") {
+    return inferred || "image/jpeg";
+  }
+  if (normalized.startsWith("image/")) {
+    return inferred || normalized;
+  }
+  return inferred || "image/jpeg";
 }
 
 async function presign(filename, contentType, prefix) {
@@ -50,7 +89,8 @@ async function _prepareUploadPath(tempFilePath, compress) {
 
 async function uploadImageToS3Like({ tempFilePath, filename, contentType, prefix, compress }) {
   const uploadPath = await _prepareUploadPath(tempFilePath, compress);
-  const presignRes = await presign(filename, contentType, prefix);
+  const resolvedContentType = _resolveImageContentType(filename || uploadPath, contentType);
+  const presignRes = await presign(filename, resolvedContentType, prefix);
   // 兼容 local backend：presign 可能返回相对路径，需要拼接后端 base URL
   const app = getApp();
   const base = app.globalData.apiBaseUrl;

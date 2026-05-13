@@ -13,6 +13,13 @@ from jose import jwt
 from app.core.config import settings
 
 
+def _public_base_url() -> str | None:
+    public_base = (settings.s3_public_base_url or "").strip()
+    if not public_base or "your-bucket-appid" in public_base:
+        return None
+    return public_base.rstrip("/")
+
+
 @dataclass(frozen=True)
 class PresignResult:
     method: str
@@ -125,8 +132,8 @@ def presign_put(*, object_key: str, content_type: str | None = None, expires_sec
         params["ContentType"] = content_type
     url = s3.generate_presigned_url("put_object", Params=params, ExpiresIn=expires_seconds)
 
-    public_base = settings.s3_public_base_url
-    public_url = f"{public_base.rstrip('/')}/{object_key}" if public_base else None
+    public_base = _public_base_url()
+    public_url = f"{public_base}/{object_key}" if public_base else None
     headers = {"Content-Type": content_type} if content_type else {}
     return PresignResult(method="PUT", url=url, headers=headers, public_url=public_url, object_key=object_key)
 
@@ -173,4 +180,3 @@ def put_object_bytes(*, object_key: str, data: bytes, content_type: str | None =
 # 兼容旧命名（被其他模块引用）
 s3_get_object_stream = get_object_stream
 s3_put_object_bytes = put_object_bytes
-

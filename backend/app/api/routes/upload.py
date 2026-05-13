@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import mimetypes
 import os
 import re
 import time
@@ -27,6 +28,19 @@ def _split_csv(raw: str) -> set[str]:
     return {x.strip().lower() for x in (raw or "").split(",") if x.strip()}
 
 
+def _normalize_content_type(filename: str, content_type: str | None) -> str | None:
+    normalized = (content_type or "").split(";")[0].strip().lower()
+    if not normalized:
+        guessed, _ = mimetypes.guess_type(filename)
+        return guessed.lower() if guessed else "image/jpeg"
+    if normalized == "image/jpg":
+        return "image/jpeg"
+    if normalized in {"image", "image/*", "image/image", "application/octet-stream", "binary/octet-stream"}:
+        guessed, _ = mimetypes.guess_type(filename)
+        return guessed.lower() if guessed else "image/jpeg"
+    return normalized
+
+
 def _validate_upload_constraints(prefix: str, content_type: str | None) -> None:
     allowed_prefixes = _split_csv(settings.upload_allowed_prefixes)
     if allowed_prefixes and prefix.lower() not in allowed_prefixes:
@@ -43,10 +57,11 @@ def _validate_upload_constraints(prefix: str, content_type: str | None) -> None:
 def presign(payload: PresignIn, _me: User = Depends(get_current_user)) -> PresignOut:
     # s3 才需要 bucket；local 模式不依赖对象存储服务
     ensure_bucket()
-    _validate_upload_constraints(prefix=payload.prefix, content_type=payload.content_type)
+    content_type = _normalize_content_type(payload.filename, payload.content_type)
+    _validate_upload_constraints(prefix=payload.prefix, content_type=content_type)
     filename = _safe_filename(payload.filename)
     object_key = str(PurePosixPath(payload.prefix) / f"{int(time.time())}_{filename}")
-    res = presign_put(object_key=object_key, content_type=payload.content_type)
+    res = presign_put(object_key=object_key, content_type=content_type)
     return PresignOut(
         method=res.method,
         url=res.url,
@@ -81,4 +96,3 @@ async def put_local_object(object_key: str, request: Request, token: str | None 
     _validate_upload_constraints(prefix=PurePosixPath(object_key).parts[0], content_type=content_type)
     put_object_bytes(object_key=object_key, data=body, content_type=content_type)
     return JSONResponse({"ok": True, "object_key": object_key})
-
