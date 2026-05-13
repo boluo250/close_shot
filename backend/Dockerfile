@@ -16,10 +16,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY requirements.lock.txt /app/requirements.lock.txt
 RUN python -m pip install --upgrade pip setuptools wheel \
     && pip install --prefer-binary -r /app/requirements.lock.txt
