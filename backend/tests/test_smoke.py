@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
+from botocore.exceptions import ClientError
 from fastapi.testclient import TestClient
 
 from app.api.deps import get_current_user
@@ -12,6 +13,7 @@ from app.api.routes import upload as upload_routes
 from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
 from app.main import create_app
+from app.services import storage as storage_service
 from app.services.storage import create_upload_token
 
 
@@ -185,6 +187,63 @@ def test_upload_put_proxy_smoke(client, monkeypatch):
     assert captured["object_key"] == "avatar/test-avatar.jpg"
     assert captured["content_type"] == "image/jpeg"
     assert captured["data"] == b"fake-image-bytes"
+
+
+def test_ensure_bucket_does_not_create_on_non_404_head_bucket_error(monkeypatch):
+    calls: list[tuple[str, str]] = []
+
+    class FakeS3:
+        def head_bucket(self, *, Bucket):
+            calls.append(("head_bucket", Bucket))
+            raise ClientError(
+                {"Error": {"Code": "403", "Message": "Forbidden"}, "ResponseMetadata": {"HTTPStatusCode": 403}},
+                "HeadBucket",
+            )
+
+        def create_bucket(self, *, Bucket):
+            calls.append(("create_bucket", Bucket))
+
+    monkeypatch.setattr(storage_service, "_s3_client", lambda: FakeS3())
+    monkeypatch.setattr(storage_service.settings, "storage_backend", "s3")
+    monkeypatch.setattr(storage_service.settings, "s3_bucket", "bianpai-1256560950")
+
+    storage_service.ensure_bucket()
+
+    assert calls == [("head_bucket", "bianpai-1256560950")]
+
+
+def test_presign_put_s3_returns_presigned_url(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class FakeS3:
+        def generate_presigned_url(self, operation_name, *, Params, ExpiresIn):
+            captured["operation_name"] = operation_name
+            captured["params"] = Params
+            captured["expires_in"] = ExpiresIn
+            return "https://bianpai-1256560950.cos.ap-shanghai.myqcloud.com/avatar/test.jpg?signature=demo"
+
+    monkeypatch.setattr(storage_service, "_s3_client", lambda: FakeS3())
+    monkeypatch.setattr(storage_service.settings, "storage_backend", "s3")
+    monkeypatch.setattr(storage_service.settings, "s3_bucket", "bianpai-1256560950")
+    monkeypatch.setattr(
+        storage_service.settings,
+        "s3_public_base_url",
+        "https://bianpai-1256560950.cos.ap-shanghai.myqcloud.com",
+    )
+
+    result = storage_service.presign_put(object_key="avatar/test.jpg", content_type="image/jpeg", expires_seconds=600)
+
+    assert result.method == "PUT"
+    assert result.url.startswith("https://bianpai-1256560950.cos.ap-shanghai.myqcloud.com/avatar/test.jpg")
+    assert result.public_url == "https://bianpai-1256560950.cos.ap-shanghai.myqcloud.com/avatar/test.jpg"
+    assert result.headers == {"Content-Type": "image/jpeg"}
+    assert captured["operation_name"] == "put_object"
+    assert captured["params"] == {
+        "Bucket": "bianpai-1256560950",
+        "Key": "avatar/test.jpg",
+        "ContentType": "image/jpeg",
+    }
+    assert captured["expires_in"] == 600
 
 
 def test_membership_callback_smoke(client, app, monkeypatch):
