@@ -20,6 +20,7 @@ from app.db.models import (
     PhotographerStatus,
     PortfolioItem,
     User,
+    UserOperationLog,
     UserRole,
 )
 from app.db.session import get_db
@@ -88,6 +89,31 @@ class AdminOperationLogListOut(BaseModel):
     total: int
 
 
+class UserOperationLogOut(BaseModel):
+    id: int
+    user_id: int | None
+    actor_name: str | None
+    actor_role: str | None
+    channel: str | None
+    action: str
+    action_label: str
+    resource_type: str
+    resource_id: str | None
+    method: str
+    path: str
+    query_string: str
+    status_code: int
+    client_ip: str | None
+    user_agent: str | None
+    request_body: str
+    created_at: datetime
+
+
+class UserOperationLogListOut(BaseModel):
+    items: list[UserOperationLogOut]
+    total: int
+
+
 class UserPortraitItemOut(BaseModel):
     user_id: int
     display_name: str | None
@@ -121,6 +147,7 @@ _DB_BROWSE_TABLES = {
     "schedule_blocks",
     "bio_templates",
     "admin_operation_logs",
+    "user_operation_logs",
 }
 _SAFE_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -470,6 +497,71 @@ def list_admin_operation_logs(
         for r in rows
     ]
     return AdminOperationLogListOut(items=items, total=total)
+
+
+@router.get("/user-operation-logs", response_model=UserOperationLogListOut)
+def list_user_operation_logs(
+    limit: int = Query(default=20, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    keyword: str | None = Query(default=None, description="按用户/动作/路径/资源搜索"),
+    actor_role: str | None = Query(default=None, description="按角色过滤: customer/photographer/admin"),
+    channel: str | None = Query(default=None, description="按来源过滤: mini_program/studio_web/ops_web"),
+    action: str | None = Query(default=None, description="按动作编码过滤"),
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserOperationLogListOut:
+    _require_admin(me)
+    stmt = select(UserOperationLog)
+    count_stmt = select(func.count(UserOperationLog.id))
+
+    if keyword:
+        like_pattern = f"%{keyword}%"
+        cond = (
+            UserOperationLog.actor_name.ilike(like_pattern)
+            | UserOperationLog.action.ilike(like_pattern)
+            | UserOperationLog.action_label.ilike(like_pattern)
+            | UserOperationLog.path.ilike(like_pattern)
+            | UserOperationLog.resource_id.ilike(like_pattern)
+        )
+        stmt = stmt.where(cond)
+        count_stmt = count_stmt.where(cond)
+    if actor_role:
+        stmt = stmt.where(UserOperationLog.actor_role == actor_role)
+        count_stmt = count_stmt.where(UserOperationLog.actor_role == actor_role)
+    if channel:
+        stmt = stmt.where(UserOperationLog.channel == channel)
+        count_stmt = count_stmt.where(UserOperationLog.channel == channel)
+    if action:
+        stmt = stmt.where(UserOperationLog.action == action)
+        count_stmt = count_stmt.where(UserOperationLog.action == action)
+
+    total = int(db.scalar(count_stmt) or 0)
+    rows = db.scalars(
+        stmt.order_by(UserOperationLog.created_at.desc(), UserOperationLog.id.desc()).limit(limit).offset(offset)
+    ).all()
+    items = [
+        UserOperationLogOut(
+            id=int(r.id),
+            user_id=r.user_id,
+            actor_name=r.actor_name,
+            actor_role=r.actor_role,
+            channel=r.channel,
+            action=r.action,
+            action_label=r.action_label,
+            resource_type=r.resource_type,
+            resource_id=r.resource_id,
+            method=r.method,
+            path=r.path,
+            query_string=r.query_string,
+            status_code=int(r.status_code),
+            client_ip=r.client_ip,
+            user_agent=r.user_agent,
+            request_body=r.request_body,
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
+    return UserOperationLogListOut(items=items, total=total)
 
 
 @router.get("/user-portraits", response_model=UserPortraitListOut)

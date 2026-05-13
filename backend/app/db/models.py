@@ -253,3 +253,23 @@ class AdminOperationLog(TimestampMixin, Base):
     user_agent: Mapped[str | None] = mapped_column(String(255))
     request_body: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
+
+class UserOperationLog(TimestampMixin, Base):
+    __tablename__ = "user_operation_logs"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    actor_name: Mapped[str | None] = mapped_column(String(128), index=True)
+    actor_role: Mapped[str | None] = mapped_column(String(32), index=True)
+    channel: Mapped[str | None] = mapped_column(String(32), index=True)
+    action: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    action_label: Mapped[str] = mapped_column(String(128), nullable=False)
+    resource_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    resource_id: Mapped[str | None] = mapped_column(String(255), index=True)
+    method: Mapped[str] = mapped_column(String(16), nullable=False)
+    path: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    query_string: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    status_code: Mapped[int] = mapped_column(Integer, nullable=False)
+    client_ip: Mapped[str | None] = mapped_column(String(64))
+    user_agent: Mapped[str | None] = mapped_column(String(255))
+    request_body: Mapped[str] = mapped_column(Text, nullable=False, default="")

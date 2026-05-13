@@ -24,7 +24,7 @@
 import { reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { api } from "../lib/api";
-import { ADMIN_HOME_PATH } from "../lib/adminSecurity";
+import { fetchMyIdentity, resolveHomePath } from "../lib/authIdentity";
 import { useAuthStore } from "../stores/auth";
 import { router } from "../router";
 
@@ -37,12 +37,14 @@ async function onLogin() {
   try {
     const { data } = await api.post("/auth/login", form);
     auth.setToken(data.access_token);
-    await router.push(ADMIN_HOME_PATH);
+    const identity = await fetchMyIdentity();
+    auth.setIdentity(identity);
+    await router.push(resolveHomePath(identity));
   } catch (e: any) {
+    auth.logout();
     ElMessage.error(e?.response?.data?.detail || "登录失败");
   } finally {
     loading.value = false;
   }
 }
 </script>
-

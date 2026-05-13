@@ -12,6 +12,7 @@ export const ADMIN_API_PREFIX = normalizePrefix(
 );
 export const ADMIN_LOGIN_PATH = `${ADMIN_WEB_BASE}/login`;
 export const ADMIN_HOME_PATH = `${ADMIN_WEB_BASE}/admin/certifications`;
+export const STUDIO_HOME_PATH = `${ADMIN_WEB_BASE}/studio/profile`;
 
 export function withAdminWebBase(subPath: string): string {
   const s = subPath.startsWith("/") ? subPath : `/${subPath}`;
@@ -22,4 +23,3 @@ export function withAdminApiPrefix(subPath: string): string {
   const s = subPath.startsWith("/") ? subPath : `/${subPath}`;
   return `${ADMIN_API_PREFIX}${s}`;
 }
-

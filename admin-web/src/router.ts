@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "./stores/auth";
-import { ADMIN_HOME_PATH, ADMIN_LOGIN_PATH, ADMIN_WEB_BASE } from "./lib/adminSecurity";
+import { ADMIN_HOME_PATH, ADMIN_LOGIN_PATH, ADMIN_WEB_BASE, STUDIO_HOME_PATH } from "./lib/adminSecurity";
+import { fetchMyIdentity, resolveHomePath } from "./lib/authIdentity";
 
 import LoginView from "./views/LoginView.vue";
 import LayoutView from "./views/LayoutView.vue";
@@ -45,9 +46,26 @@ export const router = createRouter({
   ]
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore();
   if (to.path !== ADMIN_LOGIN_PATH && !auth.token) return ADMIN_LOGIN_PATH;
-  if (to.path === ADMIN_LOGIN_PATH && auth.token) return ADMIN_HOME_PATH;
-});
 
+  if (!auth.token) return;
+
+  if (!auth.identity) {
+    try {
+      auth.setIdentity(await fetchMyIdentity());
+    } catch {
+      auth.logout();
+      return ADMIN_LOGIN_PATH;
+    }
+  }
+
+  const role = auth.identity?.role || "";
+  const isAdminRoute = to.path.startsWith(`${ADMIN_WEB_BASE}/admin`) || to.path === `${ADMIN_WEB_BASE}/seed`;
+  const isStudioRoute = to.path.startsWith(`${ADMIN_WEB_BASE}/studio`);
+
+  if (to.path === ADMIN_LOGIN_PATH) return resolveHomePath(auth.identity);
+  if (isAdminRoute && role !== "admin") return role === "photographer" ? STUDIO_HOME_PATH : ADMIN_LOGIN_PATH;
+  if (isStudioRoute && role !== "photographer") return role === "admin" ? ADMIN_HOME_PATH : ADMIN_LOGIN_PATH;
+});

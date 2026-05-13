@@ -9,25 +9,33 @@ from fastapi.testclient import TestClient
 from app.api.deps import get_current_user
 from app.api.routes import membership as membership_routes
 from app.api.routes import upload as upload_routes
-from app.core.security import hash_password
+from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
 from app.main import create_app
 
 
 class FakeDB:
-    def __init__(self, *, scalar_results: list[object] | None = None):
+    def __init__(self, *, scalar_results: list[object] | None = None, user_by_id: dict[int, object] | None = None):
         self._scalar_results = list(scalar_results or [])
+        self._user_by_id = dict(user_by_id or {})
         self.executed: list[str] = []
         self.commit_calls = 0
+        self.added: list[object] = []
 
     def scalar(self, _statement):
         if not self._scalar_results:
             return None
         return self._scalar_results.pop(0)
 
+    def get(self, _model, identity):
+        return self._user_by_id.get(int(identity))
+
     def execute(self, statement):
         self.executed.append(str(statement))
         return 1
+
+    def add(self, item) -> None:
+        self.added.append(item)
 
     def commit(self) -> None:
         self.commit_calls += 1
@@ -168,3 +176,37 @@ def test_membership_callback_smoke(client, app, monkeypatch):
     assert response.json()["member_expires_at"].startswith("2030-01-01T00:00:00")
     assert order.status == "paid"
     assert fake_db.commit_calls == 1
+
+
+def test_user_operation_log_smoke(client, app, monkeypatch):
+    current_user = SimpleNamespace(id=99, username=None, display_name="测试用户", role="customer")
+    audit_db = FakeDB(user_by_id={99: current_user})
+
+    app.dependency_overrides[get_current_user] = lambda: current_user
+    monkeypatch.setattr("app.main.SessionLocal", lambda: audit_db)
+    monkeypatch.setattr(upload_routes, "ensure_bucket", lambda: None)
+    monkeypatch.setattr(
+        upload_routes,
+        "presign_put",
+        lambda **kwargs: SimpleNamespace(
+            method="PUT",
+            url="https://example.com/upload",
+            headers={"Content-Type": kwargs["content_type"]},
+            public_url="https://cdn.example.com/uploads/avatar.png",
+            object_key="uploads/avatar.png",
+        ),
+    )
+
+    response = client.post(
+        "/upload/presign",
+        json={"filename": "avatar.png", "prefix": "uploads", "content_type": "image/png"},
+        headers={"Authorization": f"Bearer {create_access_token(subject='99')}"},
+    )
+
+    assert response.status_code == 200
+    user_logs = [item for item in audit_db.added if item.__class__.__name__ == "UserOperationLog"]
+    assert len(user_logs) == 1
+    assert user_logs[0].user_id == 99
+    assert user_logs[0].action == "request_upload_presign"
+    assert user_logs[0].channel == "mini_program"
+    assert user_logs[0].status_code == 200
