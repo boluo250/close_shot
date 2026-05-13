@@ -43,6 +43,18 @@ function _resolveImageContentType(filename, providedType) {
   return inferred || "image/jpeg";
 }
 
+function _extractXmlErrorMessage(text) {
+  const raw = String(text || "").trim();
+  if (!raw.startsWith("<?xml") && !raw.startsWith("<Error")) return raw;
+
+  const code = (raw.match(/<Code>([^<]+)<\/Code>/i) || [])[1] || "";
+  const message = (raw.match(/<Message>([^<]+)<\/Message>/i) || [])[1] || "";
+  if (code && message) return `${code}: ${message}`;
+  if (code) return code;
+  if (message) return message;
+  return raw.slice(0, 120);
+}
+
 async function presign(filename, contentType, prefix, channel) {
   return await request("/upload/presign", {
     method: "POST",
@@ -119,10 +131,9 @@ async function uploadImageToS3Like({ tempFilePath, filename, contentType, prefix
       success: (r) => {
         if (r.statusCode >= 200 && r.statusCode < 300) resolve(true);
         else {
-          const detail =
-            (typeof r.data === "object" && r.data && r.data.detail) ||
-            (typeof r.data === "string" && r.data) ||
-            `HTTP ${r.statusCode}`;
+          const detail = (typeof r.data === "object" && r.data && r.data.detail)
+            || (typeof r.data === "string" && _extractXmlErrorMessage(r.data))
+            || `HTTP ${r.statusCode}`;
           reject(new Error(`PUT failed: ${detail}`));
         }
       },

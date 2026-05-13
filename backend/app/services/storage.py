@@ -39,7 +39,7 @@ def _s3_client():
         aws_access_key_id=settings.s3_access_key_id,
         aws_secret_access_key=settings.s3_secret_access_key,
         region_name=settings.s3_region or "us-east-1",
-        config=Config(signature_version="s3v4"),
+        config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}),
     )
 
 

@@ -246,6 +246,31 @@ def test_presign_put_s3_returns_presigned_url(monkeypatch):
     assert captured["expires_in"] == 600
 
 
+def test_s3_client_uses_virtual_addressing_for_cos(monkeypatch):
+    captured: dict[str, object] = {}
+
+    def fake_boto3_client(service_name, **kwargs):
+        captured["service_name"] = service_name
+        captured["kwargs"] = kwargs
+        return SimpleNamespace()
+
+    monkeypatch.setattr(storage_service.boto3, "client", fake_boto3_client)
+    monkeypatch.setattr(storage_service.settings, "s3_endpoint_url", "https://cos.ap-shanghai.myqcloud.com")
+    monkeypatch.setattr(storage_service.settings, "s3_access_key_id", "test-ak")
+    monkeypatch.setattr(storage_service.settings, "s3_secret_access_key", "test-sk")
+    monkeypatch.setattr(storage_service.settings, "s3_bucket", "bianpai-1256560950")
+    monkeypatch.setattr(storage_service.settings, "s3_region", "ap-shanghai")
+
+    storage_service._s3_client()
+
+    cfg = captured["kwargs"]["config"]
+    assert captured["service_name"] == "s3"
+    assert captured["kwargs"]["endpoint_url"] == "https://cos.ap-shanghai.myqcloud.com"
+    assert captured["kwargs"]["region_name"] == "ap-shanghai"
+    assert cfg.signature_version == "s3v4"
+    assert cfg.s3.get("addressing_style") == "virtual"
+
+
 def test_membership_callback_smoke(client, app, monkeypatch):
     expected_expiry = datetime(2030, 1, 1, tzinfo=timezone.utc)
     order = SimpleNamespace(
