@@ -43,10 +43,15 @@ function _resolveImageContentType(filename, providedType) {
   return inferred || "image/jpeg";
 }
 
-async function presign(filename, contentType, prefix) {
+async function presign(filename, contentType, prefix, channel) {
   return await request("/upload/presign", {
     method: "POST",
-    data: { filename: _safeName(filename), content_type: contentType || null, prefix: prefix || "uploads" },
+    data: {
+      filename: _safeName(filename),
+      content_type: contentType || null,
+      prefix: prefix || "uploads",
+      channel: channel || "mini_program"
+    },
     auth: true
   });
 }
@@ -87,10 +92,10 @@ async function _prepareUploadPath(tempFilePath, compress) {
   return compressedSize < originalSize ? compressedPath : tempFilePath;
 }
 
-async function uploadImageToS3Like({ tempFilePath, filename, contentType, prefix, compress }) {
+async function uploadImageToS3Like({ tempFilePath, filename, contentType, prefix, compress, channel }) {
   const uploadPath = await _prepareUploadPath(tempFilePath, compress);
   const resolvedContentType = _resolveImageContentType(filename || uploadPath, contentType);
-  const presignRes = await presign(filename, resolvedContentType, prefix);
+  const presignRes = await presign(filename, resolvedContentType, prefix, channel);
   // 兼容 local backend：presign 可能返回相对路径，需要拼接后端 base URL
   const app = getApp();
   const base = app.globalData.apiBaseUrl;
@@ -113,9 +118,15 @@ async function uploadImageToS3Like({ tempFilePath, filename, contentType, prefix
       data: buffer,
       success: (r) => {
         if (r.statusCode >= 200 && r.statusCode < 300) resolve(true);
-        else reject(new Error("PUT failed"));
+        else {
+          const detail =
+            (typeof r.data === "object" && r.data && r.data.detail) ||
+            (typeof r.data === "string" && r.data) ||
+            `HTTP ${r.statusCode}`;
+          reject(new Error(`PUT failed: ${detail}`));
+        }
       },
-      fail: reject
+      fail: (err) => reject(new Error(err?.errMsg || "wx.request failed"))
     });
   });
 

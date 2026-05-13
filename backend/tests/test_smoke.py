@@ -12,6 +12,7 @@ from app.api.routes import upload as upload_routes
 from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
 from app.main import create_app
+from app.services.storage import create_upload_token
 
 
 class FakeDB:
@@ -163,6 +164,29 @@ def test_upload_presign_normalizes_generic_image_type(client, app, monkeypatch):
     assert response.json()["headers"]["Content-Type"] == "image/jpeg"
 
 
+def test_upload_put_proxy_smoke(client, monkeypatch):
+    captured: dict[str, object] = {}
+
+    def fake_put_object_bytes(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(upload_routes, "put_object_bytes", fake_put_object_bytes)
+    token = create_upload_token(object_key="avatar/test-avatar.jpg")
+
+    response = client.put(
+        "/upload/put/avatar/test-avatar.jpg",
+        params={"token": token},
+        content=b"fake-image-bytes",
+        headers={"content-type": "image"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["object_key"] == "avatar/test-avatar.jpg"
+    assert captured["object_key"] == "avatar/test-avatar.jpg"
+    assert captured["content_type"] == "image/jpeg"
+    assert captured["data"] == b"fake-image-bytes"
+
+
 def test_membership_callback_smoke(client, app, monkeypatch):
     expected_expiry = datetime(2030, 1, 1, tzinfo=timezone.utc)
     order = SimpleNamespace(
@@ -228,7 +252,7 @@ def test_user_operation_log_smoke(client, app, monkeypatch):
 
     response = client.post(
         "/upload/presign",
-        json={"filename": "avatar.png", "prefix": "uploads", "content_type": "image/png"},
+        json={"filename": "avatar.png", "prefix": "avatar", "content_type": "image/png", "channel": "mini_program"},
         headers={"Authorization": f"Bearer {create_access_token(subject='99')}"},
     )
 
@@ -238,4 +262,5 @@ def test_user_operation_log_smoke(client, app, monkeypatch):
     assert user_logs[0].user_id == 99
     assert user_logs[0].action == "request_upload_presign"
     assert user_logs[0].channel == "mini_program"
+    assert user_logs[0].resource_id == "avatar/avatar.png"
     assert user_logs[0].status_code == 200

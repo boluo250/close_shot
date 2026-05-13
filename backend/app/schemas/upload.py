@@ -7,6 +7,7 @@ class PresignIn(BaseModel):
     filename: str = Field(min_length=1, max_length=256)
     content_type: str | None = Field(default=None, max_length=128)
     prefix: str = Field(default="uploads", max_length=64)
+    channel: str | None = Field(default=None, max_length=32)
 
 
 class PresignOut(BaseModel):
@@ -16,4 +17,3 @@ class PresignOut(BaseModel):
     public_url: str | None = None
     proxy_url: str | None = None
     object_key: str
-

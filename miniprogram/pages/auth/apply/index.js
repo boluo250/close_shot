@@ -169,7 +169,7 @@ Page({
       if (!up.object_key) throw new Error("no object key");
       this.setData({ avatarUrl: imageUrl || "", avatarObjectKey: up.object_key || "" });
     } catch (e) {
-      wx.showToast({ title: "头像上传失败", icon: "none" });
+      wx.showToast({ title: (e && e.message) || "头像上传失败", icon: "none" });
     }
   },
 
@@ -244,7 +244,7 @@ Page({
       );
       this.setData({ portfolioDraft: [...this.data.portfolioDraft, ...ups] });
     } catch (e) {
-      wx.showToast({ title: "作品上传失败", icon: "none" });
+      wx.showToast({ title: (e && e.message) || "作品上传失败", icon: "none" });
     } finally {
       this.setData({ portfolioUploading: false, portfolioUploadCount: 0 });
     }

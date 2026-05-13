@@ -89,7 +89,7 @@ def ensure_bucket() -> None:
 
 def create_upload_token(*, object_key: str, expires_seconds: int = 15 * 60) -> str:
     """
-    本地存储直传使用的短期 token（无需登录也可 PUT，但只能上传指定 object_key）。
+    上传代理使用的短期 token（无需登录也可 PUT，但只能上传指定 object_key）。
     """
     exp = datetime.now(timezone.utc) + timedelta(seconds=expires_seconds)
     payload = {"sub": "upload", "key": object_key, "exp": exp}
@@ -109,32 +109,20 @@ def verify_upload_token(*, token: str, object_key: str) -> None:
 
 def presign_put(*, object_key: str, content_type: str | None = None, expires_seconds: int = 3600) -> PresignResult:
     """
-    生成 S3 兼容的 PUT 预签名 URL（MinIO/OSS/COS/S3）。
-    客户端直接 PUT 到 url；服务端只保存 object_key。
+    生成上传入口信息。
+    客户端统一 PUT 到后端 /upload/put，由服务端代理写入 local / MinIO / OSS / COS / S3。
     """
     if not content_type:
         content_type, _ = mimetypes.guess_type(object_key)
 
-    # 本地模式：返回后端 PUT 地址（相对路径，客户端需要拼 base URL）
-    if settings.storage_backend == "local":
-        token = create_upload_token(object_key=object_key, expires_seconds=min(expires_seconds, 15 * 60))
-        headers = {"Content-Type": content_type} if content_type else {}
-        url = f"/upload/put/{object_key}?token={token}"
-        return PresignResult(method="PUT", url=url, headers=headers, public_url=None, object_key=object_key)
-
-    if settings.storage_backend != "s3":
+    if settings.storage_backend not in {"local", "s3"}:
         raise RuntimeError("Unsupported storage backend")
 
-    s3 = _s3_client()
-    bucket = settings.s3_bucket  # type: ignore[assignment]
-    params = {"Bucket": bucket, "Key": object_key}
-    if content_type:
-        params["ContentType"] = content_type
-    url = s3.generate_presigned_url("put_object", Params=params, ExpiresIn=expires_seconds)
-
-    public_base = _public_base_url()
-    public_url = f"{public_base}/{object_key}" if public_base else None
+    token = create_upload_token(object_key=object_key, expires_seconds=min(expires_seconds, 15 * 60))
     headers = {"Content-Type": content_type} if content_type else {}
+    url = f"/upload/put/{object_key}?token={token}"
+    public_base = _public_base_url()
+    public_url = f"{public_base}/{object_key}" if public_base and settings.storage_backend == "s3" else None
     return PresignResult(method="PUT", url=url, headers=headers, public_url=public_url, object_key=object_key)
 
 

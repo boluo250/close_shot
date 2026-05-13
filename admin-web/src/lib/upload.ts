@@ -13,19 +13,22 @@ export type PresignResponse = {
 
 export async function uploadViaPresign(
   opts: UploadRequestOptions,
-  { prefix = "uploads" }: { prefix?: string } = {}
+  { prefix = "uploads", channel = "studio_web" }: { prefix?: string; channel?: string } = {}
 ): Promise<{ publicUrl: string | null; objectKey: string }> {
   const file = opts.file as File;
   const presign = await api.post<PresignResponse>("/upload/presign", {
     filename: file.name,
     content_type: file.type || undefined,
-    prefix
+    prefix,
+    channel
   });
 
   const { method, url, headers, public_url, proxy_url, object_key } = presign.data;
   if (method.toUpperCase() !== "PUT") throw new Error("仅支持 PUT 预签名（MVP）");
+  const apiBase = api.defaults.baseURL || "";
+  const putUrl = typeof url === "string" && url.startsWith("/") ? apiBase.replace(/\/$/, "") + url : url;
 
-  await axios.put(url, file, {
+  await axios.put(putUrl, file, {
     headers: {
       ...(headers || {}),
       // 某些 S3 兼容实现对 Content-Type 敏感
@@ -35,8 +38,6 @@ export async function uploadViaPresign(
     transformRequest: [(d) => d]
   });
 
-  const apiBase = api.defaults.baseURL || "";
   const fallback = proxy_url ? apiBase.replace(/\/$/, "") + proxy_url : null;
   return { publicUrl: public_url || fallback, objectKey: object_key };
 }
-

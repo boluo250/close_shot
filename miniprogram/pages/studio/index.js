@@ -634,7 +634,7 @@ Page({
       if (!silent) wx.showToast({ title: "上传成功", icon: "none" });
       await this.loadPortfolio();
     } catch (e) {
-      if (!silent) wx.showToast({ title: "上传失败", icon: "none" });
+      if (!silent) wx.showToast({ title: (e && e.message) || "上传失败", icon: "none" });
       throw e;
     } finally {
       this.setData({ portfolioUploading: false, portfolioUploadCount: 0 });
@@ -663,7 +663,7 @@ Page({
       this.clearDraft();
       wx.showToast({ title: "已上传到服务器", icon: "none" });
     } catch (e) {
-      wx.showToast({ title: "上传失败", icon: "none" });
+      wx.showToast({ title: (e && e.message) || "上传失败", icon: "none" });
     } finally {
       this.setData({ submittingAll: false });
     }

@@ -200,6 +200,13 @@ def _infer_upload_channel(value: str | None) -> str:
     return "mini_program"
 
 
+def _normalize_upload_channel(value: str | None) -> str | None:
+    normalized = (value or "").strip().lower()
+    if normalized in {"mini_program", "studio_web", "ops_web"}:
+        return normalized
+    return None
+
+
 def _coerce_resource_id(value: Any) -> str | None:
     if value is None:
         return None
@@ -235,11 +242,12 @@ def _classify_user_operation(request: Request, request_json: dict[str, Any]) -> 
         )
     if path == "/upload/presign" and method == "POST":
         prefix = request_json.get("prefix")
+        explicit_channel = _normalize_upload_channel(request_json.get("channel"))
         resource_id = "/".join(
             part for part in [request_json.get("prefix"), request_json.get("filename")] if isinstance(part, str) and part
         )
         return _UserAuditMeta(
-            _infer_upload_channel(prefix if isinstance(prefix, str) else None),
+            explicit_channel or _infer_upload_channel(prefix if isinstance(prefix, str) else None),
             "request_upload_presign",
             "申请上传凭证",
             "upload_object",

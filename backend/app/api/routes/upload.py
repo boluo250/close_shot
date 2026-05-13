@@ -73,13 +73,11 @@ def presign(payload: PresignIn, _me: User = Depends(get_current_user)) -> Presig
 
 
 @router.put("/put/{object_key:path}")
-async def put_local_object(object_key: str, request: Request, token: str | None = None):
+async def put_object(object_key: str, request: Request, token: str | None = None):
     """
-    local backend 的直传入口：小程序/前端用 wx.request PUT 二进制即可。
+    上传代理入口：小程序/前端用 PUT 二进制到后端，由服务端再写入对象存储。
     - token: 由 /upload/presign 返回，绑定 object_key，短期有效
     """
-    if settings.storage_backend != "local":
-        raise HTTPException(status_code=400, detail="put only supported in local backend")
     if not token:
         raise HTTPException(status_code=401, detail="missing token")
     try:
@@ -92,7 +90,7 @@ async def put_local_object(object_key: str, request: Request, token: str | None 
         raise HTTPException(status_code=400, detail="empty body")
     if len(body) > settings.upload_max_bytes:
         raise HTTPException(status_code=413, detail="file too large")
-    content_type = request.headers.get("content-type")
+    content_type = _normalize_content_type(object_key, request.headers.get("content-type"))
     _validate_upload_constraints(prefix=PurePosixPath(object_key).parts[0], content_type=content_type)
     put_object_bytes(object_key=object_key, data=body, content_type=content_type)
     return JSONResponse({"ok": True, "object_key": object_key})
