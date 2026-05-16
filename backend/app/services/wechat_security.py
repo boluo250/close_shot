@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -9,6 +10,7 @@ from fastapi import HTTPException
 from app.core.config import settings
 
 _token_cache: dict[str, object] = {"token": None, "expires_at": datetime.min.replace(tzinfo=timezone.utc)}
+logger = logging.getLogger(__name__)
 
 
 def _is_enabled() -> bool:
@@ -116,10 +118,12 @@ def ensure_text_safe(text: str) -> None:
     resp.raise_for_status()
     data = resp.json()
     if data.get("errcode"):
+        logger.warning("wechat text security api error: %s", data)
         raise HTTPException(status_code=400, detail="content security check failed")
     result = data.get("result") or {}
     suggest = result.get("suggest")
     if suggest in ("risky", "block", "review"):
+        logger.warning("wechat text security blocked content, suggest=%s, label=%s", suggest, result.get("label"))
         raise HTTPException(status_code=400, detail="content security check failed")
 
 
@@ -134,4 +138,10 @@ def ensure_image_safe_bytes(image_bytes: bytes) -> None:
     resp.raise_for_status()
     data = resp.json()
     if data.get("errcode"):
+        logger.warning("wechat image security api error: %s", data)
+        raise HTTPException(status_code=400, detail="content security check failed")
+    result = data.get("result") or {}
+    suggest = result.get("suggest")
+    if suggest in ("risky", "block", "review"):
+        logger.warning("wechat image security blocked image, suggest=%s, label=%s", suggest, result.get("label"))
         raise HTTPException(status_code=400, detail="content security check failed")

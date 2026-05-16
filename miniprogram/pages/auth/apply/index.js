@@ -73,10 +73,14 @@ Page({
     try {
       await ensureLogin();
       const res = await request("/me/photographer/certification", { method: "GET", auth: true });
-      // 如果已在审核中，跳转审核页
-      if (res.status === "pending") {
+      const isSubmissionComplete = !!(res.identity_verified && res.contact_verified && res.portfolio_uploaded);
+      // 只有资料完整且已提交审核时，才直接跳转审核页；否则允许继续补资料/补传作品
+      if (res.status === "pending" && isSubmissionComplete) {
         wx.redirectTo({ url: "/pages/auth/review/index" });
         return;
+      }
+      if (res.status === "pending") {
+        wx.showToast({ title: "资料未完整，可继续补充后重提", icon: "none" });
       }
       // 如果已通过认证，跳转工作台
       if (res.status === "approved") {
@@ -614,6 +618,7 @@ Page({
     }
 
     this.setData({ submitting: true });
+    let stage = "apply";
     try {
       await ensureLogin();
       const data = {
@@ -632,6 +637,7 @@ Page({
       await request("/me/photographer/apply", { method: "POST", data, auth: true });
 
       // 2) 写入会在详情页展示的资料（选填）
+      stage = "profile";
       const profilePayload = {
         avatar_object_key: this.data.avatarObjectKey || null,
         avatar_url: this.data.avatarUrl || null,
@@ -650,6 +656,7 @@ Page({
       await request("/studio/me", { method: "PUT", data: profilePayload, auth: true });
 
       // 3) 作品集：提交已上传的草稿
+      stage = "portfolio";
       for (const it of this.data.portfolioDraft || []) {
         await request("/studio/portfolio", {
           method: "POST",
@@ -666,6 +673,7 @@ Page({
       }
 
       // 4) 套餐（选填）
+      stage = "packages";
       for (const pkg of this.data.packagesDraft || []) {
         const priceValue = parseFloat(pkg.price_yuan || "0");
         const durationVal = pkg.duration_minutes ? parseInt(pkg.duration_minutes, 10) : null;
@@ -685,7 +693,24 @@ Page({
       wx.showToast({ title: "已提交，等待审核", icon: "none" });
       wx.redirectTo({ url: "/pages/auth/review/index" });
     } catch (e) {
-      wx.showToast({ title: e.message || "提交失败，请稍后重试", icon: "none" });
+      const stageLabelMap = {
+        apply: "认证信息",
+        profile: "个人资料",
+        portfolio: "作品图片",
+        packages: "服务套餐"
+      };
+      const rawMessage = (e && e.message) || "";
+      if (rawMessage.includes("content security check failed")) {
+        wx.showToast({
+          title: `${stageLabelMap[stage] || "提交内容"}未通过安全校验`,
+          icon: "none"
+        });
+        return;
+      }
+      wx.showToast({
+        title: rawMessage || `${stageLabelMap[stage] || "提交"}保存失败，请稍后重试`,
+        icon: "none"
+      });
     } finally {
       this.setData({ submitting: false });
     }

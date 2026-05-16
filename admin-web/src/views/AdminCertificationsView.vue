@@ -110,6 +110,7 @@
 
   <!-- 详情弹窗 -->
   <el-dialog v-model="detailVisible" title="认证详情" width="640px">
+    <div v-loading="detailLoading">
     <template v-if="currentItem">
       <el-descriptions :column="2" border>
         <el-descriptions-item label="ID">{{ currentItem.id }}</el-descriptions-item>
@@ -150,6 +151,17 @@
         </div>
       </div>
 
+      <el-divider content-position="left">审核照片</el-divider>
+      <div v-if="currentItem.avatar_url" style="margin-bottom: 12px">
+        <div style="font-size: 12px; color: #999; margin-bottom: 4px">头像/形象照</div>
+        <el-image
+          :src="currentItem.avatar_url"
+          :preview-src-list="[currentItem.avatar_url]"
+          style="width: 140px; height: 140px; border-radius: 8px"
+          fit="cover"
+        />
+      </div>
+
       <el-divider content-position="left">联系方式</el-divider>
       <el-descriptions :column="2" border>
         <el-descriptions-item label="手机号">{{ currentItem.phone || '-' }}</el-descriptions-item>
@@ -180,6 +192,19 @@
       </div>
       <el-empty v-else description="暂无已上传作品图" :image-size="80" />
 
+      <el-divider content-position="left">质量评分</el-divider>
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+        <el-rate
+          v-model="qualityScoreDraft"
+          :max="10"
+          allow-half
+          show-score
+          score-template="{value} 分"
+        />
+        <el-button type="primary" :loading="scoreSaving" @click="saveQualityScore">保存评分</el-button>
+        <span style="font-size: 12px; color: #999">当前排序分：{{ Number(currentItem.sort_score || 0).toFixed(1) }}</span>
+      </div>
+
       <div v-if="currentItem.reject_reason" style="margin-top: 16px">
         <el-alert :title="`驳回原因：${currentItem.reject_reason}`" type="error" :closable="false" />
       </div>
@@ -198,6 +223,7 @@
         <el-button @click="detailVisible = false">关闭</el-button>
       </div>
     </template>
+    </div>
   </el-dialog>
 
   <!-- 驳回弹窗 -->
@@ -236,6 +262,8 @@ type CertificationItem = {
   status: string;
   reject_reason: string | null;
   certification_level: number;
+  quality_score: number;
+  sort_score: number;
   real_name: string | null;
   id_card_number: string | null;
   id_card_front_url: string | null;
@@ -267,6 +295,9 @@ const filters = reactive({
 // 详情弹窗
 const detailVisible = ref(false);
 const currentItem = ref<CertificationItem | null>(null);
+const detailLoading = ref(false);
+const qualityScoreDraft = ref(5);
+const scoreSaving = ref(false);
 
 // 驳回弹窗
 const rejectVisible = ref(false);
@@ -298,9 +329,40 @@ async function load() {
 }
 
 // ---------- 详情 ----------
-function openDetail(row: CertificationItem) {
-  currentItem.value = row;
+async function openDetail(row: CertificationItem) {
   detailVisible.value = true;
+  detailLoading.value = true;
+  currentItem.value = row;
+  qualityScoreDraft.value = row.quality_score || 5;
+  try {
+    const { data } = await api.get<CertificationItem>(withAdminApiPrefix(`/certifications/${row.id}`));
+    currentItem.value = data;
+    qualityScoreDraft.value = data.quality_score || 5;
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.detail || "详情加载失败");
+  } finally {
+    detailLoading.value = false;
+  }
+}
+
+async function saveQualityScore() {
+  if (!currentItem.value) return;
+  scoreSaving.value = true;
+  try {
+    const { data } = await api.put<CertificationItem>(
+      withAdminApiPrefix(`/photographers/${currentItem.value.id}/quality-score`),
+      { score: qualityScoreDraft.value }
+    );
+    currentItem.value = data;
+    qualityScoreDraft.value = data.quality_score || qualityScoreDraft.value;
+    const idx = items.value.findIndex((x) => x.id === data.id);
+    if (idx >= 0) items.value[idx] = data;
+    ElMessage.success("评分已保存");
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.detail || "评分保存失败");
+  } finally {
+    scoreSaving.value = false;
+  }
 }
 
 // ---------- 审核通过 ----------
