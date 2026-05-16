@@ -347,6 +347,9 @@ def review_certification(
         # 审核通过时给一个可见的初始质量分（仅当仍是系统默认分）
         if p.quality_score == DEFAULT_QUALITY_SCORE:
             p.quality_score = INITIAL_APPROVED_QUALITY_SCORE
+        # 审核通过后，如果服务坐标已齐备，则自动开放接单，避免前台列表仍被过滤掉。
+        if p.service_center_lat is not None and p.service_center_lng is not None:
+            p.is_accepting_orders = True
         # 同步升级 user.role
         if p.user and p.user.role != UserRole.photographer.value:
             p.user.role = UserRole.photographer.value

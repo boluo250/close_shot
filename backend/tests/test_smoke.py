@@ -8,6 +8,7 @@ from botocore.exceptions import ClientError
 from fastapi.testclient import TestClient
 
 from app.api.deps import get_current_user
+from app.api.routes import admin as admin_routes
 from app.api.routes import membership as membership_routes
 from app.api.routes import upload as upload_routes
 from app.core.security import create_access_token, hash_password
@@ -42,6 +43,9 @@ class FakeDB:
 
     def commit(self) -> None:
         self.commit_calls += 1
+
+    def refresh(self, _item) -> None:
+        return None
 
     def rollback(self) -> None:
         return None
@@ -210,6 +214,49 @@ def test_ensure_bucket_does_not_create_on_non_404_head_bucket_error(monkeypatch)
     storage_service.ensure_bucket()
 
     assert calls == [("head_bucket", "bianpai-1256560950")]
+
+
+def test_admin_approve_enables_accepting_orders_when_location_ready(monkeypatch):
+    photographer_user = SimpleNamespace(role="customer")
+    photographer = SimpleNamespace(
+        id=7,
+        status="pending",
+        reject_reason="old reason",
+        certification_level=0,
+        quality_score=admin_routes.DEFAULT_QUALITY_SCORE,
+        is_accepting_orders=False,
+        service_center_lat=31.2304,
+        service_center_lng=121.4737,
+        user=photographer_user,
+    )
+    db = FakeDB(scalar_results=[photographer])
+    admin_user = SimpleNamespace(role="admin")
+    payload = admin_routes.CertificationReviewIn(action="approve")
+    calls: dict[str, object] = {}
+
+    monkeypatch.setattr(admin_routes, "_build_portfolio_preview_map", lambda **_kwargs: {})
+    monkeypatch.setattr(
+        admin_routes,
+        "_photographer_to_detail",
+        lambda p, portfolio_preview_map=None: {"id": p.id, "status": p.status, "portfolio_preview_map": portfolio_preview_map},
+    )
+    monkeypatch.setattr(
+        admin_routes,
+        "recalculate_photographer_sort_scores",
+        lambda _db, photographer_ids: calls.update({"photographer_ids": photographer_ids}),
+    )
+
+    result = admin_routes.review_certification(7, payload, admin_user, db)
+
+    assert result["status"] == "approved"
+    assert photographer.status == "approved"
+    assert photographer.reject_reason is None
+    assert photographer.certification_level == 1
+    assert photographer.quality_score == admin_routes.INITIAL_APPROVED_QUALITY_SCORE
+    assert photographer.is_accepting_orders is True
+    assert photographer_user.role == "photographer"
+    assert calls["photographer_ids"] == [7]
+    assert db.commit_calls == 1
 
 
 def test_presign_put_s3_returns_presigned_url(monkeypatch):
