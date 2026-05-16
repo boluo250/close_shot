@@ -39,6 +39,43 @@ class PhotographerApplyIn(BaseModel):
     service_center_lng: float | None = Field(default=None, ge=-180, le=180, description="服务中心经度")
     service_radius_m: int | None = Field(default=None, ge=100, le=50000, description="服务半径（米）")
 
+    # Step 2: 个人资料（提交审核时一并原子保存）
+    avatar_url: str | None = Field(default=None, max_length=512)
+    avatar_object_key: str | None = Field(default=None, max_length=512)
+    bio: str | None = Field(default=None, max_length=5000)
+    equipment_list: str | None = Field(default=None, max_length=2000)
+    drone_models: str | None = Field(default=None, max_length=1000)
+
+    # 作品与报价
+    rate_card: list["CertificationRateCardItemIn"] = Field(default_factory=list)
+    portfolio_items: list["CertificationPortfolioItemIn"] = Field(default_factory=list)
+    packages: list["CertificationPackageItemIn"] = Field(default_factory=list)
+
+
+class CertificationRateCardItemIn(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    mode: str = Field(description="计价模式：hour/photo")
+    price_cents: int = Field(ge=0, le=10_000_000)
+    unit: str | None = Field(default=None, max_length=64)
+
+
+class CertificationPortfolioItemIn(BaseModel):
+    title: str | None = Field(default=None, max_length=128)
+    image_url: str | None = Field(default=None, max_length=512)
+    image_object_key: str | None = Field(default=None, max_length=512)
+    tags: str = Field(default="", max_length=2000)
+    category: str = Field(default="", max_length=64)
+    is_pinned: bool = False
+    sort_order: int = 0
+
+
+class CertificationPackageItemIn(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    price_cents: int = Field(ge=0, le=10_000_000)
+    duration_minutes: int | None = Field(default=None, ge=1, le=24 * 60)
+    description: str | None = Field(default=None, max_length=5000)
+    is_active: bool = True
+
 
 class TencentRealPersonVerifyIn(BaseModel):
     """腾讯云实名实人认证请求（占位接口）"""

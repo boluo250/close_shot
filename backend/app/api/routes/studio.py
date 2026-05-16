@@ -28,7 +28,6 @@ from app.schemas.studio import (
 from app.services.image_watermark import add_text_watermark
 from app.services.media_url import object_key_from_url, object_key_to_url
 from app.services.storage import get_object_stream, put_object_bytes
-from app.services.wechat_security import ensure_image_safe_bytes, ensure_text_safe
 
 router = APIRouter()
 
@@ -51,12 +50,6 @@ def _resolve_portfolio_urls(*, image_url: str | None, image_object_key: str | No
     return resolved_image, resolved_watermark
 
 
-def _ensure_texts_safe(values: list[str | None]) -> None:
-    for text in values:
-        if text and text.strip():
-            ensure_text_safe(text.strip())
-
-
 @router.get("/me", response_model=StudioMeOut)
 def get_me(me: User = Depends(get_current_user), db: Session = Depends(get_db)) -> StudioMeOut:
     _require_photographer_user(me)
@@ -76,20 +69,10 @@ def update_me(
     _require_photographer_user(me)
     p = _get_my_photographer(db, me)
     data = payload.model_dump(exclude_unset=True)
-    _ensure_texts_safe(
-        [
-            data.get("bio"),
-            data.get("tags"),
-            data.get("city"),
-            data.get("equipment_list"),
-            data.get("drone_models"),
-        ]
-    )
     # 报价单安全检查（文本 + mode）
     if data.get("rate_card") is not None:
         normalized: list[dict] = []
         for it in data.get("rate_card") or []:
-            _ensure_texts_safe([it.get("name"), it.get("unit")])
             mode = it.get("mode")
             # 兼容旧值 item → photo（按张数）
             if mode == "item":
@@ -101,12 +84,10 @@ def update_me(
         data["rate_card"] = normalized
     if data.get("avatar_object_key"):
         stream, _ = get_object_stream(data["avatar_object_key"])
-        ensure_image_safe_bytes(stream.read())
         if p.user and data.get("avatar_url") is None:
             data["avatar_url"] = object_key_to_url(data["avatar_object_key"])
     if data.get("cover_object_key"):
         stream, _ = get_object_stream(data["cover_object_key"])
-        ensure_image_safe_bytes(stream.read())
         if data.get("cover_url") is None:
             data["cover_url"] = object_key_to_url(data["cover_object_key"])
     if data.get("avatar_url") is not None and p.user:
@@ -162,13 +143,11 @@ def create_portfolio(
     _require_photographer_user(me)
     p = _get_my_photographer(db, me)
     data = payload.model_dump()
-    _ensure_texts_safe([data.get("title"), data.get("tags"), data.get("category")])
     image_object_key = data.get("image_object_key") or object_key_from_url(data.get("image_url"))
     if not image_object_key:
         raise HTTPException(status_code=400, detail="image_object_key required for security checks")
     stream, _ = get_object_stream(image_object_key)
     image_bytes = stream.read()
-    ensure_image_safe_bytes(image_bytes)
     watermark_key = str(PurePosixPath("watermark") / PurePosixPath(image_object_key))
     watermark_bytes, watermark_content_type = add_text_watermark(image_bytes, watermark_text="边拍")
     put_object_bytes(object_key=watermark_key, data=watermark_bytes, content_type=watermark_content_type)
@@ -196,14 +175,12 @@ def update_portfolio(
     if not item:
         raise HTTPException(status_code=404, detail="portfolio item not found")
     data = payload.model_dump(exclude_unset=True)
-    _ensure_texts_safe([data.get("title"), data.get("tags"), data.get("category")])
     if data.get("image_object_key") or data.get("image_url"):
         image_object_key = data.get("image_object_key") or object_key_from_url(data.get("image_url"))
         if not image_object_key:
             raise HTTPException(status_code=400, detail="image_object_key required for security checks")
         stream, _ = get_object_stream(image_object_key)
         image_bytes = stream.read()
-        ensure_image_safe_bytes(image_bytes)
         watermark_key = str(PurePosixPath("watermark") / PurePosixPath(image_object_key))
         watermark_bytes, watermark_content_type = add_text_watermark(image_bytes, watermark_text="边拍")
         put_object_bytes(object_key=watermark_key, data=watermark_bytes, content_type=watermark_content_type)
@@ -250,7 +227,6 @@ def create_package(
 ) -> PackageOut:
     _require_photographer_user(me)
     p = _get_my_photographer(db, me)
-    _ensure_texts_safe([payload.name, payload.description])
     item = Package(photographer_id=p.id, **payload.model_dump())
     db.add(item)
     db.commit()
@@ -271,7 +247,6 @@ def update_package(
     if not item:
         raise HTTPException(status_code=404, detail="package not found")
     data = payload.model_dump(exclude_unset=True)
-    _ensure_texts_safe([data.get("name"), data.get("description")])
     for k, v in data.items():
         setattr(item, k, v)
     db.add(item)
@@ -344,4 +319,3 @@ def delete_schedule(
     )
     db.commit()
     return {"ok": True}
-

@@ -618,7 +618,6 @@ Page({
     }
 
     this.setData({ submitting: true });
-    let stage = "apply";
     try {
       await ensureLogin();
       const data = {
@@ -632,18 +631,9 @@ Page({
         service_center_lat: this.data.serviceCenterLat,
         service_center_lng: this.data.serviceCenterLng,
         service_radius_m: this.data.serviceRadiusM || 5000,
-      };
-      // 1) 先提交认证（会在后端把用户角色提升为 photographer）
-      await request("/me/photographer/apply", { method: "POST", data, auth: true });
-
-      // 2) 写入会在详情页展示的资料（选填）
-      stage = "profile";
-      const profilePayload = {
         avatar_object_key: this.data.avatarObjectKey || null,
         avatar_url: this.data.avatarUrl || null,
         bio: this.data.bio || null,
-        // 标签能力已移除：这里显式清空，避免历史数据残留
-        tags: "",
         equipment_list: (this.data.equipmentItems || []).join(","),
         drone_models: (this.data.droneItems || []).join(","),
         rate_card: (this.data.rateCardDraft || []).map((x) => ({
@@ -651,64 +641,37 @@ Page({
           mode: x.mode === "photo" || x.mode === "item" ? "photo" : "hour",
           price_cents: Math.round(parseFloat(x.price_yuan || "0") * 100),
           unit: (x.unit || "").trim() || null
-        }))
-      };
-      await request("/studio/me", { method: "PUT", data: profilePayload, auth: true });
-
-      // 3) 作品集：提交已上传的草稿
-      stage = "portfolio";
-      for (const it of this.data.portfolioDraft || []) {
-        await request("/studio/portfolio", {
-          method: "POST",
-          data: {
-            title: "",
-            tags: "",
-            category: "",
-            is_pinned: false,
-            sort_order: 0,
-            image_object_key: it.image_object_key || null
-          },
-          auth: true
-        });
-      }
-
-      // 4) 套餐（选填）
-      stage = "packages";
-      for (const pkg of this.data.packagesDraft || []) {
-        const priceValue = parseFloat(pkg.price_yuan || "0");
-        const durationVal = pkg.duration_minutes ? parseInt(pkg.duration_minutes, 10) : null;
-        await request("/studio/packages", {
-          method: "POST",
-          data: {
+        })),
+        portfolio_items: (this.data.portfolioDraft || []).map((it) => ({
+          title: "",
+          tags: "",
+          category: "",
+          is_pinned: false,
+          sort_order: 0,
+          image_object_key: it.image_object_key || null,
+          image_url: it.image_url || null
+        })),
+        packages: (this.data.packagesDraft || []).map((pkg) => {
+          const priceValue = parseFloat(pkg.price_yuan || "0");
+          const durationVal = pkg.duration_minutes ? parseInt(pkg.duration_minutes, 10) : null;
+          return {
             name: (pkg.name || "").trim(),
             price_cents: Math.round((Number.isNaN(priceValue) ? 0 : priceValue) * 100),
             duration_minutes: Number.isNaN(durationVal) ? null : durationVal,
             description: pkg.description || "",
             is_active: !!pkg.is_active
-          },
-          auth: true
-        });
-      }
+          };
+        })
+      };
+      // 单次原子提交：所有校验通过后才真正进入待审核
+      await request("/me/photographer/apply", { method: "POST", data, auth: true });
 
       wx.showToast({ title: "已提交，等待审核", icon: "none" });
       wx.redirectTo({ url: "/pages/auth/review/index" });
     } catch (e) {
-      const stageLabelMap = {
-        apply: "认证信息",
-        profile: "个人资料",
-        portfolio: "作品图片",
-        packages: "服务套餐"
-      };
       const rawMessage = (e && e.message) || "";
-      if (rawMessage.includes("content security check failed")) {
-        wx.showToast({
-          title: `${stageLabelMap[stage] || "提交内容"}未通过安全校验`,
-          icon: "none"
-        });
-        return;
-      }
       wx.showToast({
-        title: rawMessage || `${stageLabelMap[stage] || "提交"}保存失败，请稍后重试`,
+        title: rawMessage || "提交失败，请稍后重试",
         icon: "none"
       });
     } finally {

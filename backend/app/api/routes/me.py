@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timezone
+from pathlib import PurePosixPath
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
@@ -19,8 +21,11 @@ from app.schemas.me import (
     TencentRealPersonVerifyOut,
 )
 from app.schemas.photographer import PhotographerCardOut, PhotographerOut
+from app.services.image_watermark import add_text_watermark
 from app.services.media_url import object_key_to_url
 from app.services.membership import can_view_contact
+from app.services.media_url import object_key_from_url
+from app.services.storage import get_object_stream, put_object_bytes
 
 router = APIRouter()
 
@@ -127,6 +132,44 @@ def _parse_csv(text: str | None) -> list[str]:
 def _rate_min(items: list[dict], mode: str) -> int | None:
     prices = [x["price_cents"] for x in items if x.get("mode") == mode and isinstance(x.get("price_cents"), int)]
     return min(prices) if prices else None
+
+
+def _normalize_rate_card(items: list[dict]) -> list[dict]:
+    normalized: list[dict] = []
+    for item in items:
+        copied = dict(item)
+        mode = copied.get("mode")
+        if mode == "item":
+            mode = "photo"
+            copied["mode"] = "photo"
+        if mode not in ("hour", "photo"):
+            raise HTTPException(status_code=400, detail="invalid rate_card.mode")
+        normalized.append(copied)
+    return normalized
+
+
+def _build_portfolio_submission_items(payload: PhotographerApplyIn) -> list[dict]:
+    prepared: list[dict] = []
+    for raw in payload.portfolio_items:
+        item = raw.model_dump()
+        image_object_key = item.get("image_object_key") or object_key_from_url(item.get("image_url"))
+        if not image_object_key:
+            raise HTTPException(status_code=400, detail="作品图片缺少 image_object_key")
+        try:
+            stream, _ = get_object_stream(image_object_key)
+            image_bytes = stream.read()
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=400, detail="作品图片文件不存在，请重新上传") from exc
+
+        watermark_key = str(PurePosixPath("watermark") / PurePosixPath(image_object_key))
+        watermark_bytes, watermark_content_type = add_text_watermark(image_bytes, watermark_text="边拍")
+        put_object_bytes(object_key=watermark_key, data=watermark_bytes, content_type=watermark_content_type)
+        item["image_object_key"] = image_object_key
+        item["image_url"] = object_key_to_url(image_object_key) or item.get("image_url")
+        item["watermark_object_key"] = watermark_key
+        item["watermark_url"] = object_key_to_url(watermark_key)
+        prepared.append(item)
+    return prepared
 
 
 @router.get("/favorites", response_model=list[PhotographerCardOut])
@@ -288,7 +331,7 @@ def apply_photographer(
     me: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> CertificationStatusOut:
-    """提交摄影师入驻认证"""
+    """提交摄影师入驻认证（原子提交：全部校验通过后才进入待审核）"""
     if not ID_CARD_PATTERN.match(payload.id_card_number):
         raise HTTPException(status_code=400, detail="身份证号格式不正确")
 
@@ -300,10 +343,6 @@ def apply_photographer(
             portfolio_uploaded=True,
             contact_verified=True,
         )
-
-    # 用户提交入驻后，提升为 photographer 角色（以便使用 /studio 接口维护作品/套餐等资料）
-    if me.role != UserRole.photographer.value:
-        me.role = UserRole.photographer.value
 
     # 拍摄类型已从入驻必填中移除：保留字段仅做兼容校验（若传了则校验）
     if payload.shooting_types:
@@ -319,6 +358,15 @@ def apply_photographer(
     if payload.price_range and payload.price_range not in VALID_PRICE_RANGES:
         raise HTTPException(status_code=400, detail=f"不支持的报价区间：{payload.price_range}")
 
+    rate_card_items = _normalize_rate_card([item.model_dump() for item in payload.rate_card])
+    if payload.avatar_object_key:
+        try:
+            get_object_stream(payload.avatar_object_key)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=400, detail="头像文件不存在，请重新上传") from exc
+
+    portfolio_items = _build_portfolio_submission_items(payload)
+
     p = db.scalar(select(Photographer).where(Photographer.user_id == me.id))
     if not p:
         p = Photographer(
@@ -329,7 +377,10 @@ def apply_photographer(
         )
         db.add(p)
 
-    # 写入认证字段
+    # 全部校验通过后，再统一落库
+    if me.role != UserRole.photographer.value:
+        me.role = UserRole.photographer.value
+
     p.real_name = payload.real_name
     p.id_card_number = payload.id_card_number
     if payload.id_card_front_url is not None:
@@ -350,10 +401,47 @@ def apply_photographer(
         p.service_center_lng = payload.service_center_lng
     if payload.service_radius_m is not None:
         p.service_radius_m = payload.service_radius_m
+    if payload.bio is not None:
+        p.bio = payload.bio
+    if payload.equipment_list is not None:
+        p.equipment_list = payload.equipment_list
+    if payload.drone_models is not None:
+        p.drone_models = payload.drone_models
+    p.rate_card_json = json.dumps(rate_card_items, ensure_ascii=False)
+    p.last_active_at = datetime.now(timezone.utc)
+    if payload.avatar_url is not None:
+        me.avatar_url = payload.avatar_url
+    elif payload.avatar_object_key:
+        me.avatar_url = object_key_to_url(payload.avatar_object_key)
 
     # 设为待审核
     p.status = PhotographerStatus.pending.value
     p.reject_reason = None
+
+    db.add(p)
+    db.flush()
+
+    db.execute(delete(PortfolioItem).where(PortfolioItem.photographer_id == p.id))
+    db.execute(delete(Package).where(Package.photographer_id == p.id))
+
+    for item in portfolio_items:
+        db.add(
+            PortfolioItem(
+                photographer_id=p.id,
+                title=item.get("title"),
+                image_url=item.get("image_url"),
+                image_object_key=item.get("image_object_key"),
+                watermark_url=item.get("watermark_url"),
+                watermark_object_key=item.get("watermark_object_key"),
+                sort_order=item.get("sort_order") or 0,
+                tags=item.get("tags") or "",
+                category=item.get("category") or "",
+                is_pinned=bool(item.get("is_pinned")),
+            )
+        )
+
+    for pkg in payload.packages:
+        db.add(Package(photographer_id=p.id, **pkg.model_dump()))
 
     db.commit()
     db.refresh(p)
@@ -374,4 +462,3 @@ def verify_tencent_real_person(
     if not ID_CARD_PATTERN.match(payload.id_card_number):
         raise HTTPException(status_code=400, detail="身份证号格式不正确")
     return TencentRealPersonVerifyOut()
-
