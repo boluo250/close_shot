@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import case, func, inspect, select, text
+from sqlalchemy import case, delete, func, inspect, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -16,9 +16,13 @@ from app.db.models import (
     AdminOperationLog,
     AnalyticsEvent,
     Favorite,
+    MembershipOrder,
+    Package,
     Photographer,
     PhotographerStatus,
     PortfolioItem,
+    Review,
+    ScheduleBlock,
     User,
     UserOperationLog,
     UserRole,
@@ -32,8 +36,9 @@ from app.schemas.photographer import (
     CertificationReviewIn,
 )
 from app.services.membership import get_contact_access_mode, set_contact_access_mode
-from app.services.media_url import object_key_to_url
+from app.services.media_url import object_key_from_url, object_key_to_url
 from app.services.photographer_ranking import recalculate_photographer_sort_scores
+from app.services.storage import delete_object
 
 router = APIRouter()
 
@@ -205,6 +210,41 @@ def _build_portfolio_preview_map(
             continue
         items.append(resolved_url)
     return preview_map
+
+
+def _add_media_object_key(
+    object_keys: set[str],
+    *,
+    object_key: str | None = None,
+    url: str | None = None,
+) -> None:
+    normalized = (object_key or object_key_from_url(url) or "").strip().lstrip("/")
+    if normalized:
+        object_keys.add(normalized)
+
+
+def _collect_photographer_media_object_keys(db: Session, photographer: Photographer) -> list[str]:
+    object_keys: set[str] = set()
+    _add_media_object_key(object_keys, url=photographer.cover_url)
+    _add_media_object_key(object_keys, url=photographer.id_card_front_url)
+    _add_media_object_key(object_keys, url=photographer.id_card_back_url)
+
+    if photographer.user:
+        _add_media_object_key(object_keys, url=photographer.user.avatar_url)
+
+    portfolio_items = db.scalars(
+        select(PortfolioItem).where(PortfolioItem.photographer_id == photographer.id)
+    ).all()
+    for item in portfolio_items:
+        _add_media_object_key(object_keys, object_key=item.image_object_key, url=item.image_url)
+        _add_media_object_key(object_keys, object_key=item.watermark_object_key, url=item.watermark_url)
+
+    return sorted(object_keys)
+
+
+def _delete_storage_objects(object_keys: list[str]) -> None:
+    for object_key in object_keys:
+        delete_object(object_key)
 
 
 def _photographer_to_detail(
@@ -395,6 +435,50 @@ def update_photographer_availability(
     db.refresh(p)
     preview_map = _build_portfolio_preview_map(db=db, photographer_ids=[int(p.id)])
     return _photographer_to_detail(p, portfolio_preview_map=preview_map)
+
+
+@router.delete("/photographers/{photographer_id}")
+def delete_photographer(
+    photographer_id: int,
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    _require_admin(me)
+
+    p = db.scalar(select(Photographer).where(Photographer.id == photographer_id))
+    if not p:
+        raise HTTPException(status_code=404, detail="photographer not found")
+    if p.is_accepting_orders:
+        raise HTTPException(status_code=400, detail="请先下线后再删除摄影师")
+
+    user_id = int(p.user_id)
+    object_keys = _collect_photographer_media_object_keys(db, p)
+
+    try:
+        db.execute(
+            delete(AnalyticsEvent).where(
+                or_(AnalyticsEvent.photographer_id == photographer_id, AnalyticsEvent.user_id == user_id)
+            )
+        )
+        db.execute(delete(UserOperationLog).where(UserOperationLog.user_id == user_id))
+        db.execute(delete(AdminOperationLog).where(AdminOperationLog.admin_user_id == user_id))
+        db.execute(delete(Favorite).where(or_(Favorite.photographer_id == photographer_id, Favorite.user_id == user_id)))
+        db.execute(delete(Review).where(or_(Review.photographer_id == photographer_id, Review.user_id == user_id)))
+        db.execute(delete(ScheduleBlock).where(ScheduleBlock.photographer_id == photographer_id))
+        db.execute(delete(Package).where(Package.photographer_id == photographer_id))
+        db.execute(delete(PortfolioItem).where(PortfolioItem.photographer_id == photographer_id))
+        db.execute(delete(MembershipOrder).where(MembershipOrder.user_id == user_id))
+        db.execute(delete(Photographer).where(Photographer.id == photographer_id))
+        db.execute(delete(User).where(User.id == user_id))
+        _delete_storage_objects(object_keys)
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="删除摄影师失败，请稍后重试") from exc
+
+    return {"ok": True}
 
 
 @router.put("/photographers/{photographer_id}/quality-score", response_model=CertificationDetailOut)

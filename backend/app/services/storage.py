@@ -76,6 +76,22 @@ def local_put_object_bytes(*, object_key: str, data: bytes, content_type: str | 
     fp.write_bytes(data)
 
 
+def local_delete_object(object_key: str) -> None:
+    object_key = _safe_object_key(object_key)
+    fp = _local_base_dir() / object_key
+    if not fp.exists() or not fp.is_file():
+        return
+    fp.unlink()
+    parent = fp.parent
+    base_dir = _local_base_dir()
+    while parent != base_dir and parent.exists():
+        try:
+            parent.rmdir()
+        except OSError:
+            break
+        parent = parent.parent
+
+
 def ensure_bucket() -> None:
     if settings.storage_backend != "s3":
         return
@@ -193,6 +209,19 @@ def put_object_bytes(*, object_key: str, data: bytes, content_type: str | None =
     if content_type:
         params["ContentType"] = content_type
     s3.put_object(**params)
+
+
+def delete_object(object_key: str) -> None:
+    object_key = _safe_object_key(object_key)
+    if settings.storage_backend == "local":
+        return local_delete_object(object_key)
+
+    if settings.storage_backend != "s3":
+        raise RuntimeError("Unsupported storage backend")
+
+    s3 = _s3_client()
+    bucket = settings.s3_bucket  # type: ignore[assignment]
+    s3.delete_object(Bucket=bucket, Key=object_key)
 
 
 # 兼容旧命名（被其他模块引用）

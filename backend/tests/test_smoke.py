@@ -265,10 +265,17 @@ def test_admin_approve_enables_accepting_orders_when_location_ready(monkeypatch)
 def test_studio_update_me_persists_display_name():
     user = SimpleNamespace(display_name="旧名字", avatar_url="https://example.com/old.jpg")
     photographer = SimpleNamespace(
+        id=9,
+        user_id=9,
         bio="旧简介",
         tags="",
         cover_url=None,
         rate_card_json="[]",
+        is_accepting_orders=False,
+        service_radius_m=5000,
+        status="approved",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
         user=user,
         last_active_at=None,
     )
@@ -364,6 +371,68 @@ def test_admin_cannot_restore_online_without_location(monkeypatch):
     assert "补全服务中心点坐标" in exc_info.value.detail
     assert photographer.is_accepting_orders is False
     assert db.commit_calls == 0
+
+
+def test_admin_can_delete_offline_photographer(monkeypatch):
+    photographer = SimpleNamespace(
+        id=11,
+        user_id=1011,
+        is_accepting_orders=False,
+    )
+    db = FakeDB(scalar_results=[photographer])
+    admin_user = SimpleNamespace(role="admin")
+    deleted_object_keys: list[str] = []
+
+    monkeypatch.setattr(
+        admin_routes,
+        "_collect_photographer_media_object_keys",
+        lambda _db, _photographer: ["portfolio/demo.jpg", "watermark/portfolio/demo.jpg"],
+    )
+    monkeypatch.setattr(
+        admin_routes,
+        "_delete_storage_objects",
+        lambda object_keys: deleted_object_keys.extend(object_keys),
+    )
+
+    result = admin_routes.delete_photographer(11, admin_user, db)
+
+    assert result == {"ok": True}
+    assert deleted_object_keys == ["portfolio/demo.jpg", "watermark/portfolio/demo.jpg"]
+    assert db.commit_calls == 1
+    assert any("DELETE FROM analytics_events" in stmt for stmt in db.executed)
+    assert any("DELETE FROM photographers" in stmt for stmt in db.executed)
+    assert any("DELETE FROM users" in stmt for stmt in db.executed)
+
+
+def test_admin_cannot_delete_online_photographer():
+    photographer = SimpleNamespace(
+        id=12,
+        user_id=1012,
+        is_accepting_orders=True,
+    )
+    db = FakeDB(scalar_results=[photographer])
+    admin_user = SimpleNamespace(role="admin")
+
+    with pytest.raises(HTTPException) as exc_info:
+        admin_routes.delete_photographer(12, admin_user, db)
+
+    assert exc_info.value.status_code == 400
+    assert "请先下线" in exc_info.value.detail
+    assert db.commit_calls == 0
+
+
+def test_delete_object_local_removes_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(storage_service.settings, "storage_backend", "local")
+    monkeypatch.setattr(storage_service, "_local_base_dir", lambda: tmp_path)
+
+    storage_service.local_put_object_bytes(object_key="portfolio/demo/test.jpg", data=b"hello")
+    target = tmp_path / "portfolio" / "demo" / "test.jpg"
+    assert target.exists()
+
+    storage_service.delete_object("portfolio/demo/test.jpg")
+
+    assert not target.exists()
+    assert not (tmp_path / "portfolio" / "demo").exists()
 
 
 def test_presign_put_s3_returns_presigned_url(monkeypatch):

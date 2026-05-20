@@ -85,7 +85,7 @@
           <span v-else style="color: #999">-</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="260" fixed="right">
+      <el-table-column label="操作" width="320" fixed="right">
         <template #default="{ row }">
           <el-button size="small" @click="openDetail(row)">详情</el-button>
           <el-button
@@ -113,6 +113,14 @@
             plain
             @click="toggleAvailability(row, true)"
           >恢复上线</el-button>
+          <el-button
+            v-if="canDeletePhotographer(row)"
+            size="small"
+            type="danger"
+            plain
+            :loading="deletingPhotographerId === row.id"
+            @click="handleDelete(row)"
+          >删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -251,6 +259,13 @@
           @click="toggleAvailability(currentItem, true)"
         >恢复上线</el-button>
         <el-button
+          v-if="canDeletePhotographer(currentItem)"
+          type="danger"
+          plain
+          :loading="deletingPhotographerId === currentItem.id"
+          @click="handleDelete(currentItem)"
+        >删除摄影师</el-button>
+        <el-button
           v-if="currentItem.status === 'pending'"
           type="success"
           @click="handleApprove(currentItem); detailVisible = false"
@@ -340,6 +355,7 @@ const detailLoading = ref(false);
 const qualityScoreDraft = ref(5);
 const scoreSaving = ref(false);
 const availabilitySaving = ref(false);
+const deletingPhotographerId = ref<number | null>(null);
 
 // 驳回弹窗
 const rejectVisible = ref(false);
@@ -442,6 +458,40 @@ async function toggleAvailability(row: CertificationItem, nextValue: boolean) {
   }
 }
 
+async function handleDelete(row: CertificationItem) {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除「${row.display_name || row.real_name || `#${row.id}`}」吗？删除后会清空摄影师账号、关联业务数据，以及已上传到 COS 的图片，且不可恢复。`,
+      "删除摄影师",
+      {
+        confirmButtonText: "确认删除",
+        cancelButtonText: "取消",
+        type: "warning"
+      }
+    );
+  } catch {
+    return;
+  }
+
+  deletingPhotographerId.value = row.id;
+  try {
+    await api.delete(withAdminApiPrefix(`/photographers/${row.id}`));
+    if (currentItem.value?.id === row.id) {
+      detailVisible.value = false;
+      currentItem.value = null;
+    }
+    if (items.value.length === 1 && page.value > 1) {
+      page.value -= 1;
+    }
+    await load();
+    ElMessage.success("已删除摄影师");
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.detail || "删除失败");
+  } finally {
+    deletingPhotographerId.value = null;
+  }
+}
+
 // ---------- 审核通过 ----------
 async function handleApprove(row: CertificationItem) {
   try {
@@ -518,6 +568,10 @@ function availabilityLabel(row: CertificationItem) {
 
 function availabilityType(row: CertificationItem) {
   return (row.is_accepting_orders ? "success" : "info") as any;
+}
+
+function canDeletePhotographer(row: CertificationItem | null) {
+  return !!row && !row.is_accepting_orders;
 }
 
 function maskIdCard(num: string | null) {
