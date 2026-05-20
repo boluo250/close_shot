@@ -46,6 +46,7 @@ Page({
     bioTemplates: [],
 
     profile: {
+      display_name: "",
       bio: "",
       tags: "",
       avatar_url: "",
@@ -248,6 +249,10 @@ Page({
     this.setData({ "profile.bio": e.detail.value });
   },
 
+  onDisplayName(e) {
+    this.setData({ "profile.display_name": e.detail.value });
+  },
+
   useBioTemplate(e) {
     const tpl = e.currentTarget.dataset.tpl;
     this.setData({ "profile.bio": tpl });
@@ -350,6 +355,7 @@ Page({
         : (profile.drone_models || "").split(",").map((s) => s.trim()).filter((s) => s);
       this.setData({
         profile: {
+          display_name: profile.display_name || "",
           bio: profile.bio || "",
           tags: profile.tags || "",
           avatar_url: profile.avatar_url || "",
@@ -448,6 +454,7 @@ Page({
     }
 
     const payload = {
+      display_name: (this.data.profile.display_name || "").trim() || null,
       bio: this.data.profile.bio,
       tags: "",
       avatar_url: avatarUrl || null,
@@ -459,6 +466,7 @@ Page({
     };
     await this.studioRequest("/studio/me", { method: "PUT", data: payload });
     this.setData({
+      "profile.display_name": (this.data.profile.display_name || "").trim(),
       "profile.avatar_url": avatarUrl,
       "profile.tags": "",
       avatarObjectKey: "",

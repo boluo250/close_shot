@@ -15,6 +15,7 @@ from app.schemas.photographer import PackageOut, PhotographerOut, PortfolioItemO
 
 
 class PhotographerUpdateIn(BaseModel):
+    display_name: str | None = Field(default=None, max_length=128)
     avatar_url: str | None = Field(default=None, max_length=512)
     avatar_object_key: str | None = Field(default=None, max_length=512)
     cover_url: str | None = Field(default=None, max_length=512)
@@ -102,4 +103,3 @@ class ScheduleItemOut(BaseModel):
 
 class ScheduleListOut(BaseModel):
     items: list[ScheduleItemOut]
-

@@ -11,10 +11,12 @@ from fastapi.testclient import TestClient
 from app.api.deps import get_current_user
 from app.api.routes import admin as admin_routes
 from app.api.routes import membership as membership_routes
+from app.api.routes import studio as studio_routes
 from app.api.routes import upload as upload_routes
 from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
 from app.main import create_app
+from app.schemas.studio import PhotographerUpdateIn
 from app.services import storage as storage_service
 from app.services.storage import create_upload_token
 
@@ -257,6 +259,28 @@ def test_admin_approve_enables_accepting_orders_when_location_ready(monkeypatch)
     assert photographer.is_accepting_orders is True
     assert photographer_user.role == "photographer"
     assert calls["photographer_ids"] == [7]
+    assert db.commit_calls == 1
+
+
+def test_studio_update_me_persists_display_name():
+    user = SimpleNamespace(display_name="旧名字", avatar_url="https://example.com/old.jpg")
+    photographer = SimpleNamespace(
+        bio="旧简介",
+        tags="",
+        cover_url=None,
+        rate_card_json="[]",
+        user=user,
+        last_active_at=None,
+    )
+    db = FakeDB(scalar_results=[photographer])
+    me = SimpleNamespace(role="photographer", id=9)
+    payload = PhotographerUpdateIn(display_name="  新摄影师名  ", bio="新简介")
+
+    result = studio_routes.update_me(payload, me, db)
+
+    assert user.display_name == "新摄影师名"
+    assert photographer.bio == "新简介"
+    assert result.photographer.display_name == "新摄影师名"
     assert db.commit_calls == 1
 
 

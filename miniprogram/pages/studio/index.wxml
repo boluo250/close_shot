@@ -52,6 +52,16 @@
       </view>
     </view>
 
+    <view class="field-label">摄影师姓名</view>
+    <view class="section-tip">会展示在你的摄影师主页和列表卡片里</view>
+    <input
+      class="bio-input"
+      placeholder="请输入展示给客户看的姓名"
+      value="{{profile.display_name}}"
+      bindinput="onDisplayName"
+      maxlength="20"
+    />
+
     <!-- 简介：模板 + 输入 -->
     <view class="field-label">个人简介</view>
     <view class="section-tip">当前状态：{{profile.bio ? '已填写，可继续修改' : '未填写，建议补充'}}</view>

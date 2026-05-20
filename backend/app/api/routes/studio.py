@@ -90,6 +90,9 @@ def update_me(
         stream, _ = get_object_stream(data["cover_object_key"])
         if data.get("cover_url") is None:
             data["cover_url"] = object_key_to_url(data["cover_object_key"])
+    if "display_name" in data and p.user:
+        display_name = (data.pop("display_name") or "").strip() or None
+        p.user.display_name = display_name
     if data.get("avatar_url") is not None and p.user:
         p.user.avatar_url = data.pop("avatar_url")
     data.pop("avatar_object_key", None)
