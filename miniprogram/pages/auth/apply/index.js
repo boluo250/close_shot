@@ -455,8 +455,6 @@ Page({
     this.setData({ rateCardDraft: items }, () => this._rebuildOfferingsDraft());
   },
 
-  _validateStep2() {},
-
   // ========== Step 3: 联系方式 ==========
   onPhoneInput(e) {
     this.setData({ phone: e.detail.value });
@@ -607,9 +605,13 @@ Page({
       wx.showToast({ title: "请完善实名认证信息", icon: "none" });
       return;
     }
-    if (step === 2 && !this.data.step2Valid) {
-      wx.showToast({ title: "请填写摄影师昵称", icon: "none" });
-      return;
+    if (step === 2) {
+      const hasDisplayName = (this.data.displayName || "").trim().length > 0;
+      this.setData({ step2Valid: hasDisplayName });
+      if (!hasDisplayName) {
+        wx.showToast({ title: "请填写摄影师昵称", icon: "none" });
+        return;
+      }
     }
     if (step < 3) {
       this.setData({ step: step + 1 });
