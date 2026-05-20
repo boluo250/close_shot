@@ -192,16 +192,7 @@ Page({
       const status = identity.photographer_status;
       const isApproved = identity.role === "admin" || status === "approved";
       if (!isApproved) {
-        const reason = identity.photographer_reject_reason || "";
-        if (status === "pending") {
-          wx.redirectTo({ url: "/pages/auth/review/index" });
-        } else if (status === "rejected") {
-          wx.redirectTo({
-            url: `/pages/auth/rejected/index?reason=${encodeURIComponent(reason)}`
-          });
-        } else {
-          wx.redirectTo({ url: "/pages/auth/apply/index" });
-        }
+        wx.redirectTo({ url: "/pages/auth/apply/index" });
         return;
       }
       this.setData({ token: t || "", authorized: true });

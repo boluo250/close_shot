@@ -35,7 +35,7 @@ function request(path, { method = "GET", data = null, params = null, auth = fals
         return;
       }
 
-      // 登录态过期/删号后自动清理缓存并重登一次，避免认证中心显示旧状态
+      // 登录态过期/删号后自动清理缓存并重登一次，避免入驻中心显示旧状态
       if (auth && res.statusCode === 401) {
         clearAuthState();
         token = await ensureLogin();
@@ -54,4 +54,3 @@ function request(path, { method = "GET", data = null, params = null, auth = fals
 }
 
 module.exports = { request };
-

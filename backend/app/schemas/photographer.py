@@ -137,8 +137,11 @@ class CertificationDetailOut(TimestampOut):
     certification_level: int = 0
     quality_score: float = 5.0
     sort_score: float = 50.0
+    trust_score: int = 70
+    risk_level: str = "low"
+    blacklist_status: str = "normal"
 
-    # 实名信息
+    # 补充实名信息（可选）
     real_name: str | None = None
     id_card_number: str | None = None
     id_card_front_url: str | None = None

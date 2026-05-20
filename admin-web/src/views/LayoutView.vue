@@ -13,6 +13,7 @@
     <el-menu mode="horizontal" router :default-active="$route.path" style="margin-bottom: 16px">
       <template v-if="auth.identity?.role === 'admin'">
         <el-menu-item :index="withAdminWebBase('/admin/certifications')">认证审核</el-menu-item>
+        <el-menu-item :index="withAdminWebBase('/admin/risk-users')">风险管理</el-menu-item>
         <el-menu-item :index="withAdminWebBase('/admin/analytics')">埋点分析</el-menu-item>
         <el-menu-item :index="withAdminWebBase('/admin/user-portraits')">用户画像</el-menu-item>
         <el-menu-item :index="withAdminWebBase('/admin/db')">数据库浏览</el-menu-item>

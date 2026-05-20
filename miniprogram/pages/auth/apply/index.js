@@ -6,15 +6,13 @@ const PRICE_RANGES = ["199-399", "399-699", "699+"];
 
 Page({
   data: {
-    step: 1,        // 当前步骤 1-3
-    totalSteps: 3,
+    step: 1,        // 当前步骤 1-2
+    totalSteps: 2,
     submitting: false,
+    applicationStatus: "not_applied",
+    rejectReason: "",
 
-    // Step 1: 实名认证
-    realName: "",
-    idCardNumber: "",
-
-    // Step 2: 资料完善（选填，但会在详情页展示）
+    // Step 1: 资料完善（昵称必填，其余选填）
     displayName: "",
     portfolioLink: "",
     avatarUrl: "",
@@ -43,7 +41,7 @@ Page({
       unit: ""
     },
 
-    // Step 3: 联系方式
+    // Step 2: 联系方式
     phone: "",
     wechatId: "",
 
@@ -60,7 +58,6 @@ Page({
     // 表单校验
     step1Valid: false,
     step2Valid: false,
-    step3Valid: false,
   },
 
   onLoad() {
@@ -74,64 +71,38 @@ Page({
     try {
       await ensureLogin();
       const res = await request("/me/photographer/certification", { method: "GET", auth: true });
-      const isSubmissionComplete = !!(res.identity_verified && res.contact_verified && res.portfolio_uploaded);
-      // 只有资料完整且已提交审核时，才直接跳转审核页；否则允许继续补资料/补传作品
-      if (res.status === "pending" && isSubmissionComplete) {
-        wx.redirectTo({ url: "/pages/auth/review/index" });
-        return;
-      }
-      if (res.status === "pending") {
-        wx.showToast({ title: "资料未完整，可继续补充后重提", icon: "none" });
-      }
-      // 如果已通过认证，跳转工作台
+
       if (res.status === "approved") {
-        wx.showToast({ title: "你已通过认证", icon: "none" });
-        wx.reLaunch({ url: "/pages/home/index?tab=mine" });
+        wx.showToast({ title: "你已通过入驻审核", icon: "none" });
+        wx.redirectTo({ url: "/pages/studio/index" });
         return;
       }
+      this.setData({
+        applicationStatus: res.status || "not_applied",
+        rejectReason: res.reject_reason || ""
+      });
     } catch (e) {
-      // 未申请过，正常显示认证表单
+      this.setData({ applicationStatus: "not_applied", rejectReason: "" });
     }
-  },
-
-  // ========== Step 1: 实名认证 ==========
-  onRealNameInput(e) {
-    this.setData({ realName: e.detail.value });
-    this._validateStep1();
-  },
-
-  onIdCardInput(e) {
-    this.setData({ idCardNumber: e.detail.value });
-    this._validateStep1();
-  },
-
-  _validateStep1() {
-    const { realName, idCardNumber } = this.data;
-    const valid = realName.length >= 2 && this._isValidIdCard(idCardNumber);
-    this.setData({ step1Valid: valid });
-  },
-
-  _isValidIdCard(num) {
-    return /^\d{15}$|^\d{17}[\dXx]$/.test(num);
   },
 
   onPortfolioLinkInput(e) {
     this.setData({ portfolioLink: e.detail.value });
   },
 
-  // ========== Step 2: 基础资料/设备/作品/套餐/报价 ==========
+  // ========== Step 1: 基础资料/设备/作品/套餐/报价 ==========
   onDisplayNameInput(e) {
     this.setData({ displayName: e.detail.value });
-    this._validateStep2();
+    this._validateStep1();
   },
 
   onBioInput(e) {
     this.setData({ bio: e.detail.value });
   },
 
-  _validateStep2() {
+  _validateStep1() {
     const valid = (this.data.displayName || "").trim().length > 0;
-    this.setData({ step2Valid: valid });
+    this.setData({ step1Valid: valid });
   },
 
   async loadBioTemplates() {
@@ -455,15 +426,15 @@ Page({
     this.setData({ rateCardDraft: items }, () => this._rebuildOfferingsDraft());
   },
 
-  // ========== Step 3: 联系方式 ==========
+  // ========== Step 2: 联系方式 ==========
   onPhoneInput(e) {
     this.setData({ phone: e.detail.value });
-    this._validateStep3();
+    this._validateStep2();
   },
 
   onWechatInput(e) {
     this.setData({ wechatId: e.detail.value });
-    this._validateStep3();
+    this._validateStep2();
   },
 
   onCityInput(e) {
@@ -592,28 +563,20 @@ Page({
     }
   },
 
-  _validateStep3() {
+  _validateStep2() {
     const { phone, wechatId } = this.data;
     const valid = /^1\d{10}$/.test(phone) && wechatId.length > 0;
-    this.setData({ step3Valid: valid });
+    this.setData({ step2Valid: valid });
   },
 
   // ========== 步骤导航 ==========
   nextStep() {
     const { step } = this.data;
     if (step === 1 && !this.data.step1Valid) {
-      wx.showToast({ title: "请完善实名认证信息", icon: "none" });
+      wx.showToast({ title: "请填写摄影师昵称", icon: "none" });
       return;
     }
-    if (step === 2) {
-      const hasDisplayName = (this.data.displayName || "").trim().length > 0;
-      this.setData({ step2Valid: hasDisplayName });
-      if (!hasDisplayName) {
-        wx.showToast({ title: "请填写摄影师昵称", icon: "none" });
-        return;
-      }
-    }
-    if (step < 3) {
+    if (step < 2) {
       this.setData({ step: step + 1 });
     }
   },
@@ -629,7 +592,7 @@ Page({
   async submitApply() {
     if (this.data.submitting) return;
 
-    if (!this.data.step3Valid) {
+    if (!this.data.step2Valid) {
       wx.showToast({ title: "请填写联系方式", icon: "none" });
       return;
     }
@@ -638,8 +601,6 @@ Page({
     try {
       await ensureLogin();
       const data = {
-        real_name: this.data.realName,
-        id_card_number: this.data.idCardNumber,
         display_name: (this.data.displayName || "").trim(),
         portfolio_link: this.data.portfolioLink || null,
         phone: this.data.phone,
@@ -684,8 +645,12 @@ Page({
       // 单次原子提交：所有校验通过后才真正进入待审核
       await request("/me/photographer/apply", { method: "POST", data, auth: true });
 
+      this.setData({
+        applicationStatus: "pending",
+        rejectReason: "",
+        submitting: false
+      });
       wx.showToast({ title: "已提交，等待审核", icon: "none" });
-      wx.redirectTo({ url: "/pages/auth/review/index" });
     } catch (e) {
       const rawMessage = (e && e.message) || "";
       wx.showToast({
@@ -693,8 +658,15 @@ Page({
         icon: "none"
       });
     } finally {
-      this.setData({ submitting: false });
+      if (this.data.submitting) {
+        this.setData({ submitting: false });
+      }
     }
+  },
+
+  onRefreshStatus() {
+    this._loadCertificationStatus();
+    wx.showToast({ title: "已刷新", icon: "none" });
   },
 
   onBackMine() {

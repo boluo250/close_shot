@@ -11,6 +11,7 @@ import StudioPortfolioView from "./views/StudioPortfolioView.vue";
 import StudioPackagesView from "./views/StudioPackagesView.vue";
 import StudioUploadView from "./views/StudioUploadView.vue";
 import AdminCertificationsView from "./views/AdminCertificationsView.vue";
+import AdminRiskUsersView from "./views/AdminRiskUsersView.vue";
 import AdminAnalyticsView from "./views/AdminAnalyticsView.vue";
 import AdminDbView from "./views/AdminDbView.vue";
 
@@ -29,6 +30,7 @@ export const router = createRouter({
         { path: "studio/portfolio", component: StudioPortfolioView },
         { path: "studio/packages", component: StudioPackagesView },
         { path: "admin/certifications", component: AdminCertificationsView },
+        { path: "admin/risk-users", component: AdminRiskUsersView },
         { path: "admin/analytics", component: AdminAnalyticsView },
         { path: "admin/db", component: AdminDbView },
         {

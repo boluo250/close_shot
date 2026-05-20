@@ -27,6 +27,18 @@ class UserRole(str, enum.Enum):
     admin = "admin"
 
 
+class RiskLevel(str, enum.Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+
+
+class BlacklistStatus(str, enum.Enum):
+    normal = "normal"
+    watch = "watch"
+    blocked = "blocked"
+
+
 class PhotographerStatus(str, enum.Enum):
     pending = "pending"
     approved = "approved"
@@ -62,6 +74,11 @@ class User(TimestampMixin, Base):
     avatar_url: Mapped[str | None] = mapped_column(String(512))
     is_member: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     member_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    trust_score: Mapped[int] = mapped_column(Integer, nullable=False, default=70)
+    risk_level: Mapped[str] = mapped_column(String(16), nullable=False, default=RiskLevel.low.value)
+    blacklist_status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default=BlacklistStatus.normal.value
+    )
 
     photographer: Mapped["Photographer | None"] = relationship(back_populates="user", uselist=False)
 
@@ -90,8 +107,8 @@ class Photographer(TimestampMixin, Base):
     # 常驻城市（用于筛选/展示）
     city: Mapped[str | None] = mapped_column(String(64))
 
-    # ---- 认证字段 ----
-    # Step 1: 实名认证
+    # ---- 入驻资料字段 ----
+    # 可选补充实名
     real_name: Mapped[str | None] = mapped_column(String(64))
     id_card_number: Mapped[str | None] = mapped_column(String(18))
     id_card_front_url: Mapped[str | None] = mapped_column(String(512))

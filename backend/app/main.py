@@ -229,9 +229,14 @@ def _classify_user_operation(request: Request, request_json: dict[str, Any]) -> 
     if path == "/photographers/apply" and method == "POST":
         return _UserAuditMeta("mini_program", "apply_photographer", "申请成为摄影师", "photographer_profile")
     if path == "/me/photographer/apply" and method == "POST":
-        return _UserAuditMeta("mini_program", "submit_certification", "提交摄影师认证", "photographer_certification")
+        return _UserAuditMeta("mini_program", "submit_photographer_application", "提交摄影师入驻", "photographer_application")
     if path == "/me/photographer/tencent-realname/verify" and method == "POST":
-        return _UserAuditMeta("mini_program", "verify_realname", "发起实名认证校验", "realname_verification")
+        return _UserAuditMeta(
+            "mini_program",
+            "verify_realname",
+            "发起高风险补充实名校验",
+            "realname_verification",
+        )
     if path == "/membership/orders" and method == "POST":
         return _UserAuditMeta(
             "mini_program",

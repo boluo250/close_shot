@@ -2,6 +2,47 @@
   padding-bottom: 60rpx;
 }
 
+.status-card {
+  margin: 24rpx;
+}
+
+.status-pending {
+  background: linear-gradient(180deg, rgba(191, 232, 74, 0.14), rgba(255, 255, 255, 0.96));
+}
+
+.status-rejected {
+  border: 2rpx solid rgba(231, 76, 60, 0.14);
+}
+
+.status-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--cs-color-text, #111827);
+}
+
+.status-desc {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--cs-color-muted, #8a8f98);
+  line-height: 1.6;
+}
+
+.status-reason {
+  margin-top: 16rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 16rpx;
+  background: rgba(231, 76, 60, 0.08);
+  color: #b5473a;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.status-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+
 /* ========== 进度条 ========== */
 .progress-bar {
   padding: 30rpx 24rpx 20rpx;

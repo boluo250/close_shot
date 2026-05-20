@@ -27,18 +27,18 @@ Page({
       loginNickname: "微信用户",
       loginTitle: "微信一键登录",
       loggingInTitle: "登录中...",
-      loginTip: "登录后可同步收藏，并继续摄影师认证流程。",
+      loginTip: "登录后可同步收藏，并继续摄影师入驻流程。",
       logoutTitle: "退出登录",
       favoriteLabel: "收藏",
       studioTitle: "摄影师工作台",
       studioDescGuest: "登录后可申请成为摄影师",
       studioDescApproved: "进入工作台管理作品和资料",
-      studioDescDefault: "提交或查看认证进度",
+      studioDescDefault: "提交入驻资料或查看审核状态",
       sectionTitle: "常用功能",
       editProfileTitle: "编辑摄影师主页",
       editProfileDesc: "更新主页信息、接单状态与作品展示",
-      certTitle: "认证中心",
-      certDesc: "查看认证进度和审核结果",
+      certTitle: "入驻中心",
+      certDesc: "提交入驻资料和查看审核状态",
       membershipTitle: "开通会员",
       membershipDescGuest: "登录后立即开通，解锁联系方式查看",
       membershipDescNonMember: "开通后可查看摄影师联系方式",
@@ -46,10 +46,10 @@ Page({
       statusGuest: "未登录",
       statusUser: "普通用户",
       statusAdmin: "管理员",
-      certApproved: "已认证",
+      certApproved: "已入驻",
       certPending: "审核中",
-      certRejected: "未通过",
-      certNotApplied: "未认证",
+      certRejected: "需修改",
+      certNotApplied: "未提交",
       certLoading: "状态查询中"
     },
     viewState: {
@@ -301,7 +301,7 @@ Page({
       return;
     }
     if (this.data.photographerStatus !== "approved") {
-      wx.showToast({ title: "认证通过后可编辑", icon: "none" });
+      wx.showToast({ title: "入驻通过后可编辑", icon: "none" });
       return;
     }
     wx.navigateTo({ url: "/pages/studio/index" });
@@ -316,13 +316,6 @@ Page({
       const isApproved = data.role === "admin" || status === "approved";
       if (isApproved) {
         wx.navigateTo({ url: "/pages/studio/index" });
-      } else if (status === "pending") {
-        wx.navigateTo({ url: "/pages/auth/review/index" });
-      } else if (status === "rejected") {
-        const reason = data.photographer_reject_reason || "";
-        wx.navigateTo({
-          url: `/pages/auth/rejected/index?reason=${encodeURIComponent(reason)}`
-        });
       } else {
         wx.navigateTo({ url: "/pages/auth/apply/index" });
       }
@@ -372,4 +365,3 @@ Page({
     }
   }
 });
-

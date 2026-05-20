@@ -11,7 +11,17 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.db.models import BioTemplate, Favorite, Package, Photographer, PhotographerStatus, PortfolioItem, User, UserRole
+from app.db.models import (
+    BioTemplate,
+    BlacklistStatus,
+    Favorite,
+    Package,
+    Photographer,
+    PhotographerStatus,
+    PortfolioItem,
+    User,
+    UserRole,
+)
 from app.db.session import get_db
 from app.schemas.me import (
     CertificationStatusOut,
@@ -82,8 +92,8 @@ def _build_certification_status(p: Photographer | None, db: Session) -> Certific
     contact_verified = bool(p.phone and p.wechat_id)
 
     return CertificationStatusOut(
-        status=p.status,
-        certification_level=p.certification_level,
+        status=p.status or "not_applied",
+        certification_level=int(p.certification_level or 0),
         reject_reason=p.reject_reason,
         identity_verified=identity_verified,
         portfolio_uploaded=portfolio_uploaded,
@@ -291,6 +301,9 @@ def my_identity(me: User = Depends(get_current_user)) -> MeIdentityOut:
         certification_level=cert_level,
         is_member=me.is_member,
         member_expires_at=me.member_expires_at,
+        trust_score=me.trust_score,
+        risk_level=me.risk_level,
+        blacklist_status=me.blacklist_status,
     )
 
 
@@ -332,8 +345,16 @@ def apply_photographer(
     db: Session = Depends(get_db),
 ) -> CertificationStatusOut:
     """提交摄影师入驻认证（原子提交：全部校验通过后才进入待审核）"""
-    if not ID_CARD_PATTERN.match(payload.id_card_number):
+    if me.blacklist_status == BlacklistStatus.blocked.value:
+        raise HTTPException(status_code=403, detail="该账号已被限制，暂不可提交入驻申请")
+
+    real_name = (payload.real_name or "").strip() or None
+    id_card_number = (payload.id_card_number or "").strip() or None
+    if bool(real_name) != bool(id_card_number):
+        raise HTTPException(status_code=400, detail="真实姓名和身份证号需同时填写，或都留空")
+    if id_card_number and not ID_CARD_PATTERN.match(id_card_number):
         raise HTTPException(status_code=400, detail="身份证号格式不正确")
+
     display_name = (payload.display_name or "").strip()
     if not display_name:
         raise HTTPException(status_code=400, detail="请填写摄影师昵称")
@@ -384,8 +405,8 @@ def apply_photographer(
     if me.role != UserRole.photographer.value:
         me.role = UserRole.photographer.value
 
-    p.real_name = payload.real_name
-    p.id_card_number = payload.id_card_number
+    p.real_name = real_name
+    p.id_card_number = id_card_number
     if payload.id_card_front_url is not None:
         p.id_card_front_url = payload.id_card_front_url
     if payload.id_card_back_url is not None:
@@ -460,9 +481,10 @@ def verify_tencent_real_person(
 ) -> TencentRealPersonVerifyOut:
     """
     腾讯云实名实人认证预留接口（占位）。
-    当前仅做基础参数校验，后续在此处接入腾讯云官方 API。
+    当前仅做基础参数校验，后续用于高风险用户的补充校验。
     """
-    _ = me  # 触发登录校验
+    if me.blacklist_status == BlacklistStatus.blocked.value:
+        raise HTTPException(status_code=403, detail="该账号已被限制，暂不可发起补充校验")
     if not ID_CARD_PATTERN.match(payload.id_card_number):
         raise HTTPException(status_code=400, detail="身份证号格式不正确")
     return TencentRealPersonVerifyOut()

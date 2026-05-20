@@ -12,14 +12,17 @@ class MeIdentityOut(BaseModel):
     certification_level: int = 0
     is_member: bool = False
     member_expires_at: datetime | None = None
+    trust_score: int = 70
+    risk_level: str = "low"
+    blacklist_status: str = "normal"
 
 
 class PhotographerApplyIn(BaseModel):
     """摄影师入驻认证提交表单"""
 
-    # Step 1: 实名认证（必填）
-    real_name: str = Field(min_length=2, max_length=64, description="真实姓名")
-    id_card_number: str = Field(min_length=15, max_length=18, description="身份证号")
+    # 可选补充实名（高风险用户后续可引导补充）
+    real_name: str | None = Field(default=None, min_length=2, max_length=64, description="真实姓名")
+    id_card_number: str | None = Field(default=None, min_length=15, max_length=18, description="身份证号")
     id_card_front_url: str | None = Field(default=None, max_length=512, description="身份证正面照片（预留）")
     id_card_back_url: str | None = Field(default=None, max_length=512, description="身份证反面照片（预留）")
 
@@ -91,7 +94,7 @@ class TencentRealPersonVerifyOut(BaseModel):
     provider: str = "tencent_cloud"
     verified: bool = False
     code: str = "NOT_IMPLEMENTED"
-    message: str = "腾讯云实名实人认证接口预留中，后续版本接入"
+    message: str = "腾讯云实名实人认证接口预留中，后续仅对高风险用户触发"
 
 
 class CertificationStatusOut(BaseModel):
@@ -100,6 +103,6 @@ class CertificationStatusOut(BaseModel):
     certification_level: int = 0
     reject_reason: str | None = None
     # 各步骤完成状态
-    identity_verified: bool = False  # 实名认证是否已填
+    identity_verified: bool = False  # 是否已补充实名信息（可选）
     portfolio_uploaded: bool = False  # 作品是否已上传
     contact_verified: bool = False   # 联系方式是否已填

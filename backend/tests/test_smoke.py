@@ -303,10 +303,9 @@ def test_apply_photographer_persists_display_name():
         role="customer",
         display_name="微信用户",
         avatar_url=None,
+        blacklist_status="normal",
     )
     payload = me_routes.PhotographerApplyIn(
-        real_name="张三",
-        id_card_number="110101199001011234",
         display_name="  阿青摄影  ",
         phone="13800138000",
         wechat_id="aq-photo",
@@ -317,6 +316,58 @@ def test_apply_photographer_persists_display_name():
     assert result.status == "pending"
     assert me.role == "photographer"
     assert me.display_name == "阿青摄影"
+    assert db.commit_calls == 1
+
+
+def test_apply_photographer_rejects_blocked_user():
+    from app.api.routes import me as me_routes
+
+    db = FakeDB()
+    me = SimpleNamespace(
+        id=12,
+        role="customer",
+        display_name="微信用户",
+        avatar_url=None,
+        blacklist_status="blocked",
+    )
+    payload = me_routes.PhotographerApplyIn(
+        display_name="被限制用户",
+        phone="13800138000",
+        wechat_id="blocked-user",
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        me_routes.apply_photographer(payload, me, db)
+
+    assert exc_info.value.status_code == 403
+    assert "已被限制" in exc_info.value.detail
+    assert db.commit_calls == 0
+
+
+def test_admin_can_update_user_risk_status():
+    user = SimpleNamespace(
+        id=21,
+        display_name="风险用户",
+        role="customer",
+        is_member=False,
+        trust_score=70,
+        risk_level="low",
+        blacklist_status="normal",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    db = FakeDB(scalar_results=[user, None])
+    admin_user = SimpleNamespace(role="admin")
+    payload = admin_routes.RiskUserUpdateIn(trust_score=42, risk_level="high", blacklist_status="watch")
+
+    result = admin_routes.update_risk_user(21, payload, admin_user, db)
+
+    assert result.trust_score == 42
+    assert result.risk_level == "high"
+    assert result.blacklist_status == "watch"
+    assert user.trust_score == 42
+    assert user.risk_level == "high"
+    assert user.blacklist_status == "watch"
     assert db.commit_calls == 1
 
 

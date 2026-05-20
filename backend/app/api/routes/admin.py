@@ -15,12 +15,14 @@ from app.api.deps import get_current_user
 from app.db.models import (
     AdminOperationLog,
     AnalyticsEvent,
+    BlacklistStatus,
     Favorite,
     MembershipOrder,
     Package,
     Photographer,
     PhotographerStatus,
     PortfolioItem,
+    RiskLevel,
     Review,
     ScheduleBlock,
     User,
@@ -61,6 +63,32 @@ class ContactAccessSettingOut(BaseModel):
 
 class PhotographerQualityScoreIn(BaseModel):
     score: float
+
+
+class RiskUserItemOut(BaseModel):
+    user_id: int
+    display_name: str | None
+    role: str
+    photographer_status: str | None = None
+    phone: str | None = None
+    real_name: str | None = None
+    is_member: bool
+    trust_score: int
+    risk_level: str
+    blacklist_status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class RiskUserListOut(BaseModel):
+    items: list[RiskUserItemOut]
+    total: int
+
+
+class RiskUserUpdateIn(BaseModel):
+    trust_score: int
+    risk_level: Literal["low", "medium", "high"]
+    blacklist_status: Literal["normal", "watch", "blocked"]
 
 
 class DbTableListOut(BaseModel):
@@ -256,8 +284,28 @@ def _photographer_to_detail(
     data = CertificationDetailOut.model_validate(p).model_dump()
     data["display_name"] = p.user.display_name if p.user else None
     data["avatar_url"] = p.user.avatar_url if p.user else None
+    data["trust_score"] = p.user.trust_score if p.user else 70
+    data["risk_level"] = p.user.risk_level if p.user else RiskLevel.low.value
+    data["blacklist_status"] = p.user.blacklist_status if p.user else BlacklistStatus.normal.value
     data["portfolio_image_urls"] = (portfolio_preview_map or {}).get(int(p.id), [])
     return CertificationDetailOut(**data)
+
+
+def _user_to_risk_item(user: User, photographer: Photographer | None) -> RiskUserItemOut:
+    return RiskUserItemOut(
+        user_id=int(user.id),
+        display_name=user.display_name,
+        role=user.role,
+        photographer_status=photographer.status if photographer else None,
+        phone=photographer.phone if photographer else None,
+        real_name=photographer.real_name if photographer else None,
+        is_member=bool(user.is_member),
+        trust_score=int(user.trust_score),
+        risk_level=user.risk_level,
+        blacklist_status=user.blacklist_status,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+    )
 
 
 def _build_user_portrait_tags(
@@ -522,6 +570,84 @@ def update_contact_access_setting(
     _require_admin(me)
     mode = set_contact_access_mode(db, payload.mode)
     return ContactAccessSettingOut(mode=mode)
+
+
+@router.get("/risk-users", response_model=RiskUserListOut)
+def list_risk_users(
+    risk_level: str | None = Query(default=None, description="按风险等级筛选: low / medium / high"),
+    blacklist_status: str | None = Query(default=None, description="按黑名单状态筛选: normal / watch / blocked"),
+    keyword: str | None = Query(default=None, description="按昵称/姓名/手机号搜索"),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RiskUserListOut:
+    _require_admin(me)
+
+    stmt = select(User, Photographer).outerjoin(Photographer, Photographer.user_id == User.id)
+    count_stmt = select(func.count(User.id)).outerjoin(Photographer, Photographer.user_id == User.id)
+
+    if risk_level:
+        stmt = stmt.where(User.risk_level == risk_level)
+        count_stmt = count_stmt.where(User.risk_level == risk_level)
+    if blacklist_status:
+        stmt = stmt.where(User.blacklist_status == blacklist_status)
+        count_stmt = count_stmt.where(User.blacklist_status == blacklist_status)
+    if keyword:
+        like_pattern = f"%{keyword}%"
+        cond = (
+            User.display_name.ilike(like_pattern)
+            | Photographer.real_name.ilike(like_pattern)
+            | Photographer.phone.ilike(like_pattern)
+        )
+        stmt = stmt.where(cond)
+        count_stmt = count_stmt.where(cond)
+
+    risk_order = case(
+        (User.blacklist_status == BlacklistStatus.blocked.value, 0),
+        (User.blacklist_status == BlacklistStatus.watch.value, 1),
+        (User.risk_level == RiskLevel.high.value, 2),
+        (User.risk_level == RiskLevel.medium.value, 3),
+        else_=4,
+    )
+    rows = db.execute(
+        stmt.order_by(risk_order.asc(), User.trust_score.asc(), User.updated_at.desc()).limit(limit).offset(offset)
+    ).all()
+    total = db.scalar(count_stmt) or 0
+    return RiskUserListOut(
+        items=[_user_to_risk_item(user, photographer) for user, photographer in rows],
+        total=int(total),
+    )
+
+
+@router.put("/risk-users/{user_id}", response_model=RiskUserItemOut)
+def update_risk_user(
+    user_id: int,
+    payload: RiskUserUpdateIn,
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RiskUserItemOut:
+    _require_admin(me)
+    if payload.trust_score < 0 or payload.trust_score > 100:
+        raise HTTPException(status_code=400, detail="trust_score must be between 0 and 100")
+
+    user = db.scalar(select(User).where(User.id == user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="user not found")
+
+    user.trust_score = int(payload.trust_score)
+    user.risk_level = payload.risk_level
+    user.blacklist_status = payload.blacklist_status
+
+    photographer = db.scalar(select(Photographer).where(Photographer.user_id == user.id))
+    if payload.blacklist_status == BlacklistStatus.blocked.value and photographer:
+        photographer.is_accepting_orders = False
+
+    db.commit()
+    db.refresh(user)
+    if photographer:
+        db.refresh(photographer)
+    return _user_to_risk_item(user, photographer)
 
 
 @router.get("/db/tables", response_model=DbTableListOut)

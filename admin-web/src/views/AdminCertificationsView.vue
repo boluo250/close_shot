@@ -85,6 +85,18 @@
           <span v-else style="color: #999">-</span>
         </template>
       </el-table-column>
+      <el-table-column label="履约分" width="90">
+        <template #default="{ row }">
+          {{ row.trust_score ?? 70 }}
+        </template>
+      </el-table-column>
+      <el-table-column label="风险" width="110">
+        <template #default="{ row }">
+          <el-tag :type="riskType(row.risk_level)" size="small">
+            {{ riskLabel(row.risk_level) }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="操作" width="320" fixed="right">
         <template #default="{ row }">
           <el-button size="small" @click="openDetail(row)">详情</el-button>
@@ -152,6 +164,17 @@
         <el-descriptions-item label="认证等级">
           {{ currentItem.certification_level > 0 ? `Lv${currentItem.certification_level}` : '未认证' }}
         </el-descriptions-item>
+        <el-descriptions-item label="履约分">{{ currentItem.trust_score ?? 70 }}</el-descriptions-item>
+        <el-descriptions-item label="风险等级">
+          <el-tag :type="riskType(currentItem.risk_level)" size="small">
+            {{ riskLabel(currentItem.risk_level) }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="黑名单">
+          <el-tag :type="blacklistType(currentItem.blacklist_status)" size="small">
+            {{ blacklistLabel(currentItem.blacklist_status) }}
+          </el-tag>
+        </el-descriptions-item>
         <el-descriptions-item label="接单状态">
           <el-tag v-if="currentItem.status === 'approved'" :type="availabilityType(currentItem)" size="small">
             {{ availabilityLabel(currentItem) }}
@@ -160,7 +183,7 @@
         </el-descriptions-item>
       </el-descriptions>
 
-      <el-divider content-position="left">实名信息</el-divider>
+      <el-divider content-position="left">补充实名信息（可选）</el-divider>
       <el-descriptions :column="2" border>
         <el-descriptions-item label="真实姓名">{{ currentItem.real_name || '-' }}</el-descriptions-item>
         <el-descriptions-item label="身份证号">{{ maskIdCard(currentItem.id_card_number) }}</el-descriptions-item>
@@ -320,6 +343,9 @@ type CertificationItem = {
   certification_level: number;
   quality_score: number;
   sort_score: number;
+  trust_score: number;
+  risk_level: string;
+  blacklist_status: string;
   real_name: string | null;
   id_card_number: string | null;
   id_card_front_url: string | null;
@@ -568,6 +594,30 @@ function availabilityLabel(row: CertificationItem) {
 
 function availabilityType(row: CertificationItem) {
   return (row.is_accepting_orders ? "success" : "info") as any;
+}
+
+function riskLabel(level?: string | null) {
+  if (level === "high") return "高风险";
+  if (level === "medium") return "中风险";
+  return "低风险";
+}
+
+function riskType(level?: string | null) {
+  if (level === "high") return "danger";
+  if (level === "medium") return "warning";
+  return "success";
+}
+
+function blacklistLabel(status?: string | null) {
+  if (status === "blocked") return "已拉黑";
+  if (status === "watch") return "观察名单";
+  return "正常";
+}
+
+function blacklistType(status?: string | null) {
+  if (status === "blocked") return "danger";
+  if (status === "watch") return "warning";
+  return "info";
 }
 
 function canDeletePhotographer(row: CertificationItem | null) {
