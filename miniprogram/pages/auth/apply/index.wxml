@@ -64,8 +64,17 @@
   <view class="step-content" wx:if="{{step === 2}}">
     <!-- 基础资料（会展示在详情页） -->
     <view class="cs-card">
-      <view class="section-title">基础资料 <text class="optional">（选填，但会展示）</text></view>
-      <view class="section-desc">头像、简介会出现在你的摄影师详情页</view>
+      <view class="section-title">基础资料 <text class="optional">（昵称必填，其余选填）</text></view>
+      <view class="section-desc">昵称、头像、简介会出现在你的摄影师详情页</view>
+
+      <view class="form-group">
+        <view class="form-label">摄影师昵称 <text class="required">*</text></view>
+        <input class="form-input"
+               placeholder="请输入展示给客户看的昵称"
+               value="{{displayName}}"
+               bindinput="onDisplayNameInput"
+               maxlength="20" />
+      </view>
 
       <view class="form-group">
         <view class="form-label">头像</view>

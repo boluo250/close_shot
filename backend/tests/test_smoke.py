@@ -44,6 +44,9 @@ class FakeDB:
     def add(self, item) -> None:
         self.added.append(item)
 
+    def flush(self) -> None:
+        return None
+
     def commit(self) -> None:
         self.commit_calls += 1
 
@@ -288,6 +291,32 @@ def test_studio_update_me_persists_display_name():
     assert user.display_name == "新摄影师名"
     assert photographer.bio == "新简介"
     assert result.photographer.display_name == "新摄影师名"
+    assert db.commit_calls == 1
+
+
+def test_apply_photographer_persists_display_name():
+    from app.api.routes import me as me_routes
+
+    db = FakeDB(scalar_results=[None, None])
+    me = SimpleNamespace(
+        id=11,
+        role="customer",
+        display_name="微信用户",
+        avatar_url=None,
+    )
+    payload = me_routes.PhotographerApplyIn(
+        real_name="张三",
+        id_card_number="110101199001011234",
+        display_name="  阿青摄影  ",
+        phone="13800138000",
+        wechat_id="aq-photo",
+    )
+
+    result = me_routes.apply_photographer(payload, me, db)
+
+    assert result.status == "pending"
+    assert me.role == "photographer"
+    assert me.display_name == "阿青摄影"
     assert db.commit_calls == 1
 
 

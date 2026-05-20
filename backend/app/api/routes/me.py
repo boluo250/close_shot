@@ -334,6 +334,9 @@ def apply_photographer(
     """提交摄影师入驻认证（原子提交：全部校验通过后才进入待审核）"""
     if not ID_CARD_PATTERN.match(payload.id_card_number):
         raise HTTPException(status_code=400, detail="身份证号格式不正确")
+    display_name = (payload.display_name or "").strip()
+    if not display_name:
+        raise HTTPException(status_code=400, detail="请填写摄影师昵称")
 
     if me.role == UserRole.admin.value:
         return CertificationStatusOut(
@@ -413,6 +416,7 @@ def apply_photographer(
         me.avatar_url = payload.avatar_url
     elif payload.avatar_object_key:
         me.avatar_url = object_key_to_url(payload.avatar_object_key)
+    me.display_name = display_name
 
     # 设为待审核
     p.status = PhotographerStatus.pending.value

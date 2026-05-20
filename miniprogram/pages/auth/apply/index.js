@@ -15,6 +15,7 @@ Page({
     idCardNumber: "",
 
     // Step 2: 资料完善（选填，但会在详情页展示）
+    displayName: "",
     portfolioLink: "",
     avatarUrl: "",
     avatarObjectKey: "",
@@ -58,7 +59,7 @@ Page({
 
     // 表单校验
     step1Valid: false,
-    step2Valid: true,
+    step2Valid: false,
     step3Valid: false,
   },
 
@@ -119,8 +120,18 @@ Page({
   },
 
   // ========== Step 2: 基础资料/设备/作品/套餐/报价 ==========
+  onDisplayNameInput(e) {
+    this.setData({ displayName: e.detail.value });
+    this._validateStep2();
+  },
+
   onBioInput(e) {
     this.setData({ bio: e.detail.value });
+  },
+
+  _validateStep2() {
+    const valid = (this.data.displayName || "").trim().length > 0;
+    this.setData({ step2Valid: valid });
   },
 
   async loadBioTemplates() {
@@ -596,6 +607,10 @@ Page({
       wx.showToast({ title: "请完善实名认证信息", icon: "none" });
       return;
     }
+    if (step === 2 && !this.data.step2Valid) {
+      wx.showToast({ title: "请填写摄影师昵称", icon: "none" });
+      return;
+    }
     if (step < 3) {
       this.setData({ step: step + 1 });
     }
@@ -623,6 +638,7 @@ Page({
       const data = {
         real_name: this.data.realName,
         id_card_number: this.data.idCardNumber,
+        display_name: (this.data.displayName || "").trim(),
         portfolio_link: this.data.portfolioLink || null,
         phone: this.data.phone,
         wechat_id: this.data.wechatId,
