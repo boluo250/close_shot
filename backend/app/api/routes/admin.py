@@ -28,6 +28,7 @@ from app.schemas.analytics import AnalyticsEventListOut, AnalyticsEventOut, Anal
 from app.schemas.photographer import (
     CertificationDetailOut,
     CertificationListOut,
+    PhotographerAvailabilityIn,
     CertificationReviewIn,
 )
 from app.services.membership import get_contact_access_mode, set_contact_access_mode
@@ -357,6 +358,7 @@ def review_certification(
         if not payload.reject_reason:
             raise HTTPException(status_code=400, detail="驳回时必须填写原因")
         p.status = PhotographerStatus.rejected.value
+        p.is_accepting_orders = False
         p.reject_reason = payload.reject_reason
     else:
         raise HTTPException(status_code=400, detail="action 必须是 approve 或 reject")
@@ -364,6 +366,32 @@ def review_certification(
     db.commit()
     if payload.action == "approve":
         recalculate_photographer_sort_scores(db, photographer_ids=[photographer_id])
+    db.refresh(p)
+    preview_map = _build_portfolio_preview_map(db=db, photographer_ids=[int(p.id)])
+    return _photographer_to_detail(p, portfolio_preview_map=preview_map)
+
+
+@router.put("/photographers/{photographer_id}/availability", response_model=CertificationDetailOut)
+def update_photographer_availability(
+    photographer_id: int,
+    payload: PhotographerAvailabilityIn,
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CertificationDetailOut:
+    _require_admin(me)
+
+    p = db.scalar(select(Photographer).where(Photographer.id == photographer_id))
+    if not p:
+        raise HTTPException(status_code=404, detail="photographer not found")
+
+    if payload.is_accepting_orders:
+        if p.status != PhotographerStatus.approved.value:
+            raise HTTPException(status_code=400, detail="只有已通过认证的摄影师才能上线接单")
+        if p.service_center_lat is None or p.service_center_lng is None:
+            raise HTTPException(status_code=400, detail="请先补全服务中心点坐标，再恢复上线")
+
+    p.is_accepting_orders = payload.is_accepting_orders
+    db.commit()
     db.refresh(p)
     preview_map = _build_portfolio_preview_map(db=db, photographer_ids=[int(p.id)])
     return _photographer_to_detail(p, portfolio_preview_map=preview_map)

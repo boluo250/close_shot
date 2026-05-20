@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 from botocore.exceptions import ClientError
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.api.deps import get_current_user
@@ -257,6 +258,88 @@ def test_admin_approve_enables_accepting_orders_when_location_ready(monkeypatch)
     assert photographer_user.role == "photographer"
     assert calls["photographer_ids"] == [7]
     assert db.commit_calls == 1
+
+
+def test_admin_reject_disables_accepting_orders(monkeypatch):
+    photographer = SimpleNamespace(
+        id=8,
+        status="approved",
+        reject_reason=None,
+        certification_level=1,
+        quality_score=7.0,
+        is_accepting_orders=True,
+        service_center_lat=31.2304,
+        service_center_lng=121.4737,
+        user=SimpleNamespace(role="photographer"),
+    )
+    db = FakeDB(scalar_results=[photographer])
+    admin_user = SimpleNamespace(role="admin")
+    payload = admin_routes.CertificationReviewIn(action="reject", reject_reason="资料不符合要求")
+
+    monkeypatch.setattr(admin_routes, "_build_portfolio_preview_map", lambda **_kwargs: {})
+    monkeypatch.setattr(
+        admin_routes,
+        "_photographer_to_detail",
+        lambda p, portfolio_preview_map=None: {"id": p.id, "status": p.status, "is_accepting_orders": p.is_accepting_orders},
+    )
+
+    result = admin_routes.review_certification(8, payload, admin_user, db)
+
+    assert result["status"] == "rejected"
+    assert result["is_accepting_orders"] is False
+    assert photographer.status == "rejected"
+    assert photographer.is_accepting_orders is False
+    assert photographer.reject_reason == "资料不符合要求"
+    assert db.commit_calls == 1
+
+
+def test_admin_can_offline_photographer(monkeypatch):
+    photographer = SimpleNamespace(
+        id=9,
+        status="approved",
+        is_accepting_orders=True,
+        service_center_lat=31.2304,
+        service_center_lng=121.4737,
+    )
+    db = FakeDB(scalar_results=[photographer])
+    admin_user = SimpleNamespace(role="admin")
+    payload = admin_routes.PhotographerAvailabilityIn(is_accepting_orders=False)
+
+    monkeypatch.setattr(admin_routes, "_build_portfolio_preview_map", lambda **_kwargs: {})
+    monkeypatch.setattr(
+        admin_routes,
+        "_photographer_to_detail",
+        lambda p, portfolio_preview_map=None: {"id": p.id, "is_accepting_orders": p.is_accepting_orders},
+    )
+
+    result = admin_routes.update_photographer_availability(9, payload, admin_user, db)
+
+    assert result["is_accepting_orders"] is False
+    assert photographer.is_accepting_orders is False
+    assert db.commit_calls == 1
+
+
+def test_admin_cannot_restore_online_without_location(monkeypatch):
+    photographer = SimpleNamespace(
+        id=10,
+        status="approved",
+        is_accepting_orders=False,
+        service_center_lat=None,
+        service_center_lng=None,
+    )
+    db = FakeDB(scalar_results=[photographer])
+    admin_user = SimpleNamespace(role="admin")
+    payload = admin_routes.PhotographerAvailabilityIn(is_accepting_orders=True)
+
+    monkeypatch.setattr(admin_routes, "_build_portfolio_preview_map", lambda **_kwargs: {})
+
+    with pytest.raises(HTTPException) as exc_info:
+        admin_routes.update_photographer_availability(10, payload, admin_user, db)
+
+    assert exc_info.value.status_code == 400
+    assert "补全服务中心点坐标" in exc_info.value.detail
+    assert photographer.is_accepting_orders is False
+    assert db.commit_calls == 0
 
 
 def test_presign_put_s3_returns_presigned_url(monkeypatch):

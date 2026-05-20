@@ -71,13 +71,21 @@
           </el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="接单" width="100">
+        <template #default="{ row }">
+          <el-tag v-if="row.status === 'approved'" :type="availabilityType(row)" size="small">
+            {{ availabilityLabel(row) }}
+          </el-tag>
+          <span v-else style="color: #999">-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="认证等级" width="90">
         <template #default="{ row }">
           <span v-if="row.certification_level > 0">Lv{{ row.certification_level }}</span>
           <span v-else style="color: #999">-</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="180" fixed="right">
+      <el-table-column label="操作" width="260" fixed="right">
         <template #default="{ row }">
           <el-button size="small" @click="openDetail(row)">详情</el-button>
           <el-button
@@ -92,6 +100,19 @@
             type="danger"
             @click="openReject(row)"
           >驳回</el-button>
+          <el-button
+            v-if="row.status === 'approved' && row.is_accepting_orders"
+            size="small"
+            type="warning"
+            @click="toggleAvailability(row, false)"
+          >下线</el-button>
+          <el-button
+            v-if="row.status === 'approved' && !row.is_accepting_orders"
+            size="small"
+            type="primary"
+            plain
+            @click="toggleAvailability(row, true)"
+          >恢复上线</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -122,6 +143,12 @@
         <el-descriptions-item label="昵称">{{ currentItem.display_name || '-' }}</el-descriptions-item>
         <el-descriptions-item label="认证等级">
           {{ currentItem.certification_level > 0 ? `Lv${currentItem.certification_level}` : '未认证' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="接单状态">
+          <el-tag v-if="currentItem.status === 'approved'" :type="availabilityType(currentItem)" size="small">
+            {{ availabilityLabel(currentItem) }}
+          </el-tag>
+          <span v-else style="color: #999">-</span>
         </el-descriptions-item>
       </el-descriptions>
 
@@ -211,6 +238,19 @@
 
       <div style="margin-top: 16px; text-align: right">
         <el-button
+          v-if="currentItem.status === 'approved' && currentItem.is_accepting_orders"
+          type="warning"
+          :loading="availabilitySaving"
+          @click="toggleAvailability(currentItem, false)"
+        >下线</el-button>
+        <el-button
+          v-if="currentItem.status === 'approved' && !currentItem.is_accepting_orders"
+          type="primary"
+          plain
+          :loading="availabilitySaving"
+          @click="toggleAvailability(currentItem, true)"
+        >恢复上线</el-button>
+        <el-button
           v-if="currentItem.status === 'pending'"
           type="success"
           @click="handleApprove(currentItem); detailVisible = false"
@@ -260,6 +300,7 @@ type CertificationItem = {
   display_name: string | null;
   avatar_url: string | null;
   status: string;
+  is_accepting_orders: boolean;
   reject_reason: string | null;
   certification_level: number;
   quality_score: number;
@@ -298,6 +339,7 @@ const currentItem = ref<CertificationItem | null>(null);
 const detailLoading = ref(false);
 const qualityScoreDraft = ref(5);
 const scoreSaving = ref(false);
+const availabilitySaving = ref(false);
 
 // 驳回弹窗
 const rejectVisible = ref(false);
@@ -362,6 +404,41 @@ async function saveQualityScore() {
     ElMessage.error(e?.response?.data?.detail || "评分保存失败");
   } finally {
     scoreSaving.value = false;
+  }
+}
+
+async function toggleAvailability(row: CertificationItem, nextValue: boolean) {
+  const actionText = nextValue ? "恢复上线" : "下线";
+  try {
+    await ElMessageBox.confirm(
+      nextValue
+        ? `确定将「${row.display_name || row.real_name || `#${row.id}`}」恢复上线吗？`
+        : `确定将「${row.display_name || row.real_name || `#${row.id}`}」一键下线吗？`,
+      actionText,
+      {
+        confirmButtonText: actionText,
+        cancelButtonText: "取消",
+        type: nextValue ? "success" : "warning"
+      }
+    );
+  } catch {
+    return;
+  }
+
+  availabilitySaving.value = true;
+  try {
+    const { data } = await api.put<CertificationItem>(
+      withAdminApiPrefix(`/photographers/${row.id}/availability`),
+      { is_accepting_orders: nextValue }
+    );
+    const idx = items.value.findIndex((x) => x.id === row.id);
+    if (idx >= 0) items.value[idx] = data;
+    if (currentItem.value?.id === row.id) currentItem.value = data;
+    ElMessage.success(nextValue ? "已恢复上线" : "已下线");
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.detail || `${actionText}失败`);
+  } finally {
+    availabilitySaving.value = false;
   }
 }
 
@@ -433,6 +510,14 @@ function statusLabel(s: string) {
 
 function statusType(s: string) {
   return { pending: "warning", approved: "success", rejected: "danger" }[s] as any || "info";
+}
+
+function availabilityLabel(row: CertificationItem) {
+  return row.is_accepting_orders ? "接单中" : "已下线";
+}
+
+function availabilityType(row: CertificationItem) {
+  return (row.is_accepting_orders ? "success" : "info") as any;
 }
 
 function maskIdCard(num: string | null) {

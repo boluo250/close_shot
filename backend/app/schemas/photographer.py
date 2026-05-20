@@ -132,6 +132,7 @@ class CertificationDetailOut(TimestampOut):
     display_name: str | None = None
     avatar_url: str | None = None
     status: str
+    is_accepting_orders: bool = False
     reject_reason: str | None = None
     certification_level: int = 0
     quality_score: float = 5.0
@@ -163,7 +164,10 @@ class CertificationReviewIn(BaseModel):
     reject_reason: str | None = Field(default=None, max_length=500, description="驳回原因（reject 时必填）")
 
 
+class PhotographerAvailabilityIn(BaseModel):
+    is_accepting_orders: bool
+
+
 class CertificationListOut(BaseModel):
     items: list[CertificationDetailOut]
     total: int
-
