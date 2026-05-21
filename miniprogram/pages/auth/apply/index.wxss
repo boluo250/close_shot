@@ -506,6 +506,46 @@
   opacity: 0.45;
 }
 
+.agreement-box {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 28rpx;
+  padding: 24rpx;
+  border-radius: 20rpx;
+  background: rgba(17, 24, 39, 0.04);
+}
+
+.agreement-check {
+  width: 36rpx;
+  height: 36rpx;
+  margin-top: 4rpx;
+  border-radius: 50%;
+  border: 2rpx solid rgba(17, 24, 39, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 22rpx;
+  flex-shrink: 0;
+}
+
+.agreement-check.checked {
+  background: var(--cs-color-primary, #bfe84a);
+  border-color: var(--cs-color-primary, #bfe84a);
+  color: #111827;
+}
+
+.agreement-copy {
+  font-size: 24rpx;
+  line-height: 1.8;
+  color: var(--cs-color-text-2, #374151);
+}
+
+.agreement-link {
+  color: #409eff;
+  margin: 0 4rpx;
+}
+
 /* ========== 按钮区域 ========== */
 .btn-area {
   padding: 30rpx 0 0;

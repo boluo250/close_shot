@@ -1,0 +1,41 @@
+<view class="legal-page">
+  <view class="legal-card">
+    <view class="legal-title">Close Shot 隐私政策</view>
+    <view class="legal-update">生效日期：2026-03-24</view>
+
+    <view class="legal-section">
+      <view class="legal-heading">1. 我们收集的信息</view>
+      <view class="legal-paragraph">在你使用服务过程中，我们可能收集你主动提交或经你授权后提供的信息，包括手机号、微信号、位置信息、补充实名信息、头像、作品图片、服务报价及其他你填写的资料。</view>
+    </view>
+
+    <view class="legal-section">
+      <view class="legal-heading">2. 收集和使用目的</view>
+      <view class="legal-paragraph">上述信息将用于摄影师入驻审核、附近摄影师展示、订单撮合、用户与摄影师沟通联系、服务履约、账号安全、风险控制以及必要的客服处理。</view>
+    </view>
+
+    <view class="legal-section">
+      <view class="legal-heading">3. 收集方式</view>
+      <view class="legal-paragraph">我们通过你在页面表单中主动填写、你授权的小程序能力接口以及你上传图片或提交资料的方式收集相关信息。未经你的授权，我们不会超范围获取个人信息。</view>
+    </view>
+
+    <view class="legal-section">
+      <view class="legal-heading">4. 存储与保护</view>
+      <view class="legal-paragraph">我们会在实现服务所必需的期限内保存你的个人信息，并采取合理的管理和安全措施，防止信息被未经授权访问、披露、篡改或丢失。</view>
+    </view>
+
+    <view class="legal-section">
+      <view class="legal-heading">5. 对外提供与共享</view>
+      <view class="legal-paragraph">除法律法规另有要求外，我们不会向无关第三方出售你的个人信息。对于手机号、微信号等联系方式，仅在完成入驻审核、订单撮合或履约沟通所必需的范围内展示或使用。</view>
+    </view>
+
+    <view class="legal-section">
+      <view class="legal-heading">6. 你的权利</view>
+      <view class="legal-paragraph">你有权查询、更正、删除你提交的信息，也可以撤回相关授权。撤回授权后，可能导致部分功能无法继续使用。</view>
+    </view>
+
+    <view class="legal-section">
+      <view class="legal-heading">7. 未成年人保护</view>
+      <view class="legal-paragraph">如你是未成年人，请在监护人同意和指导下使用本服务，并在提交个人信息前取得监护人授权。</view>
+    </view>
+  </view>
+</view>

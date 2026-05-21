@@ -292,6 +292,19 @@
         </view>
       </view>
 
+      <view class="agreement-box">
+        <view class="agreement-check {{agreeLegal ? 'checked' : ''}}" bindtap="toggleAgreeLegal">
+          <text>{{agreeLegal ? '✓' : ''}}</text>
+        </view>
+        <view class="agreement-copy">
+          <text>我已阅读并同意</text>
+          <text class="agreement-link" catchtap="goAgreement">《用户服务协议》</text>
+          <text>和</text>
+          <text class="agreement-link" catchtap="goPrivacy">《隐私政策》</text>
+          <text>，同意平台按政策说明处理我提交的手机号、微信号、位置信息及入驻资料。</text>
+        </view>
+      </view>
+
       <view class="btn-area btn-area-row">
         <button class="cs-btn back-btn" bindtap="prevStep">上一步</button>
         <button class="cs-btn cs-btn-primary flex-btn {{step2Valid ? '' : 'disabled'}}"

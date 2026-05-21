@@ -1,0 +1,41 @@
+<view class="legal-page">
+  <view class="legal-card">
+    <view class="legal-title">Close Shot 用户服务协议</view>
+    <view class="legal-update">生效日期：2026-03-24</view>
+
+    <view class="legal-section">
+      <view class="legal-heading">1. 服务说明</view>
+      <view class="legal-paragraph">Close Shot 是用于展示摄影师信息、查看作品、收藏摄影师以及与摄影师建立联系的小程序服务。</view>
+    </view>
+
+    <view class="legal-section">
+      <view class="legal-heading">2. 用户注册与使用</view>
+      <view class="legal-paragraph">你在使用本服务时，应提供真实、合法、有效的信息，不得冒用他人身份，不得利用平台从事违法违规活动。</view>
+    </view>
+
+    <view class="legal-section">
+      <view class="legal-heading">3. 信息提交与授权</view>
+      <view class="legal-paragraph">当你申请摄影师入驻、填写手机号、微信号、位置信息、补充实名信息或上传作品时，即表示你授权平台在入驻审核、订单撮合、联系沟通、页面展示和安全风控所必需的范围内处理这些信息。</view>
+    </view>
+
+    <view class="legal-section">
+      <view class="legal-heading">4. 联系方式使用规则</view>
+      <view class="legal-paragraph">平台收集的手机号、微信号仅用于入驻审核、用户下单后的沟通联络及服务履约，不得用于骚扰、倒卖或其他超出服务范围的用途。</view>
+    </view>
+
+    <view class="legal-section">
+      <view class="legal-heading">5. 内容规范</view>
+      <view class="legal-paragraph">你发布的头像、简介、作品、报价和其他内容应合法、真实、准确，不得包含侵权、虚假宣传、违法违规或平台禁止的内容。</view>
+    </view>
+
+    <view class="legal-section">
+      <view class="legal-heading">6. 服务变更与终止</view>
+      <view class="legal-paragraph">如出现违法违规、虚假信息、侵害他人权益或其他不当使用行为，平台有权限制、暂停或终止相关服务，并保留追究责任的权利。</view>
+    </view>
+
+    <view class="legal-section">
+      <view class="legal-heading">7. 隐私保护</view>
+      <view class="legal-paragraph">关于个人信息的处理规则，请同时查阅《隐私政策》。本协议与《隐私政策》共同构成你使用本服务的基础规则。</view>
+    </view>
+  </view>
+</view>
