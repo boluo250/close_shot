@@ -37,6 +37,20 @@
       <view class="cs-card">
         <view class="section-title">基础资料 <text class="optional">（昵称必填，其余选填）</text></view>
         <view class="section-desc">昵称、头像、简介会出现在你的摄影师详情页</view>
+        <view class="legal-inline-tip">
+          <text>继续申请即表示你可随时查看并阅读</text>
+          <text class="agreement-link" catchtap="goAgreement">《用户服务协议》</text>
+          <text>和</text>
+          <text class="agreement-link" catchtap="goPrivacy">《隐私政策》</text>
+        </view>
+        <view class="agreement-box agreement-box-compact">
+          <view class="agreement-check {{agreeLegal ? 'checked' : ''}}" bindtap="toggleAgreeLegal">
+            <text>{{agreeLegal ? '✓' : ''}}</text>
+          </view>
+          <view class="agreement-copy">
+            <text>我已阅读并同意《用户服务协议》《隐私政策》，同意平台按政策说明处理我提交的入驻资料、手机号、微信号和位置信息。</text>
+          </view>
+        </view>
 
         <view class="form-group">
           <view class="form-label">摄影师昵称 <text class="required">*</text></view>
@@ -289,19 +303,6 @@
             <text class="location-text">{{locationText}}</text>
             <button class="mini-btn" size="mini" bindtap="refreshLocation">刷新位置</button>
           </view>
-        </view>
-      </view>
-
-      <view class="agreement-box">
-        <view class="agreement-check {{agreeLegal ? 'checked' : ''}}" bindtap="toggleAgreeLegal">
-          <text>{{agreeLegal ? '✓' : ''}}</text>
-        </view>
-        <view class="agreement-copy">
-          <text>我已阅读并同意</text>
-          <text class="agreement-link" catchtap="goAgreement">《用户服务协议》</text>
-          <text>和</text>
-          <text class="agreement-link" catchtap="goPrivacy">《隐私政策》</text>
-          <text>，同意平台按政策说明处理我提交的手机号、微信号、位置信息及入驻资料。</text>
         </view>
       </view>
 

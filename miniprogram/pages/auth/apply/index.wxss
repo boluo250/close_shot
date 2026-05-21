@@ -134,6 +134,14 @@
   margin-bottom: 28rpx;
 }
 
+.legal-inline-tip {
+  margin-top: -8rpx;
+  margin-bottom: 24rpx;
+  font-size: 23rpx;
+  line-height: 1.8;
+  color: var(--cs-color-muted, #8a8f98);
+}
+
 /* ========== 表单 ========== */
 .form-group {
   margin-bottom: 28rpx;
@@ -539,6 +547,11 @@
   font-size: 24rpx;
   line-height: 1.8;
   color: var(--cs-color-text-2, #374151);
+}
+
+.agreement-box-compact {
+  margin-top: 0;
+  margin-bottom: 28rpx;
 }
 
 .agreement-link {

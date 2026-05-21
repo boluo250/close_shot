@@ -1,5 +1,29 @@
 const { getToken, ensureLogin, clearAuthState } = require("./auth");
 
+function formatErrorDetail(detail) {
+  if (!detail) return "request failed";
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const parts = detail
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (!item || typeof item !== "object") return "";
+        const loc = Array.isArray(item.loc)
+          ? item.loc.filter((part) => part !== "body").join(".")
+          : "";
+        const msg = item.msg || item.message || "";
+        if (loc && msg) return `${loc}：${msg}`;
+        return msg || "";
+      })
+      .filter(Boolean);
+    return parts.join("；") || "request failed";
+  }
+  if (typeof detail === "object") {
+    return detail.message || detail.msg || JSON.stringify(detail);
+  }
+  return String(detail);
+}
+
 function request(path, { method = "GET", data = null, params = null, auth = false } = {}) {
   const app = getApp();
   const base = app.globalData.apiBaseUrl;
@@ -46,7 +70,7 @@ function request(path, { method = "GET", data = null, params = null, auth = fals
         }
       }
 
-      reject(new Error(res.data?.detail || "request failed"));
+      reject(new Error(formatErrorDetail(res.data?.detail)));
     } catch (e) {
       reject(e);
     }

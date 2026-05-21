@@ -102,7 +102,7 @@ Page({
   },
 
   _validateStep1() {
-    const valid = (this.data.displayName || "").trim().length > 0;
+    const valid = (this.data.displayName || "").trim().length > 0 && !!this.data.agreeLegal;
     this.setData({ step1Valid: valid });
   },
 
@@ -440,7 +440,7 @@ Page({
 
   toggleAgreeLegal() {
     this.setData({ agreeLegal: !this.data.agreeLegal });
-    this._validateStep2();
+    this._validateStep1();
   },
 
   goAgreement() {
@@ -578,8 +578,8 @@ Page({
   },
 
   _validateStep2() {
-    const { phone, wechatId, agreeLegal } = this.data;
-    const valid = /^1\d{10}$/.test(phone) && wechatId.length > 0 && agreeLegal;
+    const { phone, wechatId } = this.data;
+    const valid = /^1\d{10}$/.test(phone) && wechatId.length > 0;
     this.setData({ step2Valid: valid });
   },
 
@@ -587,7 +587,7 @@ Page({
   nextStep() {
     const { step } = this.data;
     if (step === 1 && !this.data.step1Valid) {
-      wx.showToast({ title: "请填写摄影师昵称", icon: "none" });
+      wx.showToast({ title: "请填写昵称并同意协议", icon: "none" });
       return;
     }
     if (step < 2) {

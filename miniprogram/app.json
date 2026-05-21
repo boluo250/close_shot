@@ -15,6 +15,9 @@
       "desc": "用于定位你附近的摄影师与服务范围展示"
     }
   },
+  "requiredPrivateInfos": [
+    "getLocation"
+  ],
   "window": {
     "navigationBarTitleText": "Close Shot",
     "navigationBarBackgroundColor": "#ffffff",
