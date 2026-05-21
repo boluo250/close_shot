@@ -44,8 +44,6 @@ Page({
     // Step 2: 联系方式
     phone: "",
     wechatId: "",
-    agreeLegal: false,
-
     // 可选
     city: "",
     priceRanges: PRICE_RANGES,
@@ -102,7 +100,7 @@ Page({
   },
 
   _validateStep1() {
-    const valid = (this.data.displayName || "").trim().length > 0 && !!this.data.agreeLegal;
+    const valid = (this.data.displayName || "").trim().length > 0;
     this.setData({ step1Valid: valid });
   },
 
@@ -438,19 +436,6 @@ Page({
     this._validateStep2();
   },
 
-  toggleAgreeLegal() {
-    this.setData({ agreeLegal: !this.data.agreeLegal });
-    this._validateStep1();
-  },
-
-  goAgreement() {
-    wx.navigateTo({ url: "/pages/agreement/index" });
-  },
-
-  goPrivacy() {
-    wx.navigateTo({ url: "/pages/privacy/index" });
-  },
-
   onCityInput(e) {
     this.setData({ city: e.detail.value });
   },
@@ -587,7 +572,7 @@ Page({
   nextStep() {
     const { step } = this.data;
     if (step === 1 && !this.data.step1Valid) {
-      wx.showToast({ title: "请填写昵称并同意协议", icon: "none" });
+      wx.showToast({ title: "请填写摄影师昵称", icon: "none" });
       return;
     }
     if (step < 2) {
@@ -607,7 +592,7 @@ Page({
     if (this.data.submitting) return;
 
     if (!this.data.step2Valid) {
-      wx.showToast({ title: "请填写信息并同意协议", icon: "none" });
+      wx.showToast({ title: "请填写联系方式", icon: "none" });
       return;
     }
 

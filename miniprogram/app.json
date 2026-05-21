@@ -1,5 +1,6 @@
 {
   "pages": [
+    "pages/consent/index",
     "pages/home/index",
     "pages/map/index",
     "pages/favorites/index",

@@ -1,0 +1,29 @@
+<view class="consent-page">
+  <view class="consent-hero">
+    <view class="consent-badge">Close Shot</view>
+    <view class="consent-title">开始使用前，请先阅读并同意</view>
+    <view class="consent-desc">为了完成登录、收藏、摄影师入驻、位置展示与履约沟通，我们会按《用户服务协议》《隐私政策》处理必要信息。</view>
+  </view>
+
+  <view class="consent-card">
+    <view class="doc-row">
+      <text class="doc-label">服务规则</text>
+      <text class="doc-link" bindtap="goAgreement">查看《用户服务协议》</text>
+    </view>
+    <view class="doc-row">
+      <text class="doc-label">隐私说明</text>
+      <text class="doc-link" bindtap="goPrivacy">查看《隐私政策》</text>
+    </view>
+
+    <view class="agree-box" bindtap="toggleAgree">
+      <view class="agree-check {{agreed ? 'checked' : ''}}">
+        <text>{{agreed ? '✓' : ''}}</text>
+      </view>
+      <view class="agree-copy">我已阅读并同意《用户服务协议》《隐私政策》</view>
+    </view>
+
+    <button class="enter-btn {{agreed ? '' : 'disabled'}}" bindtap="acceptAndEnter">
+      {{submitting ? "进入中..." : "同意并进入小程序"}}
+    </button>
+  </view>
+</view>
