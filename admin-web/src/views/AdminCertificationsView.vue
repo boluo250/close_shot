@@ -13,6 +13,7 @@
         <el-select v-model="filters.status" placeholder="认证状态" clearable @change="load">
           <el-option label="全部" value="" />
           <el-option label="⏳ 待审核" value="pending" />
+          <el-option label="📝 待复审" value="review_pending" />
           <el-option label="✅ 已通过" value="approved" />
           <el-option label="❌ 已驳回" value="rejected" />
         </el-select>
@@ -64,11 +65,20 @@
           {{ row.city || '-' }}
         </template>
       </el-table-column>
-      <el-table-column label="状态" width="100">
+      <el-table-column label="状态" width="160">
         <template #default="{ row }">
-          <el-tag :type="statusType(row)" size="small">
-            {{ statusLabel(row) }}
-          </el-tag>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap">
+            <el-tag :type="statusType(row.status)" size="small">
+              {{ statusLabel(row.status) }}
+            </el-tag>
+            <el-tag v-if="row.has_pending_changes" type="warning" size="small">待复审</el-tag>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="审核" width="110">
+        <template #default="{ row }">
+          <span v-if="row.has_pending_changes" style="color: #e6a23c">修改审核中</span>
+          <span v-else style="color: #999">-</span>
         </template>
       </el-table-column>
       <el-table-column label="接单" width="100">
@@ -156,9 +166,12 @@
       <el-descriptions :column="2" border>
         <el-descriptions-item label="ID">{{ currentItem.id }}</el-descriptions-item>
         <el-descriptions-item label="状态">
-          <el-tag :type="statusType(currentItem)" size="small">
-            {{ statusLabel(currentItem) }}
-          </el-tag>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap">
+            <el-tag :type="statusType(currentItem.status)" size="small">
+              {{ statusLabel(currentItem.status) }}
+            </el-tag>
+            <el-tag v-if="currentItem.has_pending_changes" type="warning" size="small">待复审</el-tag>
+          </div>
         </el-descriptions-item>
         <el-descriptions-item label="昵称">{{ currentItem.display_name || '-' }}</el-descriptions-item>
         <el-descriptions-item label="认证等级">
@@ -596,16 +609,12 @@ function needsReview(row: CertificationItem | null) {
   return !!row && (row.status === "pending" || row.has_pending_changes);
 }
 
-function statusLabel(row: CertificationItem | string) {
-  if (typeof row === "string") return { pending: "待审核", approved: "已通过", rejected: "已驳回" }[row] || row;
-  if (row.has_pending_changes) return "待复审";
-  return { pending: "待审核", approved: "已通过", rejected: "已驳回" }[row.status] || row.status;
+function statusLabel(status: string) {
+  return { pending: "待审核", approved: "已通过", rejected: "已驳回", review_pending: "待复审" }[status] || status;
 }
 
-function statusType(row: CertificationItem | string) {
-  if (typeof row === "string") return ({ pending: "warning", approved: "success", rejected: "danger" }[row] as any) || "info";
-  if (row.has_pending_changes) return "warning";
-  return ({ pending: "warning", approved: "success", rejected: "danger" }[row.status] as any) || "info";
+function statusType(status: string) {
+  return ({ pending: "warning", approved: "success", rejected: "danger", review_pending: "warning" }[status] as any) || "info";
 }
 
 function availabilityLabel(row: CertificationItem) {

@@ -426,6 +426,60 @@ def test_admin_approve_pending_submission_applies_live_changes(monkeypatch):
     assert db.commit_calls == 1
 
 
+def test_admin_detail_keeps_approved_status_when_has_pending_changes():
+    photographer = SimpleNamespace(
+        id=18,
+        user_id=18,
+        user=SimpleNamespace(display_name="菠萝", avatar_url="https://example.com/avatar.jpg", trust_score=70, risk_level="low", blacklist_status="normal"),
+        status="approved",
+        is_accepting_orders=True,
+        reject_reason=None,
+        certification_level=1,
+        quality_score=7.0,
+        sort_score=55.0,
+        real_name=None,
+        id_card_number=None,
+        id_card_front_url=None,
+        id_card_back_url=None,
+        experience_years=None,
+        portfolio_link=None,
+        phone="13800138000",
+        wechat_id="bolo-photo",
+        city="上海",
+        price_range=None,
+        pending_submission_json=json.dumps(
+            {
+                "profile": {
+                    "display_name": "菠萝",
+                    "avatar_url": "https://example.com/avatar-new.jpg",
+                    "bio": "新的简介",
+                    "tags": "",
+                    "city": "上海",
+                    "service_center_lat": None,
+                    "service_center_lng": None,
+                    "service_radius_m": 5000,
+                    "equipment_list": "",
+                    "drone_models": "",
+                    "rate_card": [],
+                },
+                "portfolio_items": [],
+                "packages": [],
+            },
+            ensure_ascii=False,
+        ),
+        pending_submission_submitted_at=datetime.now(timezone.utc),
+        pending_reject_reason=None,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+
+    detail = admin_routes._photographer_to_detail(photographer, portfolio_preview_map={18: ["https://example.com/live.jpg"]})
+
+    assert detail.status == "approved"
+    assert detail.has_pending_changes is True
+    assert detail.display_name == "菠萝"
+
+
 def test_apply_photographer_persists_display_name():
     from app.api.routes import me as me_routes
 

@@ -312,6 +312,7 @@ def _photographer_to_detail(
 ) -> CertificationDetailOut:
     """将 ORM 对象转为输出 schema，附带 user 字段"""
     snapshot = load_pending_submission_snapshot(p)
+    has_pending_changes = _has_pending_submission(p)
     data = CertificationDetailOut.model_validate(p).model_dump()
     data["display_name"] = p.user.display_name if p.user else None
     data["avatar_url"] = p.user.avatar_url if p.user else None
@@ -321,10 +322,10 @@ def _photographer_to_detail(
     overlay_base_payload_with_snapshot(data, snapshot)
     data["portfolio_image_urls"] = (
         snapshot_preview_urls(snapshot)
-        if _has_pending_submission(p)
+        if has_pending_changes
         else (portfolio_preview_map or {}).get(int(p.id), [])
     )
-    data["has_pending_changes"] = _has_pending_submission(p)
+    data["has_pending_changes"] = has_pending_changes
     data["pending_review_submitted_at"] = getattr(p, "pending_submission_submitted_at", None)
     return CertificationDetailOut(**data)
 
@@ -385,7 +386,7 @@ def _build_user_portrait_tags(
 
 @router.get("/certifications", response_model=CertificationListOut)
 def list_certifications(
-    status: str | None = Query(default=None, description="按状态筛选: pending / approved / rejected"),
+    status: str | None = Query(default=None, description="按状态筛选: pending / approved / rejected / review_pending"),
     keyword: str | None = Query(default=None, description="按姓名/手机号搜索"),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -401,11 +402,14 @@ def list_certifications(
     if status:
         pending_expr = _pending_submission_expr()
         if status == PhotographerStatus.pending.value:
-            q = q.where((Photographer.status == status) | pending_expr)
-            count_q = count_q.where((Photographer.status == status) | pending_expr)
-        elif status == PhotographerStatus.approved.value:
             q = q.where(Photographer.status == status, ~pending_expr)
             count_q = count_q.where(Photographer.status == status, ~pending_expr)
+        elif status == "review_pending":
+            q = q.where(Photographer.status == PhotographerStatus.approved.value, pending_expr)
+            count_q = count_q.where(Photographer.status == PhotographerStatus.approved.value, pending_expr)
+        elif status == PhotographerStatus.approved.value:
+            q = q.where(Photographer.status == status)
+            count_q = count_q.where(Photographer.status == status)
         else:
             q = q.where(Photographer.status == status)
             count_q = count_q.where(Photographer.status == status)
