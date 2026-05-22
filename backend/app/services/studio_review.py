@@ -138,8 +138,31 @@ def build_live_submission_snapshot(*, db: Session, photographer: Photographer) -
     }
 
 
+def merge_submission_snapshot_with_live(
+    snapshot: dict[str, Any] | None,
+    *,
+    live_snapshot: dict[str, Any],
+) -> dict[str, Any]:
+    if not snapshot:
+        return live_snapshot
+
+    merged = dict(live_snapshot)
+    merged["profile"] = {
+        **(live_snapshot.get("profile") if isinstance(live_snapshot.get("profile"), dict) else {}),
+        **snapshot_profile(snapshot),
+    }
+
+    if "portfolio_items" in snapshot and isinstance(snapshot.get("portfolio_items"), list):
+        merged["portfolio_items"] = snapshot_portfolio_items(snapshot)
+    if "packages" in snapshot and isinstance(snapshot.get("packages"), list):
+        merged["packages"] = snapshot_packages(snapshot)
+    return merged
+
+
 def get_effective_submission_snapshot(*, db: Session, photographer: Photographer) -> dict[str, Any]:
-    return load_pending_submission_snapshot(photographer) or build_live_submission_snapshot(db=db, photographer=photographer)
+    live_snapshot = build_live_submission_snapshot(db=db, photographer=photographer)
+    pending_snapshot = load_pending_submission_snapshot(photographer)
+    return merge_submission_snapshot_with_live(pending_snapshot, live_snapshot=live_snapshot)
 
 
 def save_pending_submission_snapshot(

@@ -17,7 +17,7 @@ from app.api.routes import upload as upload_routes
 from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
 from app.main import create_app
-from app.schemas.studio import PhotographerUpdateIn
+from app.schemas.studio import PackageCreateIn, PhotographerUpdateIn
 from app.services import storage as storage_service
 from app.services.storage import create_upload_token
 
@@ -316,6 +316,120 @@ def test_studio_update_me_for_approved_photographer_creates_pending_review():
     assert result.photographer.display_name == "新摄影师名"
     assert result.photographer.bio == "新简介"
     assert result.pending_review_status == "pending"
+    assert db.commit_calls == 1
+
+
+def test_studio_list_packages_keeps_live_packages_when_pending_snapshot_is_partial():
+    photographer = SimpleNamespace(
+        id=19,
+        user_id=19,
+        status="approved",
+        pending_submission_json=json.dumps({"profile": {"bio": "待审核简介"}}, ensure_ascii=False),
+        pending_submission_submitted_at=datetime.now(timezone.utc),
+        pending_reject_reason=None,
+        user=SimpleNamespace(display_name="阿青", avatar_url="https://example.com/avatar.jpg"),
+        cover_url=None,
+        bio="原简介",
+        tags="",
+        city="上海",
+        service_center_lat=31.23,
+        service_center_lng=121.47,
+        service_radius_m=5000,
+        equipment_list="",
+        drone_models="",
+        rate_card_json="[]",
+        last_active_at=datetime.now(timezone.utc),
+    )
+    live_packages = [
+        SimpleNamespace(
+            id=201,
+            name="标准人像",
+            price_cents=29900,
+            duration_minutes=60,
+            description="1小时拍摄",
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        ),
+        SimpleNamespace(
+            id=202,
+            name="情侣写真",
+            price_cents=49900,
+            duration_minutes=90,
+            description="双人外景",
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        ),
+    ]
+    db = FakeDB(scalar_results=[photographer], scalars_results=[[], live_packages])
+    me = SimpleNamespace(role="photographer", id=19)
+
+    result = studio_routes.list_packages(me, db)
+
+    assert [item.id for item in result.items] == [201, 202]
+    assert [item.name for item in result.items] == ["标准人像", "情侣写真"]
+
+
+def test_studio_create_package_for_approved_photographer_preserves_existing_packages():
+    photographer = SimpleNamespace(
+        id=20,
+        user_id=20,
+        status="approved",
+        pending_submission_json=None,
+        pending_submission_submitted_at=None,
+        pending_reject_reason=None,
+        user=SimpleNamespace(display_name="小夏", avatar_url="https://example.com/avatar.jpg"),
+        cover_url=None,
+        bio="擅长自然人像",
+        tags="",
+        city="杭州",
+        service_center_lat=30.27,
+        service_center_lng=120.15,
+        service_radius_m=5000,
+        equipment_list="",
+        drone_models="",
+        rate_card_json="[]",
+        last_active_at=datetime.now(timezone.utc),
+    )
+    live_packages = [
+        SimpleNamespace(
+            id=301,
+            name="标准人像",
+            price_cents=29900,
+            duration_minutes=60,
+            description="1小时拍摄",
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        ),
+        SimpleNamespace(
+            id=302,
+            name="半日跟拍",
+            price_cents=89900,
+            duration_minutes=240,
+            description="半日跟拍",
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        ),
+    ]
+    db = FakeDB(scalar_results=[photographer], scalars_results=[[], live_packages])
+    me = SimpleNamespace(role="photographer", id=20)
+    payload = PackageCreateIn(
+        name="情侣写真",
+        price_cents=49900,
+        duration_minutes=90,
+        description="双人外景",
+        is_active=True,
+    )
+
+    result = studio_routes.create_package(payload, me, db)
+
+    snapshot = json.loads(photographer.pending_submission_json)
+    assert result.name == "情侣写真"
+    assert len(snapshot["packages"]) == 3
+    assert [item["name"] for item in snapshot["packages"]] == ["情侣写真", "标准人像", "半日跟拍"]
     assert db.commit_calls == 1
 
 

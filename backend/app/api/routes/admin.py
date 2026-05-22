@@ -44,6 +44,7 @@ from app.services.storage import delete_object
 from app.services.studio_review import (
     apply_submission_snapshot,
     clear_pending_submission_snapshot,
+    get_effective_submission_snapshot,
     load_pending_submission_snapshot,
     overlay_base_payload_with_snapshot,
     snapshot_preview_urls,
@@ -482,7 +483,7 @@ def review_certification(
     has_pending_submission = _has_pending_submission(p)
     if payload.action == "approve":
         if has_pending_submission and p.status == PhotographerStatus.approved.value:
-            snapshot = load_pending_submission_snapshot(p)
+            snapshot = get_effective_submission_snapshot(db=db, photographer=p)
             if not snapshot:
                 raise HTTPException(status_code=400, detail="待审核修改数据不存在")
             apply_submission_snapshot(db=db, photographer=p, snapshot=snapshot)

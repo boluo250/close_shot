@@ -589,6 +589,22 @@
 }
 
 /* ====== 套餐编辑卡片 ====== */
+.pkg-section-head {
+  margin-top: 18rpx;
+}
+
+.pkg-section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--cs-color-text);
+}
+
+.pkg-section-desc {
+  font-size: 22rpx;
+  color: var(--cs-color-muted);
+  margin-top: 6rpx;
+}
+
 .pkg-edit-card {
   background: var(--cs-color-surface-2);
   border-radius: 16rpx;
@@ -695,7 +711,7 @@
 
 /* ====== 新增套餐 ====== */
 .new-pkg-section {
-  margin-top: 8rpx;
+  margin-top: 12rpx;
 }
 
 .divider {
@@ -704,24 +720,8 @@
   margin: 16rpx 0;
 }
 
-.new-pkg-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8rpx;
-  padding: 16rpx 0;
-  color: var(--cs-color-text-3);
-  font-size: 26rpx;
-}
-
-.add-icon {
-  font-size: 32rpx;
-  font-weight: 700;
-  color: var(--cs-color-muted);
-}
-
 .new-pkg-form {
-  padding-top: 8rpx;
+  margin-top: 16rpx;
 }
 
 .input {

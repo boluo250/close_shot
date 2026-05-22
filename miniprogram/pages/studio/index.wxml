@@ -183,7 +183,7 @@
       </view>
       <button class="refresh-btn" size="mini" bindtap="loadPackages">刷新</button>
     </view>
-    <view class="upload-hint">已配置 {{packages.length}} 个套餐，可修改、上架或删除</view>
+    <view class="upload-hint">已配置 {{packages.length}} 个套餐。上方管理已有套餐，下方持续保留新增套餐编辑区。</view>
 
     <!-- 快速创建预设套餐 -->
     <view wx:if="{{packages.length === 0 && !showNewPackage}}" class="preset-section">
@@ -210,6 +210,10 @@
     </view>
 
     <!-- 已有套餐列表 -->
+    <view wx:if="{{packages.length > 0}}" class="pkg-section-head">
+      <view class="pkg-section-title">已有套餐</view>
+      <view class="pkg-section-desc">已保存的套餐会展示在这里，可继续修改、上下架或删除。</view>
+    </view>
     <view wx:for="{{packages}}" wx:key="id" class="pkg-edit-card">
       <view class="pkg-edit-header">
         <input class="pkg-name-input" value="{{item.name}}" data-index="{{index}}" data-field="name" bindinput="onPackageField" />
@@ -242,15 +246,14 @@
       </view>
     </view>
 
-    <!-- 新增套餐（折叠） -->
+    <!-- 新增套餐 -->
     <view wx:if="{{showNewPackage || packages.length > 0}}" class="new-pkg-section">
       <view class="divider"></view>
-      <view class="new-pkg-toggle" bindtap="toggleNewPackage" wx:if="{{!showNewPackage && packages.length > 0}}">
-        <text class="add-icon">+</text>
-        <text>添加更多套餐</text>
+      <view class="pkg-section-head">
+        <view class="pkg-section-title">新增套餐</view>
+        <view class="pkg-section-desc">每次保存后，新的套餐会出现在上方，这里保留一个新的编辑框继续添加。</view>
       </view>
-      <view wx:if="{{showNewPackage}}" class="new-pkg-form">
-        <view class="card-title" style="margin-bottom: 12rpx;">新增套餐</view>
+      <view class="pkg-edit-card new-pkg-form">
         <input class="input" placeholder="套餐名称" value="{{newPackage.name}}" data-field="name" bindinput="onNewPackageField" />
         <view class="row-2" style="margin-top: 10rpx;">
           <input class="input flex-1" type="digit" placeholder="价格（元）" value="{{newPackage.price_yuan}}" data-field="price_yuan" bindinput="onNewPackageField" />
@@ -265,7 +268,7 @@
         ></textarea>
         <view class="row-actions">
           <button class="save-btn" size="mini" bindtap="addPackage">添加</button>
-          <button class="cancel-btn" size="mini" bindtap="hideNewPackage">取消</button>
+          <button class="cancel-btn" size="mini" bindtap="hideNewPackage">{{packages.length > 0 ? '清空' : '取消'}}</button>
         </view>
       </view>
     </view>

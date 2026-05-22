@@ -765,14 +765,11 @@ Page({
   },
 
   hideNewPackage() {
+    const hasPackages = Array.isArray(this.data.packages) && this.data.packages.length > 0;
     this.setData({
-      showNewPackage: false,
+      showNewPackage: hasPackages,
       newPackage: { name: "", price_yuan: "", duration_minutes: "", description: "", is_active: true }
     });
-  },
-
-  toggleNewPackage() {
-    this.setData({ showNewPackage: !this.data.showNewPackage });
   },
 
   onPackageField(e) {
@@ -833,7 +830,7 @@ Page({
       });
       this.setData({ pendingReviewStatus: "pending", pendingRejectReason: "" });
       this.setData({
-        showNewPackage: false,
+        showNewPackage: true,
         newPackage: { name: "", price_yuan: "", duration_minutes: "", description: "", is_active: true }
       });
       await this.loadPackages();
