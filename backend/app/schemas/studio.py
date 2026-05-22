@@ -35,6 +35,9 @@ class PhotographerUpdateIn(BaseModel):
 
 class StudioMeOut(BaseModel):
     photographer: PhotographerOut
+    pending_review_status: str = "none"
+    pending_reject_reason: str | None = None
+    pending_review_submitted_at: str | None = None
 
 
 class PortfolioCreateIn(BaseModel):

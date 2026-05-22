@@ -160,6 +160,8 @@ class CertificationDetailOut(TimestampOut):
     price_range: str | None = None
     # 作品图（审核评分用）
     portfolio_image_urls: list[str] = Field(default_factory=list)
+    has_pending_changes: bool = False
+    pending_review_submitted_at: datetime | None = None
 
 class CertificationReviewIn(BaseModel):
     """管理端审核操作"""

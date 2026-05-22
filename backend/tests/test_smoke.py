@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -22,8 +23,15 @@ from app.services.storage import create_upload_token
 
 
 class FakeDB:
-    def __init__(self, *, scalar_results: list[object] | None = None, user_by_id: dict[int, object] | None = None):
+    def __init__(
+        self,
+        *,
+        scalar_results: list[object] | None = None,
+        scalars_results: list[list[object]] | None = None,
+        user_by_id: dict[int, object] | None = None,
+    ):
         self._scalar_results = list(scalar_results or [])
+        self._scalars_results = list(scalars_results or [])
         self._user_by_id = dict(user_by_id or {})
         self.executed: list[str] = []
         self.commit_calls = 0
@@ -33,6 +41,10 @@ class FakeDB:
         if not self._scalar_results:
             return None
         return self._scalar_results.pop(0)
+
+    def scalars(self, _statement):
+        items = self._scalars_results.pop(0) if self._scalars_results else []
+        return SimpleNamespace(all=lambda: items)
 
     def get(self, _model, identity):
         return self._user_by_id.get(int(identity))
@@ -265,7 +277,7 @@ def test_admin_approve_enables_accepting_orders_when_location_ready(monkeypatch)
     assert db.commit_calls == 1
 
 
-def test_studio_update_me_persists_display_name():
+def test_studio_update_me_for_approved_photographer_creates_pending_review():
     user = SimpleNamespace(display_name="旧名字", avatar_url="https://example.com/old.jpg")
     photographer = SimpleNamespace(
         id=9,
@@ -273,24 +285,144 @@ def test_studio_update_me_persists_display_name():
         bio="旧简介",
         tags="",
         cover_url=None,
+        city="上海",
+        service_center_lat=31.23,
+        service_center_lng=121.47,
         rate_card_json="[]",
+        equipment_list="",
+        drone_models="",
         is_accepting_orders=False,
         service_radius_m=5000,
         status="approved",
+        pending_submission_json=None,
+        pending_submission_submitted_at=None,
+        pending_reject_reason=None,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
         user=user,
-        last_active_at=None,
+        last_active_at=datetime.now(timezone.utc),
     )
-    db = FakeDB(scalar_results=[photographer])
+    db = FakeDB(scalar_results=[photographer], scalars_results=[[], []])
     me = SimpleNamespace(role="photographer", id=9)
     payload = PhotographerUpdateIn(display_name="  新摄影师名  ", bio="新简介")
 
     result = studio_routes.update_me(payload, me, db)
 
-    assert user.display_name == "新摄影师名"
-    assert photographer.bio == "新简介"
+    snapshot = json.loads(photographer.pending_submission_json)
+    assert user.display_name == "旧名字"
+    assert photographer.bio == "旧简介"
+    assert snapshot["profile"]["display_name"] == "新摄影师名"
+    assert snapshot["profile"]["bio"] == "新简介"
     assert result.photographer.display_name == "新摄影师名"
+    assert result.photographer.bio == "新简介"
+    assert result.pending_review_status == "pending"
+    assert db.commit_calls == 1
+
+
+def test_admin_approve_pending_submission_applies_live_changes(monkeypatch):
+    photographer_user = SimpleNamespace(role="photographer", display_name="旧名字", avatar_url="https://example.com/old.jpg")
+    photographer = SimpleNamespace(
+        id=17,
+        user_id=17,
+        status="approved",
+        reject_reason=None,
+        certification_level=1,
+        quality_score=7.0,
+        is_accepting_orders=True,
+        service_center_lat=31.2304,
+        service_center_lng=121.4737,
+        bio="旧简介",
+        tags="旧标签",
+        cover_url=None,
+        city="上海",
+        rate_card_json="[]",
+        equipment_list="Sony A7M4",
+        drone_models="DJI Air 3",
+        service_radius_m=5000,
+        pending_submission_json=json.dumps(
+            {
+                "profile": {
+                    "display_name": "新名字",
+                    "avatar_url": "https://example.com/new.jpg",
+                    "cover_url": None,
+                    "bio": "新简介",
+                    "tags": "人像,旅拍",
+                    "city": "杭州",
+                    "service_center_lat": 30.2741,
+                    "service_center_lng": 120.1551,
+                    "service_radius_m": 8000,
+                    "equipment_list": "Sony A1",
+                    "drone_models": "DJI Mavic 3",
+                    "rate_card": [],
+                },
+                "portfolio_items": [
+                    {
+                        "id": -1,
+                        "title": "待审作品",
+                        "image_url": "https://example.com/p1.jpg",
+                        "image_object_key": "portfolio/p1.jpg",
+                        "watermark_url": "https://example.com/w1.jpg",
+                        "watermark_object_key": "watermark/portfolio/p1.jpg",
+                        "sort_order": 0,
+                        "tags": "",
+                        "category": "",
+                        "is_pinned": False,
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                ],
+                "packages": [
+                    {
+                        "id": -2,
+                        "name": "新套餐",
+                        "price_cents": 29900,
+                        "duration_minutes": 60,
+                        "description": "含精修",
+                        "is_active": True,
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        pending_submission_submitted_at=datetime.now(timezone.utc),
+        pending_reject_reason=None,
+        user=photographer_user,
+    )
+    db = FakeDB(scalar_results=[photographer])
+    admin_user = SimpleNamespace(role="admin")
+    payload = admin_routes.CertificationReviewIn(action="approve")
+
+    monkeypatch.setattr(admin_routes, "_build_portfolio_preview_map", lambda **_kwargs: {})
+    monkeypatch.setattr(
+        admin_routes,
+        "_photographer_to_detail",
+        lambda p, portfolio_preview_map=None: {
+            "id": p.id,
+            "status": p.status,
+            "display_name": p.user.display_name,
+            "bio": p.bio,
+            "has_pending_changes": bool(p.pending_submission_json),
+        },
+    )
+    monkeypatch.setattr(
+        admin_routes,
+        "recalculate_photographer_sort_scores",
+        lambda _db, photographer_ids: None,
+    )
+
+    result = admin_routes.review_certification(17, payload, admin_user, db)
+
+    assert result["status"] == "approved"
+    assert result["display_name"] == "新名字"
+    assert result["bio"] == "新简介"
+    assert result["has_pending_changes"] is False
+    assert photographer_user.display_name == "新名字"
+    assert photographer.bio == "新简介"
+    assert photographer.city == "杭州"
+    assert photographer.pending_submission_json is None
+    assert photographer.pending_submission_submitted_at is None
     assert db.commit_calls == 1
 
 

@@ -4,6 +4,12 @@
     <view class="page-title">摄影师工作台</view>
     <view class="page-subtitle">清晰查看已上传内容，并快速修改</view>
     <view wx:if="{{checkingIdentity}}" class="cs-muted" style="padding-top: 12rpx;">身份校验中...</view>
+    <view wx:if="{{pendingReviewStatus === 'pending'}}" class="upload-hint" style="margin-top: 12rpx;">
+      修改审核中：当前工作台展示的是待审核版本，线上页面仍保留旧版，审核通过后才会更新。
+    </view>
+    <view wx:if="{{pendingReviewStatus === 'rejected' && pendingRejectReason}}" class="upload-hint danger" style="margin-top: 12rpx;">
+      上次修改未通过：{{pendingRejectReason}}
+    </view>
     <view class="theme-bar">
       <theme-switch value="{{theme}}" bind:change="onThemeChange" />
     </view>
@@ -66,7 +72,7 @@
     <view class="field-label">个人简介</view>
     <view class="section-tip">当前状态：{{profile.bio ? '已填写，可继续修改' : '未填写，建议补充'}}</view>
     <view wx:if="{{profileDraftSaved}}" class="upload-hint" style="margin-bottom: 10rpx;">
-      已保存资料草稿，点击底部按钮后统一上传到服务器
+      已保存资料草稿，点击底部按钮后统一提交审核
     </view>
     <view class="bio-templates">
       <view
@@ -136,7 +142,7 @@
 
     <view wx:if="{{lastUrl}}" class="upload-result">{{lastUrl}}</view>
     <view wx:if="{{pendingPortfolio.length > 0}}" class="upload-hint" style="margin-top: 10rpx;">
-      待上传 {{pendingPortfolio.length}} 张，点击底部按钮后才会上传到服务器
+      待提交 {{pendingPortfolio.length}} 张，点击底部按钮后进入审核
     </view>
     <view class="portfolio-grid" wx:if="{{pendingPortfolio.length > 0}}">
       <view wx:for="{{pendingPortfolio}}" wx:key="tempFilePath" class="portfolio-cell">
@@ -327,7 +333,7 @@
       loading="{{portfolioUploading || submittingAll}}"
       disabled="{{!token || portfolioUploading || submittingAll || (!profileDraftSaved && pendingPortfolio.length === 0)}}"
     >
-      {{(portfolioUploading || submittingAll) ? (portfolioUploadCount > 0 ? '上传中（' + portfolioUploadCount + '张）...' : '上传中...') : (profileDraftSaved || pendingPortfolio.length > 0 ? '一键上传到服务器（' + pendingPortfolio.length + '张作品）' : '一键上传到服务器')}}
+      {{(portfolioUploading || submittingAll) ? (portfolioUploadCount > 0 ? '提交中（' + portfolioUploadCount + '张）...' : '提交中...') : (profileDraftSaved || pendingPortfolio.length > 0 ? '提交审核（' + pendingPortfolio.length + '张作品）' : '提交审核')}}
     </button>
   </view>
 

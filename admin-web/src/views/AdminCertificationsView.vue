@@ -66,8 +66,8 @@
       </el-table-column>
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
-          <el-tag :type="statusType(row.status)" size="small">
-            {{ statusLabel(row.status) }}
+          <el-tag :type="statusType(row)" size="small">
+            {{ statusLabel(row) }}
           </el-tag>
         </template>
       </el-table-column>
@@ -101,17 +101,17 @@
         <template #default="{ row }">
           <el-button size="small" @click="openDetail(row)">详情</el-button>
           <el-button
-            v-if="row.status === 'pending'"
+            v-if="needsReview(row)"
             size="small"
             type="success"
             @click="handleApprove(row)"
-          >通过</el-button>
+          >{{ row.has_pending_changes ? "通过修改" : "通过" }}</el-button>
           <el-button
-            v-if="row.status === 'pending'"
+            v-if="needsReview(row)"
             size="small"
             type="danger"
             @click="openReject(row)"
-          >驳回</el-button>
+          >{{ row.has_pending_changes ? "驳回修改" : "驳回" }}</el-button>
           <el-button
             v-if="row.status === 'approved' && row.is_accepting_orders"
             size="small"
@@ -156,8 +156,8 @@
       <el-descriptions :column="2" border>
         <el-descriptions-item label="ID">{{ currentItem.id }}</el-descriptions-item>
         <el-descriptions-item label="状态">
-          <el-tag :type="statusType(currentItem.status)" size="small">
-            {{ statusLabel(currentItem.status) }}
+          <el-tag :type="statusType(currentItem)" size="small">
+            {{ statusLabel(currentItem) }}
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="昵称">{{ currentItem.display_name || '-' }}</el-descriptions-item>
@@ -182,6 +182,14 @@
           <span v-else style="color: #999">-</span>
         </el-descriptions-item>
       </el-descriptions>
+
+      <el-alert
+        v-if="currentItem.has_pending_changes"
+        style="margin-top: 16px"
+        title="该摄影师有待复审修改，当前详情展示的是待审核版本；线上页面仍保持旧版，直到审核通过。"
+        type="warning"
+        :closable="false"
+      />
 
       <el-divider content-position="left">补充实名信息（可选）</el-divider>
       <el-descriptions :column="2" border>
@@ -289,15 +297,15 @@
           @click="handleDelete(currentItem)"
         >删除摄影师</el-button>
         <el-button
-          v-if="currentItem.status === 'pending'"
+          v-if="needsReview(currentItem)"
           type="success"
           @click="handleApprove(currentItem); detailVisible = false"
-        >审核通过</el-button>
+        >{{ currentItem.has_pending_changes ? "通过修改" : "审核通过" }}</el-button>
         <el-button
-          v-if="currentItem.status === 'pending'"
+          v-if="needsReview(currentItem)"
           type="danger"
           @click="detailVisible = false; openReject(currentItem)"
-        >驳回</el-button>
+        >{{ currentItem.has_pending_changes ? "驳回修改" : "驳回" }}</el-button>
         <el-button @click="detailVisible = false">关闭</el-button>
       </div>
     </template>
@@ -357,6 +365,8 @@ type CertificationItem = {
   city: string | null;
   price_range: string | null;
   portfolio_image_urls: string[];
+  has_pending_changes: boolean;
+  pending_review_submitted_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -522,8 +532,10 @@ async function handleDelete(row: CertificationItem) {
 async function handleApprove(row: CertificationItem) {
   try {
     await ElMessageBox.confirm(
-      `确定通过「${row.display_name || row.real_name || `#${row.id}`}」的认证吗？`,
-      "审核通过",
+      row.has_pending_changes
+        ? `确定通过「${row.display_name || row.real_name || `#${row.id}`}」的修改并替换线上页面吗？`
+        : `确定通过「${row.display_name || row.real_name || `#${row.id}`}」的认证吗？`,
+      row.has_pending_changes ? "通过修改" : "审核通过",
       { confirmButtonText: "通过", cancelButtonText: "取消", type: "success" }
     );
   } catch {
@@ -540,7 +552,7 @@ async function handleApprove(row: CertificationItem) {
     const idx = items.value.findIndex((x) => x.id === row.id);
     if (idx >= 0) items.value[idx] = data;
     if (currentItem.value?.id === row.id) currentItem.value = data;
-    ElMessage.success("已通过认证");
+    ElMessage.success(row.has_pending_changes ? "已通过修改，线上页面已更新" : "已通过认证");
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.detail || "操作失败");
   } finally {
@@ -580,12 +592,20 @@ async function handleReject() {
 }
 
 // ---------- 工具函数 ----------
-function statusLabel(s: string) {
-  return { pending: "待审核", approved: "已通过", rejected: "已驳回" }[s] || s;
+function needsReview(row: CertificationItem | null) {
+  return !!row && (row.status === "pending" || row.has_pending_changes);
 }
 
-function statusType(s: string) {
-  return { pending: "warning", approved: "success", rejected: "danger" }[s] as any || "info";
+function statusLabel(row: CertificationItem | string) {
+  if (typeof row === "string") return { pending: "待审核", approved: "已通过", rejected: "已驳回" }[row] || row;
+  if (row.has_pending_changes) return "待复审";
+  return { pending: "待审核", approved: "已通过", rejected: "已驳回" }[row.status] || row.status;
+}
+
+function statusType(row: CertificationItem | string) {
+  if (typeof row === "string") return ({ pending: "warning", approved: "success", rejected: "danger" }[row] as any) || "info";
+  if (row.has_pending_changes) return "warning";
+  return ({ pending: "warning", approved: "success", rejected: "danger" }[row.status] as any) || "info";
 }
 
 function availabilityLabel(row: CertificationItem) {

@@ -41,6 +41,13 @@ from app.services.membership import get_contact_access_mode, set_contact_access_
 from app.services.media_url import object_key_from_url, object_key_to_url
 from app.services.photographer_ranking import recalculate_photographer_sort_scores
 from app.services.storage import delete_object
+from app.services.studio_review import (
+    apply_submission_snapshot,
+    clear_pending_submission_snapshot,
+    load_pending_submission_snapshot,
+    overlay_base_payload_with_snapshot,
+    snapshot_preview_urls,
+)
 
 router = APIRouter()
 
@@ -267,6 +274,21 @@ def _collect_photographer_media_object_keys(db: Session, photographer: Photograp
         _add_media_object_key(object_keys, object_key=item.image_object_key, url=item.image_url)
         _add_media_object_key(object_keys, object_key=item.watermark_object_key, url=item.watermark_url)
 
+    pending_snapshot = load_pending_submission_snapshot(photographer)
+    if pending_snapshot:
+        profile = pending_snapshot.get("profile") if isinstance(pending_snapshot.get("profile"), dict) else {}
+        _add_media_object_key(object_keys, url=profile.get("avatar_url"))
+        _add_media_object_key(object_keys, url=profile.get("cover_url"))
+        for item in pending_snapshot.get("portfolio_items") or []:
+            if not isinstance(item, dict):
+                continue
+            _add_media_object_key(object_keys, object_key=item.get("image_object_key"), url=item.get("image_url"))
+            _add_media_object_key(
+                object_keys,
+                object_key=item.get("watermark_object_key"),
+                url=item.get("watermark_url"),
+            )
+
     return sorted(object_keys)
 
 
@@ -275,19 +297,35 @@ def _delete_storage_objects(object_keys: list[str]) -> None:
         delete_object(object_key)
 
 
+def _has_pending_submission(p: Photographer) -> bool:
+    return bool((getattr(p, "pending_submission_json", None) or "").strip())
+
+
+def _pending_submission_expr():
+    return func.length(func.coalesce(Photographer.pending_submission_json, "")) > 0
+
+
 def _photographer_to_detail(
     p: Photographer,
     *,
     portfolio_preview_map: dict[int, list[str]] | None = None,
 ) -> CertificationDetailOut:
     """将 ORM 对象转为输出 schema，附带 user 字段"""
+    snapshot = load_pending_submission_snapshot(p)
     data = CertificationDetailOut.model_validate(p).model_dump()
     data["display_name"] = p.user.display_name if p.user else None
     data["avatar_url"] = p.user.avatar_url if p.user else None
     data["trust_score"] = p.user.trust_score if p.user else 70
     data["risk_level"] = p.user.risk_level if p.user else RiskLevel.low.value
     data["blacklist_status"] = p.user.blacklist_status if p.user else BlacklistStatus.normal.value
-    data["portfolio_image_urls"] = (portfolio_preview_map or {}).get(int(p.id), [])
+    overlay_base_payload_with_snapshot(data, snapshot)
+    data["portfolio_image_urls"] = (
+        snapshot_preview_urls(snapshot)
+        if _has_pending_submission(p)
+        else (portfolio_preview_map or {}).get(int(p.id), [])
+    )
+    data["has_pending_changes"] = _has_pending_submission(p)
+    data["pending_review_submitted_at"] = getattr(p, "pending_submission_submitted_at", None)
     return CertificationDetailOut(**data)
 
 
@@ -361,8 +399,16 @@ def list_certifications(
     count_q = select(func.count(Photographer.id)).join(User, User.id == Photographer.user_id)
 
     if status:
-        q = q.where(Photographer.status == status)
-        count_q = count_q.where(Photographer.status == status)
+        pending_expr = _pending_submission_expr()
+        if status == PhotographerStatus.pending.value:
+            q = q.where((Photographer.status == status) | pending_expr)
+            count_q = count_q.where((Photographer.status == status) | pending_expr)
+        elif status == PhotographerStatus.approved.value:
+            q = q.where(Photographer.status == status, ~pending_expr)
+            count_q = count_q.where(Photographer.status == status, ~pending_expr)
+        else:
+            q = q.where(Photographer.status == status)
+            count_q = count_q.where(Photographer.status == status)
 
     if keyword:
         like_pattern = f"%{keyword}%"
@@ -429,25 +475,41 @@ def review_certification(
     if not p:
         raise HTTPException(status_code=404, detail="photographer not found")
 
+    has_pending_submission = _has_pending_submission(p)
     if payload.action == "approve":
-        p.status = PhotographerStatus.approved.value
-        p.reject_reason = None
-        p.certification_level = max(p.certification_level, 1)  # 至少 Lv1
-        # 审核通过时给一个可见的初始质量分（仅当仍是系统默认分）
-        if p.quality_score == DEFAULT_QUALITY_SCORE:
-            p.quality_score = INITIAL_APPROVED_QUALITY_SCORE
-        # 审核通过后，如果服务坐标已齐备，则自动开放接单，避免前台列表仍被过滤掉。
-        if p.service_center_lat is not None and p.service_center_lng is not None:
-            p.is_accepting_orders = True
-        # 同步升级 user.role
-        if p.user and p.user.role != UserRole.photographer.value:
-            p.user.role = UserRole.photographer.value
+        if has_pending_submission and p.status == PhotographerStatus.approved.value:
+            snapshot = load_pending_submission_snapshot(p)
+            if not snapshot:
+                raise HTTPException(status_code=400, detail="待审核修改数据不存在")
+            apply_submission_snapshot(db=db, photographer=p, snapshot=snapshot)
+            clear_pending_submission_snapshot(p)
+            p.pending_reject_reason = None
+            if p.service_center_lat is not None and p.service_center_lng is not None:
+                p.is_accepting_orders = True
+        else:
+            p.status = PhotographerStatus.approved.value
+            p.reject_reason = None
+            p.pending_reject_reason = None
+            p.certification_level = max(p.certification_level, 1)  # 至少 Lv1
+            # 审核通过时给一个可见的初始质量分（仅当仍是系统默认分）
+            if p.quality_score == DEFAULT_QUALITY_SCORE:
+                p.quality_score = INITIAL_APPROVED_QUALITY_SCORE
+            # 审核通过后，如果服务坐标已齐备，则自动开放接单，避免前台列表仍被过滤掉。
+            if p.service_center_lat is not None and p.service_center_lng is not None:
+                p.is_accepting_orders = True
+            # 同步升级 user.role
+            if p.user and p.user.role != UserRole.photographer.value:
+                p.user.role = UserRole.photographer.value
     elif payload.action == "reject":
         if not payload.reject_reason:
             raise HTTPException(status_code=400, detail="驳回时必须填写原因")
-        p.status = PhotographerStatus.rejected.value
-        p.is_accepting_orders = False
-        p.reject_reason = payload.reject_reason
+        if has_pending_submission and p.status == PhotographerStatus.approved.value:
+            clear_pending_submission_snapshot(p)
+            p.pending_reject_reason = payload.reject_reason
+        else:
+            p.status = PhotographerStatus.rejected.value
+            p.is_accepting_orders = False
+            p.reject_reason = payload.reject_reason
     else:
         raise HTTPException(status_code=400, detail="action 必须是 approve 或 reject")
 

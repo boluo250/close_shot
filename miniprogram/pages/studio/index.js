@@ -38,6 +38,9 @@ Page({
     submittingAll: false,
     pendingPortfolio: [],
     profileDraftSaved: false,
+    pendingReviewStatus: "none",
+    pendingRejectReason: "",
+    pendingReviewSubmittedAt: "",
     packagesLoading: false,
     scheduleLoading: false,
     lastUrl: "",
@@ -352,6 +355,9 @@ Page({
           avatar_url: profile.avatar_url || "",
           cover_url: profile.cover_url || ""
         },
+        pendingReviewStatus: data.pending_review_status || "none",
+        pendingRejectReason: data.pending_reject_reason || "",
+        pendingReviewSubmittedAt: data.pending_review_submitted_at || "",
         equipmentItems,
         droneItems,
         serviceCity: (profile.city || "").trim(),
@@ -405,10 +411,12 @@ Page({
       this.setData({
         serviceCenterLat: lat,
         serviceCenterLng: lng,
-        serviceCity: cityFromLocation || this.data.serviceCity || (this.data.profile.city || "").trim()
+        serviceCity: cityFromLocation || this.data.serviceCity || (this.data.profile.city || "").trim(),
+        pendingReviewStatus: "pending",
+        pendingRejectReason: ""
       });
       this.updateServiceCenterText();
-      wx.showToast({ title: "位置已刷新", icon: "none" });
+      wx.showToast({ title: "位置已提交审核", icon: "none" });
     } catch (e) {
       wx.showToast({ title: "刷新位置失败", icon: "none" });
     } finally {
@@ -463,10 +471,12 @@ Page({
       avatarObjectKey: "",
       coverObjectKey: "",
       pendingAvatar: null,
-      profileDraftSaved: false
+      profileDraftSaved: false,
+      pendingReviewStatus: "pending",
+      pendingRejectReason: ""
     });
     if (!silent) {
-      wx.showToast({ title: "资料已上传", icon: "none" });
+      wx.showToast({ title: "资料已提交审核", icon: "none" });
     }
   },
 
@@ -628,9 +638,10 @@ Page({
       );
       this.setData({
         pendingPortfolio: [],
-        lastUrl: "已上传 " + pending.length + " 张"
+        lastUrl: "已提交审核 " + pending.length + " 张"
       });
-      if (!silent) wx.showToast({ title: "上传成功", icon: "none" });
+      this.setData({ pendingReviewStatus: "pending", pendingRejectReason: "" });
+      if (!silent) wx.showToast({ title: "作品已提交审核", icon: "none" });
       await this.loadPortfolio();
     } catch (e) {
       if (!silent) wx.showToast({ title: (e && e.message) || "上传失败", icon: "none" });
@@ -660,7 +671,7 @@ Page({
         await this.confirmUploadPortfolio({ silent: true });
       }
       this.clearDraft();
-      wx.showToast({ title: "已上传到服务器", icon: "none" });
+      wx.showToast({ title: "已提交审核，审核通过后更新线上页面", icon: "none" });
     } catch (e) {
       wx.showToast({ title: (e && e.message) || "上传失败", icon: "none" });
     } finally {
@@ -677,7 +688,9 @@ Page({
         method: "PUT",
         data: { is_pinned: !item.is_pinned }
       });
+      this.setData({ pendingReviewStatus: "pending", pendingRejectReason: "" });
       await this.loadPortfolio();
+      wx.showToast({ title: "修改已提交审核", icon: "none" });
     } catch (e) {
       wx.showToast({ title: "操作失败", icon: "none" });
     }
@@ -692,7 +705,9 @@ Page({
         if (!res.confirm) return;
         try {
           await this.studioRequest(`/studio/portfolio/${id}`, { method: "DELETE" });
+          this.setData({ pendingReviewStatus: "pending", pendingRejectReason: "" });
           await this.loadPortfolio();
+          wx.showToast({ title: "删除已提交审核", icon: "none" });
         } catch (e) {
           wx.showToast({ title: "删除失败", icon: "none" });
         }
@@ -737,7 +752,8 @@ Page({
           is_active: true
         }
       });
-      wx.showToast({ title: "套餐已创建", icon: "none" });
+      this.setData({ pendingReviewStatus: "pending", pendingRejectReason: "" });
+      wx.showToast({ title: "套餐已提交审核", icon: "none" });
       await this.loadPackages();
     } catch (e) {
       wx.showToast({ title: "创建失败", icon: "none" });
@@ -790,7 +806,8 @@ Page({
           is_active: !!item.is_active
         }
       });
-      wx.showToast({ title: "已保存", icon: "none" });
+      this.setData({ pendingReviewStatus: "pending", pendingRejectReason: "" });
+      wx.showToast({ title: "已保存，待审核", icon: "none" });
     } catch (e) {
       wx.showToast({ title: "保存失败", icon: "none" });
     }
@@ -814,11 +831,13 @@ Page({
           is_active: !!item.is_active
         }
       });
+      this.setData({ pendingReviewStatus: "pending", pendingRejectReason: "" });
       this.setData({
         showNewPackage: false,
         newPackage: { name: "", price_yuan: "", duration_minutes: "", description: "", is_active: true }
       });
       await this.loadPackages();
+      wx.showToast({ title: "已新增，待审核", icon: "none" });
     } catch (e) {
       wx.showToast({ title: "创建失败", icon: "none" });
     }
@@ -833,7 +852,9 @@ Page({
         if (!res.confirm) return;
         try {
           await this.studioRequest(`/studio/packages/${id}`, { method: "DELETE" });
+          this.setData({ pendingReviewStatus: "pending", pendingRejectReason: "" });
           await this.loadPackages();
+          wx.showToast({ title: "删除已提交审核", icon: "none" });
         } catch (e) {
           wx.showToast({ title: "删除失败", icon: "none" });
         }

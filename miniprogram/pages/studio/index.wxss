@@ -319,6 +319,10 @@
   margin-bottom: 16rpx;
 }
 
+.upload-hint.danger {
+  color: var(--cs-color-danger);
+}
+
 .upload-btn {
   width: 100%;
   height: 88rpx;

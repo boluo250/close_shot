@@ -128,6 +128,10 @@ class Photographer(TimestampMixin, Base):
     quality_score: Mapped[float] = mapped_column(Float, nullable=False, default=5.0)
     # 预计算排序分（0-100），由定时任务刷新
     sort_score: Mapped[float] = mapped_column(Float, nullable=False, default=50.0)
+    # 已上线摄影师再次编辑时，先把改动存到待审核快照，审核通过后再替换正式内容
+    pending_submission_json: Mapped[str | None] = mapped_column(Text)
+    pending_submission_submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    pending_reject_reason: Mapped[str | None] = mapped_column(Text)
 
     # 服务中心点（非实时定位）：映射历史列名 lat/lng
     service_center_lat: Mapped[float | None] = mapped_column("lat", Float)
