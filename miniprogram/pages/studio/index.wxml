@@ -212,37 +212,20 @@
     <!-- 已有套餐列表 -->
     <view wx:if="{{packages.length > 0}}" class="pkg-section-head">
       <view class="pkg-section-title">已有套餐</view>
-      <view class="pkg-section-desc">已保存的套餐会展示在这里，可继续修改、上下架或删除。</view>
+      <view class="pkg-section-desc">已保存套餐按摘要展示，支持直接删除。</view>
     </view>
-    <view wx:for="{{packages}}" wx:key="id" class="pkg-edit-card">
-      <view class="pkg-edit-header">
-        <input class="pkg-name-input" value="{{item.name}}" data-index="{{index}}" data-field="name" bindinput="onPackageField" />
-        <view class="pkg-price-tag">
-          <text class="yuan">¥</text>
-          <input class="pkg-price-input" type="digit" value="{{item.price_yuan}}" data-index="{{index}}" data-field="price_yuan" bindinput="onPackageField" />
+    <view wx:if="{{packages.length > 0}}" class="pkg-summary-list">
+      <view wx:for="{{packages}}" wx:key="id" class="pkg-summary-line">
+        <view class="pkg-summary-main">
+          <view class="pkg-summary-top">
+            <text class="pkg-summary-title">{{item.name}}</text>
+            <text class="pkg-summary-badge">{{item.is_active ? '上架中' : '未上架'}}</text>
+          </view>
+          <text class="pkg-summary-sub">
+            ¥{{item.price_yuan}}{{item.duration_minutes ? ' / ' + item.duration_minutes + '分钟' : ''}}{{item.description ? ' / ' + item.description : ''}}
+          </text>
         </view>
-      </view>
-      <view class="pkg-edit-row">
-        <view class="pkg-field-group">
-          <text class="pkg-field-label">时长</text>
-          <input class="pkg-field-input" type="number" placeholder="分钟" value="{{item.duration_minutes}}" data-index="{{index}}" data-field="duration_minutes" bindinput="onPackageField" />
-        </view>
-        <view class="pkg-toggle">
-          <text class="pkg-field-label">上架</text>
-          <switch checked="{{item.is_active}}" data-index="{{index}}" data-field="is_active" bindchange="onPackageField" />
-        </view>
-      </view>
-      <textarea
-        class="pkg-desc-input"
-        placeholder="套餐描述（选填）"
-        value="{{item.description}}"
-        data-index="{{index}}"
-        data-field="description"
-        bindinput="onPackageField"
-      ></textarea>
-      <view class="pkg-edit-actions">
-        <button class="save-btn" size="mini" data-index="{{index}}" bindtap="savePackage">保存</button>
-        <button class="delete-btn" size="mini" data-id="{{item.id}}" bindtap="deletePackage">删除</button>
+        <button class="pkg-inline-delete" size="mini" data-id="{{item.id}}" bindtap="deletePackage">删除</button>
       </view>
     </view>
 
@@ -254,14 +237,15 @@
         <view class="pkg-section-desc">每次保存后，新的套餐会出现在上方，这里保留一个新的编辑框继续添加。</view>
       </view>
       <view class="pkg-edit-card new-pkg-form">
-        <input class="input" placeholder="套餐名称" value="{{newPackage.name}}" data-field="name" bindinput="onNewPackageField" />
+        <input class="input pkg-form-input" placeholder="套餐名称" placeholder-class="pkg-placeholder" value="{{newPackage.name}}" data-field="name" bindinput="onNewPackageField" />
         <view class="row-2" style="margin-top: 10rpx;">
-          <input class="input flex-1" type="digit" placeholder="价格（元）" value="{{newPackage.price_yuan}}" data-field="price_yuan" bindinput="onNewPackageField" />
-          <input class="input flex-1" type="number" placeholder="时长（分钟）" value="{{newPackage.duration_minutes}}" data-field="duration_minutes" bindinput="onNewPackageField" />
+          <input class="input pkg-form-input flex-1" type="digit" placeholder="价格（元）" placeholder-class="pkg-placeholder" value="{{newPackage.price_yuan}}" data-field="price_yuan" bindinput="onNewPackageField" />
+          <input class="input pkg-form-input flex-1" type="number" placeholder="时长（分钟）" placeholder-class="pkg-placeholder" value="{{newPackage.duration_minutes}}" data-field="duration_minutes" bindinput="onNewPackageField" />
         </view>
         <textarea
-          class="textarea-sm"
+          class="textarea-sm pkg-form-textarea"
           placeholder="套餐描述（选填）"
+          placeholder-class="pkg-placeholder"
           value="{{newPackage.description}}"
           data-field="description"
           bindinput="onNewPackageField"

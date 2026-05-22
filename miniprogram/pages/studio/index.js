@@ -772,42 +772,11 @@ Page({
     });
   },
 
-  onPackageField(e) {
-    const index = e.currentTarget.dataset.index;
-    const field = e.currentTarget.dataset.field;
-    const value = e.detail.value;
-    const key = `packages[${index}].${field}`;
-    this.setData({ [key]: value });
-  },
-
   onNewPackageField(e) {
     const field = e.currentTarget.dataset.field;
     const value = e.detail.value;
     const key = `newPackage.${field}`;
     this.setData({ [key]: value });
-  },
-
-  async savePackage(e) {
-    const index = e.currentTarget.dataset.index;
-    const item = this.data.packages[index];
-    if (!item) return;
-    try {
-      const priceValue = parseFloat(item.price_yuan || "0");
-      await this.studioRequest(`/studio/packages/${item.id}`, {
-        method: "PUT",
-        data: {
-          name: item.name,
-          price_cents: Math.round((Number.isNaN(priceValue) ? 0 : priceValue) * 100),
-          duration_minutes: item.duration_minutes ? parseInt(item.duration_minutes, 10) : null,
-          description: item.description || "",
-          is_active: !!item.is_active
-        }
-      });
-      this.setData({ pendingReviewStatus: "pending", pendingRejectReason: "" });
-      wx.showToast({ title: "已保存，待审核", icon: "none" });
-    } catch (e) {
-      wx.showToast({ title: "保存失败", icon: "none" });
-    }
   },
 
   async addPackage() {
