@@ -257,6 +257,51 @@
         </el-descriptions-item>
       </el-descriptions>
 
+      <el-divider content-position="left">待审核资料</el-divider>
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="个人简介" :span="2">
+          <span>{{ currentItem.bio || '-' }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="设备清单" :span="2">
+          <span>{{ (currentItem.equipment_list || []).length ? currentItem.equipment_list.join('、') : '-' }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="无人机" :span="2">
+          <span>{{ (currentItem.drone_models || []).length ? currentItem.drone_models.join('、') : '-' }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="服务坐标">
+          <span v-if="currentItem.service_center_lat != null && currentItem.service_center_lng != null">
+            {{ Number(currentItem.service_center_lat).toFixed(4) }}, {{ Number(currentItem.service_center_lng).toFixed(4) }}
+          </span>
+          <span v-else style="color: #999">-</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="服务半径">
+          <span>{{ currentItem.service_radius_m ? `${currentItem.service_radius_m} 米` : '-' }}</span>
+        </el-descriptions-item>
+      </el-descriptions>
+
+      <el-divider content-position="left">待审核套餐</el-divider>
+      <div v-if="(currentItem.packages || []).length" style="display: grid; gap: 10px">
+        <div
+          v-for="pkg in currentItem.packages"
+          :key="pkg.id"
+          style="border: 1px solid #ebeef5; border-radius: 10px; padding: 12px 14px; background: #fafafa"
+        >
+          <div style="display: flex; justify-content: space-between; gap: 12px; align-items: center">
+            <div style="font-weight: 600; color: #303133">{{ pkg.name }}</div>
+            <el-tag :type="pkg.is_active ? 'success' : 'info'" size="small">
+              {{ pkg.is_active ? '上架中' : '未上架' }}
+            </el-tag>
+          </div>
+          <div style="margin-top: 6px; color: #606266">
+            ¥{{ (pkg.price_cents / 100).toFixed(0) }}<span v-if="pkg.duration_minutes"> / {{ pkg.duration_minutes }} 分钟</span>
+          </div>
+          <div v-if="pkg.description" style="margin-top: 6px; color: #909399; line-height: 1.6">
+            {{ pkg.description }}
+          </div>
+        </div>
+      </div>
+      <el-empty v-else description="暂无套餐信息" :image-size="80" />
+
       <el-divider content-position="left">摄影作品（用于评分）</el-divider>
       <div v-if="(currentItem.portfolio_image_urls || []).length" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px">
         <el-image
@@ -377,6 +422,20 @@ type CertificationItem = {
   wechat_id: string | null;
   city: string | null;
   price_range: string | null;
+  bio: string | null;
+  equipment_list: string[];
+  drone_models: string[];
+  service_center_lat: number | null;
+  service_center_lng: number | null;
+  service_radius_m: number | null;
+  packages: Array<{
+    id: number;
+    name: string;
+    price_cents: number;
+    duration_minutes: number | null;
+    description: string | null;
+    is_active: boolean;
+  }>;
   portfolio_image_urls: string[];
   has_pending_changes: boolean;
   pending_review_submitted_at: string | null;

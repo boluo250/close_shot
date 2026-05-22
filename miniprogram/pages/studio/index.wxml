@@ -144,6 +144,9 @@
     <view wx:if="{{pendingPortfolio.length > 0}}" class="upload-hint" style="margin-top: 10rpx;">
       待提交 {{pendingPortfolio.length}} 张，点击底部按钮后进入审核
     </view>
+    <view wx:if="{{portfolioDraftDirty}}" class="upload-hint" style="margin-top: 10rpx;">
+      作品置顶或删除修改已加入待提交，点击底部按钮后统一进入审核
+    </view>
     <view class="portfolio-grid" wx:if="{{pendingPortfolio.length > 0}}">
       <view wx:for="{{pendingPortfolio}}" wx:key="tempFilePath" class="portfolio-cell">
         <image mode="aspectFill" src="{{item.tempFilePath}}" class="portfolio-thumb" />
@@ -184,6 +187,9 @@
       <button class="refresh-btn" size="mini" bindtap="loadPackages">刷新</button>
     </view>
     <view class="upload-hint">已配置 {{packages.length}} 个套餐。上方管理已有套餐，下方持续保留新增套餐编辑区。</view>
+    <view wx:if="{{packageDraftDirty}}" class="upload-hint" style="margin-top: 10rpx;">
+      套餐改动已加入待提交，点击底部按钮后统一进入审核
+    </view>
 
     <!-- 快速创建预设套餐 -->
     <view wx:if="{{packages.length === 0 && !showNewPackage}}" class="preset-section">
@@ -314,9 +320,9 @@
       class="submit-upload-btn"
       bindtap="submitAllChanges"
       loading="{{portfolioUploading || submittingAll}}"
-      disabled="{{!token || portfolioUploading || submittingAll || (!profileDraftSaved && pendingPortfolio.length === 0)}}"
+      disabled="{{!token || portfolioUploading || submittingAll || (!profileDraftSaved && pendingPortfolio.length === 0 && !packageDraftDirty && !portfolioDraftDirty)}}"
     >
-      {{(portfolioUploading || submittingAll) ? (portfolioUploadCount > 0 ? '提交中（' + portfolioUploadCount + '张）...' : '提交中...') : (profileDraftSaved || pendingPortfolio.length > 0 ? '提交审核（' + pendingPortfolio.length + '张作品）' : '提交审核')}}
+      {{(portfolioUploading || submittingAll) ? (portfolioUploadCount > 0 ? '提交中（' + portfolioUploadCount + '张）...' : '提交中...') : (pendingPortfolio.length > 0 ? '提交审核（' + pendingPortfolio.length + '张作品）' : '提交审核')}}
     </button>
   </view>
 

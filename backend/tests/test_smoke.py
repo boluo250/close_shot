@@ -561,6 +561,12 @@ def test_admin_detail_keeps_approved_status_when_has_pending_changes():
         wechat_id="bolo-photo",
         city="上海",
         price_range=None,
+        bio="旧简介",
+        equipment_list="Sony A7M4",
+        drone_models="DJI Air 3",
+        service_center_lat=31.2304,
+        service_center_lng=121.4737,
+        service_radius_m=5000,
         pending_submission_json=json.dumps(
             {
                 "profile": {
@@ -569,15 +575,26 @@ def test_admin_detail_keeps_approved_status_when_has_pending_changes():
                     "bio": "新的简介",
                     "tags": "",
                     "city": "上海",
-                    "service_center_lat": None,
-                    "service_center_lng": None,
-                    "service_radius_m": 5000,
-                    "equipment_list": "",
-                    "drone_models": "",
+                    "service_center_lat": 30.2741,
+                    "service_center_lng": 120.1551,
+                    "service_radius_m": 8000,
+                    "equipment_list": "Sony A1,85mm GM",
+                    "drone_models": "DJI Mavic 3",
                     "rate_card": [],
                 },
                 "portfolio_items": [],
-                "packages": [],
+                "packages": [
+                    {
+                        "id": -9,
+                        "name": "待审套餐",
+                        "price_cents": 69900,
+                        "duration_minutes": 120,
+                        "description": "双人街拍",
+                        "is_active": True,
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                ],
             },
             ensure_ascii=False,
         ),
@@ -592,6 +609,14 @@ def test_admin_detail_keeps_approved_status_when_has_pending_changes():
     assert detail.status == "approved"
     assert detail.has_pending_changes is True
     assert detail.display_name == "菠萝"
+    assert detail.bio == "新的简介"
+    assert detail.equipment_list == ["Sony A1", "85mm GM"]
+    assert detail.drone_models == ["DJI Mavic 3"]
+    assert detail.service_center_lat == 30.2741
+    assert detail.service_center_lng == 120.1551
+    assert detail.service_radius_m == 8000
+    assert len(detail.packages) == 1
+    assert detail.packages[0].name == "待审套餐"
 
 
 def test_apply_photographer_persists_display_name():

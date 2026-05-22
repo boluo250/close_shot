@@ -158,10 +158,28 @@ class CertificationDetailOut(TimestampOut):
     # 可选
     city: str | None = None
     price_range: str | None = None
+    bio: str | None = None
+    equipment_list: list[str] = Field(default_factory=list)
+    drone_models: list[str] = Field(default_factory=list)
+    service_center_lat: float | None = None
+    service_center_lng: float | None = None
+    service_radius_m: int | None = None
+    packages: list[PackageOut] = Field(default_factory=list)
     # 作品图（审核评分用）
     portfolio_image_urls: list[str] = Field(default_factory=list)
     has_pending_changes: bool = False
     pending_review_submitted_at: datetime | None = None
+
+    @field_validator("equipment_list", "drone_models", mode="before")
+    @classmethod
+    def _parse_review_csv_list(cls, value: object) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            return [x.strip() for x in value.split(",") if x.strip()]
+        return []
 
 class CertificationReviewIn(BaseModel):
     """管理端审核操作"""

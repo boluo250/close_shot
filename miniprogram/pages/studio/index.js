@@ -25,6 +25,9 @@ function buildCalendar(year, month, scheduleMap) {
 
 function getPackageDisplayState(item) {
   const id = Number(item?.id);
+  if (typeof item?.id === "string" && item.id.startsWith("local-package-")) {
+    return { label: "待提交", className: "is-draft" };
+  }
   if (Number.isFinite(id) && id < 0) {
     return { label: "待上架", className: "is-pending" };
   }
@@ -49,6 +52,8 @@ Page({
     submittingAll: false,
     pendingPortfolio: [],
     profileDraftSaved: false,
+    packageDraftDirty: false,
+    portfolioDraftDirty: false,
     pendingReviewStatus: "none",
     pendingRejectReason: "",
     pendingReviewSubmittedAt: "",
@@ -75,8 +80,6 @@ Page({
     droneItems: [],
     newDrone: "",
 
-    items: [],
-
     // 预设套餐模板
     presetPackages: [
       { name: "标准人像", price_yuan: "299", duration_minutes: "60", desc: "1小时 / 精修15张", description: "含1小时拍摄、精修15张底片全送" },
@@ -85,6 +88,7 @@ Page({
     ],
 
     packages: [],
+    serverPackages: [],
     showNewPackage: false,
     newPackage: {
       name: "",
@@ -107,6 +111,8 @@ Page({
     serviceCityText: "未设置",
     serviceCoordText: "未设置",
     locationRefreshing: false,
+    items: [],
+    serverItems: [],
 
     theme: "classic",
     themeClass: "cs-theme-classic"
@@ -149,7 +155,14 @@ Page({
         pendingAvatar: this.data.pendingAvatar,
         pendingPortfolio: this.data.pendingPortfolio,
         profileDraftSaved: this.data.profileDraftSaved,
-        newPackage: this.data.newPackage
+        packageDraftDirty: this.data.packageDraftDirty,
+        portfolioDraftDirty: this.data.portfolioDraftDirty,
+        packages: this.data.packages,
+        items: this.data.items,
+        newPackage: this.data.newPackage,
+        serviceCenterLat: this.data.serviceCenterLat,
+        serviceCenterLng: this.data.serviceCenterLng,
+        serviceCity: this.data.serviceCity
       };
       wx.setStorageSync(DRAFT_KEY, JSON.stringify(draft));
     } catch (e) {
@@ -172,16 +185,23 @@ Page({
       if (Array.isArray(draft.equipmentItems)) patch.equipmentItems = draft.equipmentItems;
       if (Array.isArray(draft.droneItems)) patch.droneItems = draft.droneItems;
       if (Array.isArray(draft.pendingPortfolio)) patch.pendingPortfolio = draft.pendingPortfolio;
+      if (Array.isArray(draft.packages)) patch.packages = draft.packages;
+      if (Array.isArray(draft.items)) patch.items = draft.items;
       if (draft.pendingAvatar && typeof draft.pendingAvatar === "object") {
         patch.pendingAvatar = draft.pendingAvatar;
       }
       patch.profileDraftSaved = !!draft.profileDraftSaved;
+      patch.packageDraftDirty = !!draft.packageDraftDirty;
+      patch.portfolioDraftDirty = !!draft.portfolioDraftDirty;
+      if (typeof draft.serviceCenterLat === "number") patch.serviceCenterLat = draft.serviceCenterLat;
+      if (typeof draft.serviceCenterLng === "number") patch.serviceCenterLng = draft.serviceCenterLng;
+      if (typeof draft.serviceCity === "string") patch.serviceCity = draft.serviceCity;
       if (draft.newPackage && draft.newPackage.name) {
         patch.newPackage = draft.newPackage;
         patch.showNewPackage = true;
       }
       if (Object.keys(patch).length > 0) {
-        this.setData(patch);
+        this.setData(patch, () => this.updateServiceCenterText());
       }
     } catch (e) {
       // ignore
@@ -251,16 +271,25 @@ Page({
   // ============ 个人资料 ============
 
   onBio(e) {
-    this.setData({ "profile.bio": e.detail.value });
+    this.setData({
+      "profile.bio": e.detail.value,
+      profileDraftSaved: true
+    });
   },
 
   onDisplayName(e) {
-    this.setData({ "profile.display_name": e.detail.value });
+    this.setData({
+      "profile.display_name": e.detail.value,
+      profileDraftSaved: true
+    });
   },
 
   useBioTemplate(e) {
     const tpl = e.currentTarget.dataset.tpl;
-    this.setData({ "profile.bio": tpl });
+    this.setData({
+      "profile.bio": tpl,
+      profileDraftSaved: true
+    });
   },
 
   // ============ 设备清单 ============
@@ -278,7 +307,8 @@ Page({
     }
     this.setData({
       equipmentItems: [...this.data.equipmentItems, val],
-      newEquipment: ""
+      newEquipment: "",
+      profileDraftSaved: true
     });
   },
 
@@ -286,7 +316,10 @@ Page({
     const idx = e.currentTarget.dataset.index;
     const items = [...this.data.equipmentItems];
     items.splice(idx, 1);
-    this.setData({ equipmentItems: items });
+    this.setData({
+      equipmentItems: items,
+      profileDraftSaved: true
+    });
   },
 
   // ============ 无人机 ============
@@ -304,7 +337,8 @@ Page({
     }
     this.setData({
       droneItems: [...this.data.droneItems, val],
-      newDrone: ""
+      newDrone: "",
+      profileDraftSaved: true
     });
   },
 
@@ -312,7 +346,10 @@ Page({
     const idx = e.currentTarget.dataset.index;
     const items = [...this.data.droneItems];
     items.splice(idx, 1);
-    this.setData({ droneItems: items });
+    this.setData({
+      droneItems: items,
+      profileDraftSaved: true
+    });
   },
 
   async refreshAll() {
@@ -412,22 +449,15 @@ Page({
       const lat = loc.latitude;
       const lng = loc.longitude;
       const cityFromLocation = (loc.city || loc.locality || "").trim();
-      await this.studioRequest("/studio/me", {
-        method: "PUT",
-        data: {
-          service_center_lat: lat,
-          service_center_lng: lng
-        }
-      });
       this.setData({
         serviceCenterLat: lat,
         serviceCenterLng: lng,
         serviceCity: cityFromLocation || this.data.serviceCity || (this.data.profile.city || "").trim(),
-        pendingReviewStatus: "pending",
-        pendingRejectReason: ""
+        profileDraftSaved: true
       });
       this.updateServiceCenterText();
-      wx.showToast({ title: "位置已提交审核", icon: "none" });
+      this.saveDraft();
+      wx.showToast({ title: "位置已加入待提交", icon: "none" });
     } catch (e) {
       wx.showToast({ title: "刷新位置失败", icon: "none" });
     } finally {
@@ -472,7 +502,10 @@ Page({
       cover_url: this.data.profile.cover_url,
       cover_object_key: this.data.coverObjectKey || null,
       equipment_list: this.data.equipmentItems.join(","),
-      drone_models: this.data.droneItems.join(",")
+      drone_models: this.data.droneItems.join(","),
+      city: (this.data.serviceCity || "").trim() || null,
+      service_center_lat: typeof this.data.serviceCenterLat === "number" ? this.data.serviceCenterLat : null,
+      service_center_lng: typeof this.data.serviceCenterLng === "number" ? this.data.serviceCenterLng : null
     };
     await this.studioRequest("/studio/me", { method: "PUT", data: payload });
     this.setData({
@@ -561,7 +594,7 @@ Page({
           ? base + x.image_url
           : x.image_url
       }));
-      this.setData({ items });
+      this.setData({ items, serverItems: items });
     } catch (e) {
       wx.showToast({ title: "加载作品失败", icon: "none" });
     } finally {
@@ -601,6 +634,7 @@ Page({
       pendingPortfolio,
       lastUrl: "已保存 " + pendingPortfolio.length + " 张待上传"
     });
+    this.saveDraft();
     wx.showToast({ title: "已保存到待上传", icon: "none" });
   },
 
@@ -609,6 +643,7 @@ Page({
     const pendingPortfolio = [...this.data.pendingPortfolio];
     pendingPortfolio.splice(idx, 1);
     this.setData({ pendingPortfolio });
+    this.saveDraft();
   },
 
   async confirmUploadPortfolio({ silent = false } = {}) {
@@ -662,13 +697,86 @@ Page({
     }
   },
 
+  async syncPortfolioDraft({ silent = false } = {}) {
+    const serverItems = this.data.serverItems || [];
+    const currentItems = this.data.items || [];
+    const currentIdSet = new Set(currentItems.map((item) => String(item.id)));
+
+    for (const item of serverItems) {
+      if (!currentIdSet.has(String(item.id))) {
+        await this.studioRequest(`/studio/portfolio/${item.id}`, { method: "DELETE" });
+      }
+    }
+
+    for (const item of currentItems) {
+      const original = serverItems.find((entry) => String(entry.id) === String(item.id));
+      if (!original) continue;
+      if (!!original.is_pinned !== !!item.is_pinned) {
+        await this.studioRequest(`/studio/portfolio/${item.id}`, {
+          method: "PUT",
+          data: { is_pinned: !!item.is_pinned }
+        });
+      }
+    }
+
+    this.setData({
+      portfolioDraftDirty: false,
+      pendingReviewStatus: "pending",
+      pendingRejectReason: ""
+    });
+    if (!silent) {
+      wx.showToast({ title: "作品修改已提交审核", icon: "none" });
+    }
+  },
+
+  async syncPackageDraft({ silent = false } = {}) {
+    const serverPackages = this.data.serverPackages || [];
+    const currentPackages = this.data.packages || [];
+    const currentIdSet = new Set(currentPackages.map((item) => String(item.id)));
+
+    for (const item of serverPackages) {
+      if (!currentIdSet.has(String(item.id))) {
+        await this.studioRequest(`/studio/packages/${item.id}`, { method: "DELETE" });
+      }
+    }
+
+    for (const item of currentPackages) {
+      if (typeof item.id === "string" && item.id.startsWith("local-package-")) {
+        await this.studioRequest("/studio/packages", {
+          method: "POST",
+          data: {
+            name: item.name,
+            price_cents: item.price_cents,
+            duration_minutes: item.duration_minutes ? parseInt(item.duration_minutes, 10) : null,
+            description: item.description || "",
+            is_active: !!item.is_active
+          }
+        });
+      }
+    }
+
+    this.setData({
+      packageDraftDirty: false,
+      pendingReviewStatus: "pending",
+      pendingRejectReason: ""
+    });
+    if (!silent) {
+      wx.showToast({ title: "套餐修改已提交审核", icon: "none" });
+    }
+  },
+
   async submitAllChanges() {
     if (!this.data.token) {
       wx.showToast({ title: "请先登录", icon: "none" });
       return;
     }
     const hasPendingPortfolio = (this.data.pendingPortfolio || []).length > 0;
-    if (!this.data.profileDraftSaved && !hasPendingPortfolio) {
+    const hasLocalChanges =
+      !!this.data.profileDraftSaved ||
+      hasPendingPortfolio ||
+      !!this.data.packageDraftDirty ||
+      !!this.data.portfolioDraftDirty;
+    if (!hasLocalChanges) {
       wx.showToast({ title: "暂无待上传内容", icon: "none" });
       return;
     }
@@ -678,9 +786,21 @@ Page({
       if (this.data.profileDraftSaved) {
         await this.submitProfileDraft({ silent: true });
       }
+      if (this.data.portfolioDraftDirty) {
+        await this.syncPortfolioDraft({ silent: true });
+      }
       if (hasPendingPortfolio) {
         await this.confirmUploadPortfolio({ silent: true });
       }
+      if (this.data.packageDraftDirty) {
+        await this.syncPackageDraft({ silent: true });
+      }
+      await this.refreshAll();
+      this.setData({
+        packageDraftDirty: false,
+        portfolioDraftDirty: false,
+        pendingPortfolio: []
+      });
       this.clearDraft();
       wx.showToast({ title: "已提交审核，审核通过后更新线上页面", icon: "none" });
     } catch (e) {
@@ -692,19 +812,17 @@ Page({
 
   async togglePin(e) {
     const id = e.currentTarget.dataset.id;
-    const item = this.data.items.find((x) => x.id === id);
+    const item = this.data.items.find((x) => String(x.id) === String(id));
     if (!item) return;
-    try {
-      await this.studioRequest(`/studio/portfolio/${id}`, {
-        method: "PUT",
-        data: { is_pinned: !item.is_pinned }
-      });
-      this.setData({ pendingReviewStatus: "pending", pendingRejectReason: "" });
-      await this.loadPortfolio();
-      wx.showToast({ title: "修改已提交审核", icon: "none" });
-    } catch (e) {
-      wx.showToast({ title: "操作失败", icon: "none" });
-    }
+    const items = this.data.items.map((entry) =>
+      String(entry.id) === String(id) ? { ...entry, is_pinned: !entry.is_pinned } : entry
+    );
+    this.setData({
+      items,
+      portfolioDraftDirty: true
+    });
+    this.saveDraft();
+    wx.showToast({ title: "已加入待提交", icon: "none" });
   },
 
   async deleteItem(e) {
@@ -712,16 +830,15 @@ Page({
     wx.showModal({
       title: "确认删除",
       content: "删除后不可恢复，确定吗？",
-      success: async (res) => {
+      success: (res) => {
         if (!res.confirm) return;
-        try {
-          await this.studioRequest(`/studio/portfolio/${id}`, { method: "DELETE" });
-          this.setData({ pendingReviewStatus: "pending", pendingRejectReason: "" });
-          await this.loadPortfolio();
-          wx.showToast({ title: "删除已提交审核", icon: "none" });
-        } catch (e) {
-          wx.showToast({ title: "删除失败", icon: "none" });
-        }
+        const items = (this.data.items || []).filter((entry) => String(entry.id) !== String(id));
+        this.setData({
+          items,
+          portfolioDraftDirty: true
+        });
+        this.saveDraft();
+        wx.showToast({ title: "删除已加入待提交", icon: "none" });
       }
     });
   },
@@ -743,7 +860,7 @@ Page({
           package_status_class: packageState.className
         };
       });
-      this.setData({ packages: items });
+      this.setData({ packages: items, serverPackages: items });
     } catch (e) {
       wx.showToast({ title: "加载套餐失败", icon: "none" });
     } finally {
@@ -756,24 +873,24 @@ Page({
     const index = e.currentTarget.dataset.index;
     const preset = this.data.presetPackages[index];
     if (!preset) return;
-    try {
-      const priceValue = parseFloat(preset.price_yuan || "0");
-      await this.studioRequest("/studio/packages", {
-        method: "POST",
-        data: {
-          name: preset.name,
-          price_cents: Math.round((Number.isNaN(priceValue) ? 0 : priceValue) * 100),
-          duration_minutes: preset.duration_minutes ? parseInt(preset.duration_minutes, 10) : null,
-          description: preset.description || "",
-          is_active: true
-        }
-      });
-      this.setData({ pendingReviewStatus: "pending", pendingRejectReason: "" });
-      wx.showToast({ title: "套餐已提交审核", icon: "none" });
-      await this.loadPackages();
-    } catch (e) {
-      wx.showToast({ title: "创建失败", icon: "none" });
-    }
+    const priceValue = parseFloat(preset.price_yuan || "0");
+    const localPackage = {
+      id: `local-package-${Date.now()}`,
+      name: preset.name,
+      price_cents: Math.round((Number.isNaN(priceValue) ? 0 : priceValue) * 100),
+      price_yuan: preset.price_yuan || "0",
+      duration_minutes: preset.duration_minutes || "",
+      description: preset.description || "",
+      is_active: true,
+      package_status_text: "待提交",
+      package_status_class: "is-draft"
+    };
+    this.setData({
+      packages: [localPackage, ...(this.data.packages || [])],
+      packageDraftDirty: true
+    });
+    this.saveDraft();
+    wx.showToast({ title: "套餐已加入待提交", icon: "none" });
   },
 
   showCustomPackage() {
@@ -801,28 +918,26 @@ Page({
       wx.showToast({ title: "请填写套餐名称", icon: "none" });
       return;
     }
-    try {
-      const priceValue = parseFloat(item.price_yuan || "0");
-      await this.studioRequest("/studio/packages", {
-        method: "POST",
-        data: {
-          name: item.name,
-          price_cents: Math.round((Number.isNaN(priceValue) ? 0 : priceValue) * 100),
-          duration_minutes: item.duration_minutes ? parseInt(item.duration_minutes, 10) : null,
-          description: item.description || "",
-          is_active: !!item.is_active
-        }
-      });
-      this.setData({ pendingReviewStatus: "pending", pendingRejectReason: "" });
-      this.setData({
-        showNewPackage: true,
-        newPackage: { name: "", price_yuan: "", duration_minutes: "", description: "", is_active: true }
-      });
-      await this.loadPackages();
-      wx.showToast({ title: "已新增，待审核", icon: "none" });
-    } catch (e) {
-      wx.showToast({ title: "创建失败", icon: "none" });
-    }
+    const priceValue = parseFloat(item.price_yuan || "0");
+    const localPackage = {
+      id: `local-package-${Date.now()}`,
+      name: item.name,
+      price_cents: Math.round((Number.isNaN(priceValue) ? 0 : priceValue) * 100),
+      price_yuan: item.price_yuan || "0",
+      duration_minutes: item.duration_minutes || "",
+      description: item.description || "",
+      is_active: !!item.is_active,
+      package_status_text: "待提交",
+      package_status_class: "is-draft"
+    };
+    this.setData({
+      packages: [localPackage, ...(this.data.packages || [])],
+      packageDraftDirty: true,
+      showNewPackage: true,
+      newPackage: { name: "", price_yuan: "", duration_minutes: "", description: "", is_active: true }
+    });
+    this.saveDraft();
+    wx.showToast({ title: "已新增到待提交", icon: "none" });
   },
 
   async deletePackage(e) {
@@ -830,16 +945,15 @@ Page({
     wx.showModal({
       title: "确认删除",
       content: "删除后不可恢复，确定吗？",
-      success: async (res) => {
+      success: (res) => {
         if (!res.confirm) return;
-        try {
-          await this.studioRequest(`/studio/packages/${id}`, { method: "DELETE" });
-          this.setData({ pendingReviewStatus: "pending", pendingRejectReason: "" });
-          await this.loadPackages();
-          wx.showToast({ title: "删除已提交审核", icon: "none" });
-        } catch (e) {
-          wx.showToast({ title: "删除失败", icon: "none" });
-        }
+        const packages = (this.data.packages || []).filter((entry) => String(entry.id) !== String(id));
+        this.setData({
+          packages,
+          packageDraftDirty: true
+        });
+        this.saveDraft();
+        wx.showToast({ title: "删除已加入待提交", icon: "none" });
       }
     });
   },

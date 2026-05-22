@@ -34,6 +34,7 @@ from app.schemas.analytics import AnalyticsEventListOut, AnalyticsEventOut, Anal
 from app.schemas.photographer import (
     CertificationDetailOut,
     CertificationListOut,
+    PackageOut,
     PhotographerAvailabilityIn,
     CertificationReviewIn,
 )
@@ -47,6 +48,7 @@ from app.services.studio_review import (
     get_effective_submission_snapshot,
     load_pending_submission_snapshot,
     overlay_base_payload_with_snapshot,
+    snapshot_packages,
     snapshot_preview_urls,
 )
 
@@ -321,6 +323,10 @@ def _photographer_to_detail(
     data["risk_level"] = p.user.risk_level if p.user else RiskLevel.low.value
     data["blacklist_status"] = p.user.blacklist_status if p.user else BlacklistStatus.normal.value
     overlay_base_payload_with_snapshot(data, snapshot)
+    if snapshot:
+        data["packages"] = snapshot_packages(snapshot)
+    elif isinstance(getattr(p, "packages", None), list):
+        data["packages"] = [PackageOut.model_validate(item).model_dump() for item in p.packages]
     data["portfolio_image_urls"] = (
         snapshot_preview_urls(snapshot)
         if has_pending_changes
