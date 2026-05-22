@@ -23,6 +23,17 @@ function buildCalendar(year, month, scheduleMap) {
   return cells;
 }
 
+function getPackageDisplayState(item) {
+  const id = Number(item?.id);
+  if (Number.isFinite(id) && id < 0) {
+    return { label: "待上架", className: "is-pending" };
+  }
+  if (item?.is_active) {
+    return { label: "上架中", className: "is-active" };
+  }
+  return { label: "未上架", className: "is-inactive" };
+}
+
 // 草稿存储 key
 const DRAFT_KEY = "studio_draft_v1";
 
@@ -722,11 +733,16 @@ Page({
     this.setData({ packagesLoading: true });
     try {
       const data = await this.studioRequest("/studio/packages");
-      const items = (data.items || []).map((x) => ({
-        ...x,
-        price_yuan: (x.price_cents / 100).toFixed(0),
-        duration_minutes: x.duration_minutes || ""
-      }));
+      const items = (data.items || []).map((x) => {
+        const packageState = getPackageDisplayState(x);
+        return {
+          ...x,
+          price_yuan: (x.price_cents / 100).toFixed(0),
+          duration_minutes: x.duration_minutes || "",
+          package_status_text: packageState.label,
+          package_status_class: packageState.className
+        };
+      });
       this.setData({ packages: items });
     } catch (e) {
       wx.showToast({ title: "加载套餐失败", icon: "none" });

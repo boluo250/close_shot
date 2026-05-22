@@ -210,16 +210,12 @@
     </view>
 
     <!-- 已有套餐列表 -->
-    <view wx:if="{{packages.length > 0}}" class="pkg-section-head">
-      <view class="pkg-section-title">已有套餐</view>
-      <view class="pkg-section-desc">已保存套餐按摘要展示，支持直接删除。</view>
-    </view>
     <view wx:if="{{packages.length > 0}}" class="pkg-summary-list">
       <view wx:for="{{packages}}" wx:key="id" class="pkg-summary-line">
         <view class="pkg-summary-main">
           <view class="pkg-summary-top">
             <text class="pkg-summary-title">{{item.name}}</text>
-            <text class="pkg-summary-badge">{{item.is_active ? '上架中' : '未上架'}}</text>
+            <text class="pkg-summary-badge {{item.package_status_class}}">{{item.package_status_text}}</text>
           </view>
           <text class="pkg-summary-sub">
             ¥{{item.price_yuan}}{{item.duration_minutes ? ' / ' + item.duration_minutes + '分钟' : ''}}{{item.description ? ' / ' + item.description : ''}}

@@ -654,6 +654,24 @@
   border: 1rpx solid rgba(191, 232, 74, 0.24);
 }
 
+.pkg-summary-badge.is-active {
+  color: rgba(191, 232, 74, 0.95);
+  background: rgba(191, 232, 74, 0.12);
+  border: 1rpx solid rgba(191, 232, 74, 0.24);
+}
+
+.pkg-summary-badge.is-pending {
+  color: rgba(255, 205, 96, 0.98);
+  background: rgba(255, 205, 96, 0.12);
+  border: 1rpx solid rgba(255, 205, 96, 0.24);
+}
+
+.pkg-summary-badge.is-inactive {
+  color: rgba(255, 255, 255, 0.56);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1rpx solid rgba(255, 255, 255, 0.1);
+}
+
 .pkg-summary-sub {
   display: block;
   margin-top: 8rpx;
