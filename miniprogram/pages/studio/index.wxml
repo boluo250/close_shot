@@ -44,7 +44,6 @@
         <view class="step-badge">1</view>
         <text class="card-title">基础资料（可编辑）</text>
       </view>
-      <button class="save-btn" size="mini" bindtap="saveProfile">保存草稿</button>
     </view>
 
     <!-- 头像 -->
@@ -316,14 +315,17 @@
   </view>
 
   <view class="submit-upload-bar" wx:if="{{authorized}}">
-    <button
-      class="submit-upload-btn"
-      bindtap="submitAllChanges"
-      loading="{{portfolioUploading || submittingAll}}"
-      disabled="{{!token || portfolioUploading || submittingAll || (!profileDraftSaved && pendingPortfolio.length === 0 && !packageDraftDirty && !portfolioDraftDirty)}}"
-    >
-      {{(portfolioUploading || submittingAll) ? (portfolioUploadCount > 0 ? '提交中（' + portfolioUploadCount + '张）...' : '提交中...') : (pendingPortfolio.length > 0 ? '提交审核（' + pendingPortfolio.length + '张作品）' : '提交审核')}}
-    </button>
+    <view class="submit-action-row">
+      <button class="draft-save-btn" bindtap="saveProfile">保存草稿</button>
+      <button
+        class="submit-upload-btn"
+        bindtap="submitAllChanges"
+        loading="{{portfolioUploading || submittingAll}}"
+        disabled="{{!token || portfolioUploading || submittingAll || (!profileDraftSaved && pendingPortfolio.length === 0 && !packageDraftDirty && !portfolioDraftDirty)}}"
+      >
+        {{(portfolioUploading || submittingAll) ? (portfolioUploadCount > 0 ? '提交中（' + portfolioUploadCount + '张）...' : '提交中...') : (pendingPortfolio.length > 0 ? '提交审核（' + pendingPortfolio.length + '张作品）' : '提交审核')}}
+      </button>
+    </view>
   </view>
 
   <view style="height: 250rpx;"></view>

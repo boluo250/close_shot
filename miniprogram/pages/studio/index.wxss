@@ -416,6 +416,12 @@
   z-index: 20;
 }
 
+.submit-action-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
 .location-row,
 .location-inline-row {
   display: grid;
@@ -501,7 +507,7 @@
 }
 
 .submit-upload-btn {
-  width: 100%;
+  flex: 1;
   height: 84rpx;
   line-height: 84rpx;
   border-radius: 999rpx;
@@ -515,6 +521,18 @@
 
 .submit-upload-btn[disabled] {
   opacity: 0.45;
+}
+
+.draft-save-btn {
+  flex: 0 0 220rpx;
+  height: 84rpx;
+  line-height: 84rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid var(--cs-color-border);
+  background: var(--cs-color-surface-2);
+  color: var(--cs-color-text);
+  font-size: 28rpx;
+  font-weight: 500;
 }
 
 /* ====== 预设套餐 ====== */
