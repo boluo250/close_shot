@@ -31,6 +31,8 @@ sudo apt-get install -y awscli
 | `LOCAL_BACKUP_DIR` | `backend/.backups/pg` | 本地 dump 存放目录 |
 | `LOG_DIR` | `backend/.backups/logs` | 日志目录 |
 | `DB_CONTAINER_NAME` | `close-shot-db` | PostgreSQL 容器名 |
+| `DOCKER_BIN` | `docker` | Docker 可执行文件路径 |
+| `DOCKER_USE_SUDO` | `0` | 设为 `1` 时通过 `sudo docker` 调用 Docker |
 | `S3_PREFIX` | `pg-backup` | 对象存储前缀（目录） |
 | `KEEP_LOCAL_DAYS` | 3 | 本地保留天数 |
 | `KEEP_REMOTE_DAYS` | 14 | 远端 COS 保留天数 |
@@ -47,7 +49,14 @@ chmod +x scripts/pg-backup.sh
 
 前提：
 - `close-shot-db` 容器正在运行；若你改过容器名，可通过 `DB_CONTAINER_NAME=你的容器名` 覆盖。
-- 宿主机用户要有执行 `docker` 的权限。
+- 宿主机用户要有执行 `docker` 的权限；如果当前用户未加入 `docker` 组，可手动执行时临时加 `DOCKER_USE_SUDO=1`。
+
+例如：
+
+```bash
+cd /path/to/close_shot/backend
+DOCKER_USE_SUDO=1 ./scripts/pg-backup.sh
+```
 
 ## 每天自动备份（cron）
 
@@ -76,6 +85,12 @@ chmod +x scripts/pg-backup.sh
 
    ```cron
    0 3 * * * BACKEND_DIR=/path/to/close_shot/backend LOCAL_BACKUP_DIR=/var/backups/close_shot_pg LOG_DIR=/var/log/close_shot /path/to/close_shot/backend/scripts/pg-backup.sh
+   ```
+
+   如果不是 root crontab、并且该用户没有 `docker` 组权限，则只在已配置免密 sudo 时可写成：
+
+   ```cron
+   0 3 * * * BACKEND_DIR=/path/to/close_shot/backend DOCKER_USE_SUDO=1 /path/to/close_shot/backend/scripts/pg-backup.sh
    ```
 
 4. 保存退出。cron 会每天在该时间运行脚本。

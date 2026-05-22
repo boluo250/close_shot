@@ -11,12 +11,22 @@ ENV_FILE="${BACKEND_DIR}/.env"
 # 默认本地备份目录（可改为 /var/backups/close_shot_pg 等需 root 的路径）
 LOCAL_BACKUP_DIR="${LOCAL_BACKUP_DIR:-${BACKEND_DIR}/.backups/pg}"
 DB_CONTAINER_NAME="${DB_CONTAINER_NAME:-close-shot-db}"
+DOCKER_BIN="${DOCKER_BIN:-docker}"
+DOCKER_USE_SUDO="${DOCKER_USE_SUDO:-0}"
 S3_PREFIX="${S3_PREFIX:-pg-backup}"
 KEEP_LOCAL_DAYS="${KEEP_LOCAL_DAYS:-3}"
 KEEP_REMOTE_DAYS="${KEEP_REMOTE_DAYS:-14}"
 LOG_DIR="${LOG_DIR:-${BACKEND_DIR}/.backups/logs}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 AWS_CONFIG_TMP_FILE=""
+
+docker_cmd() {
+  if [[ "$DOCKER_USE_SUDO" == "1" ]]; then
+    sudo "$DOCKER_BIN" "$@"
+  else
+    "$DOCKER_BIN" "$@"
+  fi
+}
 
 cleanup() {
   if [[ -n "$AWS_CONFIG_TMP_FILE" && -f "$AWS_CONFIG_TMP_FILE" ]]; then
@@ -62,7 +72,7 @@ parse_db_url() {
 
 check_commands() {
   local missing=()
-  command -v docker >/dev/null 2>&1 || missing+=(docker)
+  command -v "$DOCKER_BIN" >/dev/null 2>&1 || missing+=("$DOCKER_BIN")
   command -v aws >/dev/null 2>&1 || missing+=(aws)
   command -v mktemp >/dev/null 2>&1 || missing+=(mktemp)
   if [[ ${#missing[@]} -gt 0 ]]; then
@@ -72,12 +82,17 @@ check_commands() {
 }
 
 check_db_container() {
-  if ! docker inspect "$DB_CONTAINER_NAME" >/dev/null 2>&1; then
+  local inspect_output
+  if ! inspect_output="$(docker_cmd inspect "$DB_CONTAINER_NAME" 2>&1)"; then
+    if grep -qi "permission denied" <<<"$inspect_output"; then
+      echo "[$(date -Iseconds)] ERROR: cannot access Docker daemon. Current user lacks permission; use root crontab, add the user to the docker group, or rerun with DOCKER_USE_SUDO=1." >&2
+      exit 1
+    fi
     echo "[$(date -Iseconds)] ERROR: DB container not found: $DB_CONTAINER_NAME" >&2
     exit 1
   fi
   local running
-  running="$(docker inspect -f '{{.State.Running}}' "$DB_CONTAINER_NAME" 2>/dev/null || true)"
+  running="$(docker_cmd inspect -f '{{.State.Running}}' "$DB_CONTAINER_NAME" 2>/dev/null || true)"
   if [[ "$running" != "true" ]]; then
     echo "[$(date -Iseconds)] ERROR: DB container is not running: $DB_CONTAINER_NAME" >&2
     exit 1
@@ -89,7 +104,7 @@ do_dump() {
   mkdir -p "$LOCAL_BACKUP_DIR"
   local dump_file="${LOCAL_BACKUP_DIR}/close_shot_${TIMESTAMP}.dump"
   echo "[$(date -Iseconds)] pg_dump from container ${DB_CONTAINER_NAME} to $dump_file ..." >&2
-  docker exec \
+  docker_cmd exec \
     -e PGPASSWORD="$PGPASSWORD" \
     "$DB_CONTAINER_NAME" \
     pg_dump -U "$PGUSER" -d "$DBNAME" -F c >"$dump_file"
