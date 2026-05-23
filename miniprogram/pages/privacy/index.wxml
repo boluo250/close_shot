@@ -19,22 +19,27 @@
     </view>
 
     <view class="legal-section">
-      <view class="legal-heading">4. 存储与保护</view>
+      <view class="legal-heading">4. 剪贴板相关说明</view>
+      <view class="legal-paragraph">当你主动点击“复制微信号”等按钮时，我们会调用剪贴板相关能力，将你选择的联系方式写入系统剪贴板，便于你自行粘贴并联系摄影师。我们不会在你未主动触发时读取、存储或上传你剪贴板中的其他内容。</view>
+    </view>
+
+    <view class="legal-section">
+      <view class="legal-heading">5. 存储与保护</view>
       <view class="legal-paragraph">我们会在实现服务所必需的期限内保存你的个人信息，并采取合理的管理和安全措施，防止信息被未经授权访问、披露、篡改或丢失。</view>
     </view>
 
     <view class="legal-section">
-      <view class="legal-heading">5. 对外提供与共享</view>
+      <view class="legal-heading">6. 对外提供与共享</view>
       <view class="legal-paragraph">除法律法规另有要求外，我们不会向无关第三方出售你的个人信息。对于手机号、微信号等联系方式，仅在完成入驻审核、订单撮合或履约沟通所必需的范围内展示或使用。</view>
     </view>
 
     <view class="legal-section">
-      <view class="legal-heading">6. 你的权利</view>
+      <view class="legal-heading">7. 你的权利</view>
       <view class="legal-paragraph">你有权查询、更正、删除你提交的信息，也可以撤回相关授权。撤回授权后，可能导致部分功能无法继续使用。</view>
     </view>
 
     <view class="legal-section">
-      <view class="legal-heading">7. 未成年人保护</view>
+      <view class="legal-heading">8. 未成年人保护</view>
       <view class="legal-paragraph">如你是未成年人，请在监护人同意和指导下使用本服务，并在提交个人信息前取得监护人授权。</view>
     </view>
   </view>

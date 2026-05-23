@@ -1,4 +1,4 @@
-const CONSENT_STORAGE_KEY = "cs_legal_consent_v1";
+const { hasAcceptedConsent, markConsentAccepted } = require("../../utils/consent");
 
 Page({
   data: {
@@ -7,10 +7,11 @@ Page({
   },
 
   onLoad() {
-    const accepted = !!wx.getStorageSync(CONSENT_STORAGE_KEY);
-    if (accepted) {
-      wx.reLaunch({ url: "/pages/home/index" });
-    }
+    this.redirectIfAccepted();
+  },
+
+  onShow() {
+    this.redirectIfAccepted();
   },
 
   toggleAgree() {
@@ -33,10 +34,15 @@ Page({
     if (this.data.submitting) return;
 
     this.setData({ submitting: true });
-    wx.setStorageSync(CONSENT_STORAGE_KEY, {
-      agreed: true,
-      acceptedAt: Date.now()
-    });
+    markConsentAccepted();
+    wx.reLaunch({ url: "/pages/home/index" });
+  },
+
+  redirectIfAccepted() {
+    if (!hasAcceptedConsent()) return;
+    if (this._redirecting) return;
+
+    this._redirecting = true;
     wx.reLaunch({ url: "/pages/home/index" });
   }
 });
