@@ -21,8 +21,8 @@
   ],
   "window": {
     "navigationBarTitleText": "Close Shot",
-    "navigationBarBackgroundColor": "#ffffff",
-    "navigationBarTextStyle": "black",
+    "navigationBarBackgroundColor": "#0b0d12",
+    "navigationBarTextStyle": "white",
     "backgroundTextStyle": "light"
   }
 }

@@ -10,9 +10,6 @@
     <view wx:if="{{pendingReviewStatus === 'rejected' && pendingRejectReason}}" class="upload-hint danger" style="margin-top: 12rpx;">
       上次修改未通过：{{pendingRejectReason}}
     </view>
-    <view class="theme-bar">
-      <theme-switch value="{{theme}}" bind:change="onThemeChange" />
-    </view>
   </view>
 
   <view class="cs-card" wx:if="{{authorized}}">

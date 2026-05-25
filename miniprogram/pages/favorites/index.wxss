@@ -45,10 +45,6 @@
   box-shadow: var(--cs-shadow-glow);
 }
 
-.cs-theme-classic .refresh-btn {
-  color: #111827;
-}
-
 .fav-pills {
   margin-top: 20rpx;
   display: inline-flex;
@@ -69,10 +65,6 @@
   color: #07110d;
   background: var(--cs-color-primary);
   box-shadow: var(--cs-shadow-glow);
-}
-
-.cs-theme-classic .fav-pill.active {
-  color: #111827;
 }
 
 .fav-list {
@@ -155,10 +147,6 @@
   box-shadow: var(--cs-shadow-glow);
 }
 
-.cs-theme-classic .arrow {
-  color: #111827;
-}
-
 .state-card {
   margin-top: 20rpx;
   padding: 30rpx 24rpx;
@@ -180,4 +168,3 @@
   font-size: 24rpx;
   line-height: 1.5;
 }
-

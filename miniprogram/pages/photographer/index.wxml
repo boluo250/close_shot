@@ -1,7 +1,4 @@
 <view class="cs-page {{themeClass}}">
-  <view class="theme-bar">
-    <theme-switch value="{{theme}}" bind:change="onThemeChange" />
-  </view>
   <!-- 头部：头像 + 名字 + 简介 -->
   <view class="cs-card">
     <view class="p-header">

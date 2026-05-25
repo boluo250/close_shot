@@ -285,10 +285,6 @@
   box-shadow: var(--cs-shadow-glow);
 }
 
-.cs-theme-classic .mine-membership-cta {
-  color: #111827;
-}
-
 .mine-cell-arrow {
   width: 34rpx;
   text-align: right;
@@ -328,10 +324,6 @@
 
 .mine-login-btn::after {
   border: 0;
-}
-
-.cs-theme-classic .mine-login-btn {
-  color: #111827;
 }
 
 .mine-login-tip {
@@ -379,4 +371,3 @@
 .tap-hover {
   opacity: 0.86;
 }
-

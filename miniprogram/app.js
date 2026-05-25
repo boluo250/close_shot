@@ -13,12 +13,10 @@ function resolveApiBaseUrl() {
 App({
   globalData: {
     apiBaseUrl: resolveApiBaseUrl(),
-    theme: "classic"
+    theme: "soda"
   },
   onLaunch() {
-    const t = theme.getTheme();
-    this.globalData.theme = t;
-    theme.applySystemUI(t);
+    this.globalData.theme = theme.getTheme();
+    theme.applySystemUI();
   }
 });
-

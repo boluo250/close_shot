@@ -1,7 +1,6 @@
 const { request } = require("../../utils/request");
 const { ensureLogin } = require("../../utils/auth");
 const { uploadImageToS3Like } = require("../../utils/upload");
-const theme = require("../../utils/theme");
 
 function pad(n) {
   return String(n).padStart(2, "0");
@@ -113,31 +112,16 @@ Page({
     locationRefreshing: false,
     items: [],
     serverItems: [],
-
-    theme: "classic",
-    themeClass: "cs-theme-classic"
+    themeClass: "cs-theme-soda"
   },
 
   onLoad() {
-    const t = theme.getTheme();
-    this.setData({ theme: t, themeClass: theme.getThemeClass(t) });
-    this._unsubTheme = theme.subscribe((next) => {
-      this.setData({ theme: next, themeClass: theme.getThemeClass(next) });
-    });
-
     this.restoreDraft();
     this.checkAndEnter();
   },
 
   onUnload() {
-    if (this._unsubTheme) this._unsubTheme();
     this.saveDraft();
-  },
-
-  onThemeChange(e) {
-    const next = e?.detail?.value;
-    const t = theme.setTheme(next);
-    this.setData({ theme: t, themeClass: theme.getThemeClass(t) });
   },
 
   onHide() {

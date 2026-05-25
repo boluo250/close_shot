@@ -1,6 +1,5 @@
 const { request } = require("../../utils/request");
 const { getToken, ensureLogin } = require("../../utils/auth");
-const theme = require("../../utils/theme");
 
 Page({
   data: {
@@ -21,17 +20,10 @@ Page({
     contactAccessMode: "all",
     contactLockReason: "",
     isOwnerPhotographer: false,
-    theme: "classic",
-    themeClass: "cs-theme-classic"
+    themeClass: "cs-theme-soda"
   },
 
   async onLoad(query) {
-    const t = theme.getTheme();
-    this.setData({ theme: t, themeClass: theme.getThemeClass(t) });
-    this._unsubTheme = theme.subscribe((next) => {
-      this.setData({ theme: next, themeClass: theme.getThemeClass(next) });
-    });
-
     const id = Number(query.id);
     this.setData({
       id,
@@ -39,16 +31,6 @@ Page({
       fromSource: decodeURIComponent(query.from || "")
     });
     await this.load();
-  },
-
-  onUnload() {
-    if (this._unsubTheme) this._unsubTheme();
-  },
-
-  onThemeChange(e) {
-    const next = e?.detail?.value;
-    const t = theme.setTheme(next);
-    this.setData({ theme: t, themeClass: theme.getThemeClass(t) });
   },
 
   async load() {

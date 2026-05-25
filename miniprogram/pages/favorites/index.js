@@ -1,24 +1,10 @@
 const { request } = require("../../utils/request");
-const theme = require("../../utils/theme");
 
 Page({
   data: {
     loading: false,
     list: [],
-    theme: "classic",
-    themeClass: "cs-theme-classic"
-  },
-
-  onLoad() {
-    const t = theme.getTheme();
-    this.setData({ theme: t, themeClass: theme.getThemeClass(t) });
-    this._unsubTheme = theme.subscribe((next) => {
-      this.setData({ theme: next, themeClass: theme.getThemeClass(next) });
-    });
-  },
-
-  onUnload() {
-    if (this._unsubTheme) this._unsubTheme();
+    themeClass: "cs-theme-soda"
   },
 
   async onShow() {
@@ -44,4 +30,3 @@ Page({
     wx.navigateTo({ url: `/pages/photographer/index?id=${id}` });
   }
 });
-
