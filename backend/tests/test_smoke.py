@@ -14,6 +14,7 @@ from app.api.routes import admin as admin_routes
 from app.api.routes import membership as membership_routes
 from app.api.routes import studio as studio_routes
 from app.api.routes import upload as upload_routes
+from app.core.config import settings
 from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
 from app.main import create_app
@@ -28,10 +29,12 @@ class FakeDB:
         *,
         scalar_results: list[object] | None = None,
         scalars_results: list[list[object]] | None = None,
+        execute_results: list[object] | None = None,
         user_by_id: dict[int, object] | None = None,
     ):
         self._scalar_results = list(scalar_results or [])
         self._scalars_results = list(scalars_results or [])
+        self._execute_results = list(execute_results or [])
         self._user_by_id = dict(user_by_id or {})
         self.executed: list[str] = []
         self.commit_calls = 0
@@ -49,8 +52,17 @@ class FakeDB:
     def get(self, _model, identity):
         return self._user_by_id.get(int(identity))
 
-    def execute(self, statement):
+    def execute(self, statement, *_args, **_kwargs):
         self.executed.append(str(statement))
+        if self._execute_results:
+            result = self._execute_results.pop(0)
+            if isinstance(result, list):
+                return SimpleNamespace(
+                    all=lambda result=result: result,
+                    mappings=lambda result=result: SimpleNamespace(all=lambda: result),
+                    keys=lambda: [],
+                )
+            return result
         return 1
 
     def add(self, item) -> None:
@@ -696,6 +708,48 @@ def test_admin_can_update_user_risk_status():
     assert db.commit_calls == 1
 
 
+def test_admin_risk_users_list_smoke(client, app):
+    current_user = SimpleNamespace(role="admin")
+    listed_user = SimpleNamespace(
+        id=21,
+        display_name="风险用户",
+        role="customer",
+        is_member=False,
+        trust_score=42,
+        risk_level="high",
+        blacklist_status="watch",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    photographer = SimpleNamespace(
+        status="pending",
+        phone="13800138000",
+        real_name="张三",
+    )
+    db = FakeDB(execute_results=[[(listed_user, photographer)]], scalar_results=[1])
+
+    def override_get_db():
+        yield db
+
+    app.dependency_overrides[get_current_user] = lambda: current_user
+    app.dependency_overrides[get_db] = override_get_db
+
+    response = client.get(
+        f"{settings.admin_api_prefix}/risk-users",
+        params={"risk_level": "high", "blacklist_status": "watch", "keyword": "1380"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["user_id"] == 21
+    assert payload["items"][0]["phone"] == "13800138000"
+    assert payload["items"][0]["real_name"] == "张三"
+    assert payload["items"][0]["risk_level"] == "high"
+    assert payload["items"][0]["blacklist_status"] == "watch"
+    assert len(db.executed) == 1
+
+
 def test_admin_reject_disables_accepting_orders(monkeypatch):
     photographer = SimpleNamespace(
         id=8,
@@ -941,6 +995,63 @@ def test_membership_callback_smoke(client, app, monkeypatch):
     assert response.json()["member_expires_at"].startswith("2030-01-01T00:00:00")
     assert order.status == "paid"
     assert fake_db.commit_calls == 1
+
+
+def test_me_identity_admin_smoke(client, app):
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        role="admin",
+        photographer=None,
+        is_member=False,
+        member_expires_at=None,
+        trust_score=88,
+        risk_level="low",
+        blacklist_status="normal",
+    )
+
+    response = client.get("/me/identity")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "role": "admin",
+        "photographer_status": "approved",
+        "photographer_reject_reason": None,
+        "certification_level": 0,
+        "is_member": False,
+        "member_expires_at": None,
+        "trust_score": 88,
+        "risk_level": "low",
+        "blacklist_status": "normal",
+    }
+
+
+def test_me_identity_photographer_smoke(client, app):
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        role="photographer",
+        photographer=SimpleNamespace(
+            status="rejected",
+            reject_reason="资料不完整",
+            certification_level=2,
+        ),
+        is_member=True,
+        member_expires_at=datetime(2030, 1, 1, tzinfo=timezone.utc),
+        trust_score=56,
+        risk_level="medium",
+        blacklist_status="watch",
+    )
+
+    response = client.get("/me/identity")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["role"] == "photographer"
+    assert payload["photographer_status"] == "rejected"
+    assert payload["photographer_reject_reason"] == "资料不完整"
+    assert payload["certification_level"] == 2
+    assert payload["is_member"] is True
+    assert payload["member_expires_at"].startswith("2030-01-01T00:00:00")
+    assert payload["trust_score"] == 56
+    assert payload["risk_level"] == "medium"
+    assert payload["blacklist_status"] == "watch"
 
 
 def test_user_operation_log_smoke(client, app, monkeypatch):

@@ -13,7 +13,125 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: close_shot
+          POSTGRES_USER: close_shot
+          POSTGRES_PASSWORD: close_shot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U close_shot -d close_shot"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.lock.txt
+            backend/requirements-dev.txt
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt
+
+      - name: Compile backend modules
+        working-directory: backend
+        run: python -m compileall app tests
+
+      - name: Check deploy script syntax
+        working-directory: backend
+        run: bash -n scripts/pg-backup.sh ../infra/deploy.sh
+
+      - name: Run database migrations for end-to-end checks
+        working-directory: backend
+        env:
+          ENV: dev
+          DATABASE_URL: postgresql+psycopg://close_shot:close_shot@127.0.0.1:5432/close_shot
+          JWT_SECRET: e2e-jwt-secret
+          MEMBERSHIP_CALLBACK_SECRET: test-membership-secret
+        run: alembic upgrade head
+
+      - name: Start backend server for end-to-end checks
+        working-directory: backend
+        env:
+          ENV: dev
+          DATABASE_URL: postgresql+psycopg://close_shot:close_shot@127.0.0.1:5432/close_shot
+          JWT_SECRET: e2e-jwt-secret
+          MEMBERSHIP_CALLBACK_SECRET: test-membership-secret
+        run: |
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 >/tmp/close-shot-backend.log 2>&1 &
+
+      - name: Wait for backend healthcheck
+        run: |
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8001/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend failed to start"
+          cat /tmp/close-shot-backend.log || true
+          exit 1
+
+      - name: Run backend smoke tests
+        working-directory: backend
+        env:
+          PYTHONPATH: .
+          DATABASE_URL: "sqlite+pysqlite:///:memory:"
+          JWT_SECRET: ci-jwt-secret
+          MEMBERSHIP_CALLBACK_SECRET: test-membership-secret
+        run: python -m pytest tests/test_smoke.py
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: admin-web/package-lock.json
+
+      - name: Install admin web dependencies
+        working-directory: admin-web
+        run: npm ci
+
+      - name: Build admin web
+        working-directory: admin-web
+        run: npm run build
+
+      - name: Install Playwright browser
+        working-directory: admin-web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run admin web end-to-end tests
+        working-directory: admin-web
+        env:
+          E2E_API_BASE_URL: http://127.0.0.1:8001
+          E2E_BASE_URL: http://127.0.0.1:5173
+        run: npm run test:e2e
+
+      - name: Check miniprogram JavaScript syntax
+        run: |
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find miniprogram -type f -name '*.js' -print0)
+
+      - name: Show backend log on failure
+        if: failure()
+        run: cat /tmp/close-shot-backend.log || true
+
   deploy:
+    needs: preflight
     runs-on: ubuntu-latest
     environment: production
     steps:

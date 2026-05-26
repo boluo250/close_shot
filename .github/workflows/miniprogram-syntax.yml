@@ -1,0 +1,34 @@
+name: miniprogram-syntax
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/miniprogram-syntax.yml"
+      - "miniprogram/**"
+  push:
+    paths:
+      - ".github/workflows/miniprogram-syntax.yml"
+      - "miniprogram/**"
+  workflow_dispatch:
+
+concurrency:
+  group: miniprogram-syntax-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check miniprogram JavaScript syntax
+        run: |
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find miniprogram -type f -name '*.js' -print0)
