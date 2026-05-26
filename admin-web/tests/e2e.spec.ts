@@ -27,7 +27,7 @@ test("摄影师后台：登录与套餐 CRUD", async ({ page, request }) => {
   await expect(page.getByText("摄影师资料")).toBeVisible();
 
   await page.getByRole("menuitem", { name: "套餐" }).click();
-  await expect(page.getByText("套餐管理")).toBeVisible();
+  await expect(page.locator(".el-card__header").filter({ hasText: "套餐管理" })).toBeVisible();
 
   const packageName = `E2E 套餐 ${suffix}`;
   await page.locator(".el-form-item").filter({ hasText: "名称" }).locator("input").fill(packageName);
@@ -46,7 +46,7 @@ test("摄影师后台：登录与套餐 CRUD", async ({ page, request }) => {
 test("管理员后台：登录后进入审核页并可查看风险管理", async ({ page, request }) => {
   const suffix = Date.now();
   const username = `e2e_admin_${suffix}`;
-  const password = "e2e_admin_pass_123456";
+  const password = "E2e_admin_pass_123456!";
   const photographerName = `e2e_risk_${suffix}`;
 
   const createAdminRes = await request.post(`${apiBase}/auth/dev/create-admin`, {
