@@ -1,0 +1,59 @@
+# Copy this file to terraform.tfvars before running plan/apply.
+
+bucket_name   = "close-shot-media-1250000000"
+bucket_region = "ap-shanghai"
+
+# Keep direct public media links working for existing clients.
+allow_public_read   = true
+public_read_prefixes = ["avatar/", "portfolio/", "watermark/", "uploads/"]
+
+# Prefer KMS in production if you already have a region-local key.
+encryption_algorithm = "AES256"
+# encryption_algorithm = "KMS"
+# kms_key_id           = "287e8f40-7cbb-11eb-9a3a-5254004f7f94"
+
+# Defaults already retain pg-backup/ for 30 days and expire temporary prefixes.
+# Override only if your compliance window differs.
+lifecycle_rules = [
+  {
+    id                         = "pg-backup-retention"
+    filter_prefix              = "pg-backup/"
+    expiration_days            = 30
+    noncurrent_expiration_days = 7
+    abort_incomplete_multipart_upload_days = 7
+  },
+  {
+    id                         = "tmp-upload-expiration"
+    filter_prefix              = "tmp/"
+    expiration_days            = 7
+    abort_incomplete_multipart_upload_days = 7
+  },
+  {
+    id                         = "draft-upload-expiration"
+    filter_prefix              = "draft/"
+    expiration_days            = 14
+    abort_incomplete_multipart_upload_days = 7
+  },
+  {
+    id                         = "review-rejected-expiration"
+    filter_prefix              = "review-rejected/"
+    expiration_days            = 30
+    noncurrent_expiration_days = 7
+    abort_incomplete_multipart_upload_days = 7
+  }
+]
+
+# Recommended for backup DR.
+enable_replication   = true
+create_replica_bucket = true
+replica_bucket_name   = "close-shot-backup-dr-1250000000"
+replica_bucket_region = "ap-guangzhou"
+replication_rule_prefixes = ["pg-backup/"]
+replicate_delete_markers  = false
+
+tags = {
+  project   = "close-shot"
+  env       = "prod"
+  managedBy = "terraform"
+}
+
