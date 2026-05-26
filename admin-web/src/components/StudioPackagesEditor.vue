@@ -82,6 +82,7 @@ type PackageItem = {
 const loading = ref(false);
 const creating = ref(false);
 const items = ref<PackageItem[]>([]);
+let loadRequestSeq = 0;
 
 const createForm = reactive({
   name: "",
@@ -99,14 +100,20 @@ function toCents(yuan: number) {
 }
 
 async function load() {
+  const requestId = ++loadRequestSeq;
   loading.value = true;
   try {
     const { data } = await api.get<{ items: PackageItem[] }>("/studio/packages");
+    if (requestId !== loadRequestSeq) {
+      return;
+    }
     items.value = (data.items || []).map((x) => ({ ...x, _priceYuan: toYuan(x.price_cents) }));
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.detail || "加载失败（请用摄影师账号登录）");
   } finally {
-    loading.value = false;
+    if (requestId === loadRequestSeq) {
+      loading.value = false;
+    }
   }
 }
 
@@ -124,8 +131,8 @@ async function create() {
       description: createForm.description,
       is_active: createForm.is_active
     };
-    const { data } = await api.post<PackageItem>("/studio/packages", payload);
-    items.value.unshift({ ...data, _priceYuan: toYuan(data.price_cents) });
+    await api.post<PackageItem>("/studio/packages", payload);
+    await load();
     createForm.name = "";
     createForm.description = "";
     ElMessage.success("已新增");
@@ -169,4 +176,3 @@ async function delRow(row: PackageItem) {
 
 onMounted(load);
 </script>
-
