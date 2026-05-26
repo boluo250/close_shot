@@ -19,13 +19,6 @@
           <view class="mine-cell-title mine-skeleton-line mine-skeleton-cell-title"></view>
           <view class="mine-cell-desc mine-skeleton-line mine-skeleton-cell-desc"></view>
         </view>
-        <view class="mine-membership-cta mine-skeleton-btn"></view>
-      </view>
-      <view class="mine-cell">
-        <view class="mine-cell-main">
-          <view class="mine-cell-title mine-skeleton-line mine-skeleton-cell-title"></view>
-          <view class="mine-cell-desc mine-skeleton-line mine-skeleton-cell-desc"></view>
-        </view>
         <view class="mine-cell-arrow mine-skeleton-line mine-skeleton-arrow"></view>
       </view>
     </view>
@@ -48,22 +41,6 @@
     </view>
 
     <view class="mine-cell-group">
-      <button class="mine-cell mine-cell-membership" bindtap="goMembership" hover-class="mine-cell-hover">
-        <view class="mine-cell-main">
-          <view class="mine-cell-title-row">
-            <text class="mine-cell-title mine-cell-title-strong">{{uiText.membershipTitle}}</text>
-            <text class="mine-membership-badge">HOT</text>
-          </view>
-          <text class="mine-cell-desc" wx:if="{{identityState === 'guest'}}">{{uiText.membershipDescGuest}}</text>
-          <text class="mine-cell-desc" wx:elif="{{membership.loading}}">会员状态加载中</text>
-          <text class="mine-cell-desc" wx:elif="{{membership.isMember}}">
-            {{uiText.membershipDescMember}}{{membership.expiresAt ? ' · ' + membership.expiresAt : ''}}
-          </text>
-          <text class="mine-cell-desc" wx:else>{{uiText.membershipDescNonMember}}</text>
-        </view>
-        <view class="mine-membership-cta">{{membership.isMember ? '查看权益' : '立即开通'}}</view>
-      </button>
-
       <button
         wx:if="{{identityState === 'verified_photographer'}}"
         class="mine-cell"
@@ -106,9 +83,4 @@
   <view wx:if="{{identityState !== 'guest' && identityState !== 'unknown'}}" class="mine-logout-link" bindtap="logout">
     {{uiText.logoutTitle}}
   </view>
-
-  <view wx:if="{{enableDevTools}}" class="mine-debug-link" bindtap="clearLocalAuthCache">
-    开发调试：一键清理本地认证缓存
-  </view>
 </view>
-

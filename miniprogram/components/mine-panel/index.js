@@ -1,11 +1,9 @@
 const { getToken, clearAuthState, ensureLogin } = require("../../utils/auth");
 const { request } = require("../../utils/request");
-const env = require("../../env");
 const IDENTITY_CACHE_KEY = "mine_identity_cache_v1";
 
 Component({
   data: {
-    enableDevTools: !!env.ENABLE_DEV_TOOLS,
     token: "",
     loading: false,
     identityLoading: false,
@@ -278,22 +276,6 @@ Component({
       });
       this.syncViewState();
       wx.showToast({ title: "已退出", icon: "none" });
-    },
-
-    clearLocalAuthCache() {
-      clearAuthState();
-      this._clearIdentityCache();
-      this.setData({
-        token: "",
-        identityLoading: false,
-        identityState: "guest",
-        role: "",
-        photographerStatus: "not_applied",
-        rejectReason: "",
-        membership: { isMember: false, expiresAt: "", loading: false }
-      });
-      this.syncViewState();
-      wx.showToast({ title: "本地认证缓存已清理", icon: "none" });
     },
 
     goEditPhotographerProfile() {

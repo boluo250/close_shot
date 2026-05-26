@@ -41,13 +41,19 @@ def _require_wechat_config(*, strict: bool = False) -> None:
     if not strict and (settings.env or "").lower() not in ("prod", "production"):
         return
     if not settings.wechat_appid or not settings.wechat_secret:
-        raise HTTPException(status_code=500, detail="missing WECHAT_APPID/WECHAT_SECRET")
+        raise HTTPException(
+            status_code=500,
+            detail="missing WECHAT_APPID/WECHAT_SECRET for wechat login",
+        )
 
 
 def _get_access_token() -> str:
     _require_wechat_config()
     if not _is_enabled():
-        raise HTTPException(status_code=500, detail="missing WECHAT_APPID/WECHAT_SECRET")
+        raise HTTPException(
+            status_code=500,
+            detail="missing WECHAT_APPID/WECHAT_SECRET for wechat login",
+        )
     now = datetime.now(timezone.utc)
     token = _token_cache.get("token")
     expires_at = _token_cache.get("expires_at")
@@ -91,7 +97,9 @@ def exchange_login_code(code: str) -> dict[str, str]:
 
     data = resp.json()
     if data.get("errcode"):
-        raise HTTPException(status_code=400, detail=f"wechat login failed: {data.get('errmsg', 'unknown')}")
+        errmsg = data.get("errmsg", "unknown")
+        errcode = data.get("errcode")
+        raise HTTPException(status_code=400, detail=f"wechat login failed: {errmsg} (errcode={errcode})")
 
     openid = data.get("openid")
     session_key = data.get("session_key")

@@ -7,6 +7,7 @@
         mode="aspectFill"
         src="{{p.avatar_url || ''}}"
         style="{{p.avatar_url ? '' : 'background:#eef0f3;'}}"
+        bindtap="previewAvatar"
       />
       <view class="p-main">
         <view class="p-name-row">
@@ -19,7 +20,17 @@
         <view class="meta-strip" wx:if="{{distanceText}}">
           <text class="meta-text">{{distanceText}}</text>
         </view>
-        <view class="p-bio" wx:if="{{p.bio}}">{{p.bio}}</view>
+        <view class="p-bio-block" wx:if="{{p.bio}}">
+          <view class="p-bio {{bioExpanded ? 'p-bio-expanded' : 'p-bio-collapsed'}}">{{p.bio}}</view>
+          <view wx:if="{{bioCanExpand && !bioExpanded}}" class="p-bio-fade"></view>
+          <view wx:if="{{bioCanExpand}}" class="p-bio-toggle" bindtap="toggleBioExpanded">
+            <text class="p-bio-toggle-text">{{bioExpanded ? '收起' : '展开完整描述'}}</text>
+          </view>
+          <view class="p-bio-measure">
+            <view id="p-bio-collapsed" class="p-bio p-bio-collapsed p-bio-measure-text">{{p.bio}}</view>
+            <view id="p-bio-full" class="p-bio p-bio-expanded p-bio-measure-text">{{p.bio}}</view>
+          </view>
+        </view>
       </view>
     </view>
   </view>

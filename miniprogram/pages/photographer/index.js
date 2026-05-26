@@ -7,6 +7,8 @@ Page({
     distanceText: "",
     fromSource: "",
     p: {},
+    bioExpanded: false,
+    bioCanExpand: false,
     portfolio: [],
     packages: [],
     rateCard: [],
@@ -38,6 +40,8 @@ Page({
       const app = getApp();
       const base = app.globalData.apiBaseUrl;
       const data = await request(`/photographers/${this.data.id}`, { auth: !!getToken() });
+      data.avatar_url =
+        data.avatar_url && data.avatar_url.startsWith("/") ? base + data.avatar_url : data.avatar_url;
       // 补全图片URL
       if (Array.isArray(data.portfolio_items)) {
         data.portfolio_items = data.portfolio_items.map((x) => ({
@@ -100,6 +104,8 @@ Page({
 
       this.setData({
         p: data,
+        bioExpanded: false,
+        bioCanExpand: false,
         portfolio: data.portfolio_items || [],
         packages,
         rateCard,
@@ -113,6 +119,7 @@ Page({
         contactAccessMode: data.contact_access_mode || "all",
         contactLockReason: data.contact_lock_reason || "",
       });
+      wx.nextTick(() => this.measureBioOverflow());
       await this.checkOwnerEditable(data);
     } catch (e) {
       wx.showToast({ title: "加载失败", icon: "none" });
@@ -143,6 +150,40 @@ Page({
     const urls = (this.data.portfolio || []).map((x) => x.image_url).filter(Boolean);
     if (!urls.length) return;
     wx.previewImage({ current: urls[idx] || urls[0], urls });
+  },
+
+  previewAvatar() {
+    const avatarUrl = this.data.p?.avatar_url;
+    if (!avatarUrl) return;
+    wx.previewImage({ current: avatarUrl, urls: [avatarUrl] });
+  },
+
+  toggleBioExpanded() {
+    this.setData({ bioExpanded: !this.data.bioExpanded });
+  },
+
+  measureBioOverflow() {
+    if (!this.data.p?.bio) {
+      if (this.data.bioCanExpand) {
+        this.setData({ bioCanExpand: false });
+      }
+      return;
+    }
+    const query = wx.createSelectorQuery();
+    query.select("#p-bio-collapsed").boundingClientRect();
+    query.select("#p-bio-full").boundingClientRect();
+    query.exec((res) => {
+      const [collapsedRect, fullRect] = res || [];
+      const canExpand =
+        !!collapsedRect &&
+        !!fullRect &&
+        typeof collapsedRect.height === "number" &&
+        typeof fullRect.height === "number" &&
+        fullRect.height - collapsedRect.height > 8;
+      if (canExpand !== this.data.bioCanExpand) {
+        this.setData({ bioCanExpand: canExpand });
+      }
+    });
   },
 
   async toggleFav() {

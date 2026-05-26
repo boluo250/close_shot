@@ -32,6 +32,10 @@
   flex-shrink: 0;
 }
 
+.p-avatar:active {
+  transform: scale(0.98);
+}
+
 .p-main {
   flex: 1;
   min-width: 0;
@@ -75,16 +79,78 @@
   border: none;
 }
 
-.p-bio {
+.p-bio-block {
+  position: relative;
   margin-top: 10rpx;
+}
+
+.p-bio {
   color: var(--cs-color-text-3);
   font-size: 26rpx;
   line-height: 1.6;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.p-bio-collapsed {
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 6;
   -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.p-bio-expanded {
+  display: block;
+}
+
+.p-bio-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 52rpx;
+  height: 72rpx;
+  background: linear-gradient(180deg, rgba(25, 27, 33, 0) 0%, rgba(25, 27, 33, 0.96) 100%);
+  pointer-events: none;
+}
+
+.p-bio-toggle {
+  margin-top: 12rpx;
+  display: inline-flex;
+  align-items: center;
+}
+
+.p-bio-toggle-text {
+  font-size: 24rpx;
+  line-height: 1.2;
+  color: var(--cs-color-success);
+  font-weight: 600;
+}
+
+.p-bio-measure {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.p-bio-measure-text {
+  margin-top: 0;
+}
+
+.p-bio-measure-text + .p-bio-measure-text {
+  margin-top: 16rpx;
+}
+
+.p-bio-measure .p-bio-fade,
+.p-bio-measure .p-bio-toggle {
+  display: none;
+}
+
+.p-bio-measure .p-bio {
+  margin-top: 0;
+  visibility: hidden;
 }
 
 /* ====== 标签/状态 ====== */
