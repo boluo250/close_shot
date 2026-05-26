@@ -34,13 +34,21 @@ test("摄影师后台：登录与套餐 CRUD", async ({ page, request }) => {
   await page.locator(".el-form-item").filter({ hasText: "价格(元)" }).locator("input").fill("199");
   await page.locator(".el-form-item").filter({ hasText: "时长(分钟)" }).locator("input").fill("30");
   await page.locator(".el-form-item").filter({ hasText: "描述" }).locator("textarea").fill("端到端测试套餐");
+  const createPackageRes = page.waitForResponse(
+    (res) => res.url().includes("/studio/packages") && res.request().method() === "POST" && res.ok()
+  );
+  const refreshPackagesRes = page.waitForResponse(
+    (res) => res.url().includes("/studio/packages") && res.request().method() === "GET" && res.ok()
+  );
   await page.getByRole("button", { name: "新增套餐" }).click();
+  await createPackageRes;
+  await refreshPackagesRes;
 
-  const row = page.locator("tr").filter({ hasText: packageName });
-  await expect(row).toBeVisible();
+  const row = page.locator(".el-table__row").filter({ hasText: packageName });
+  await expect(row).toBeVisible({ timeout: 15_000 });
 
   await row.getByRole("button", { name: "删除" }).click();
-  await expect(row).toHaveCount(0);
+  await expect(row).toHaveCount(0, { timeout: 15_000 });
 });
 
 test("管理员后台：登录后进入审核页并可查看风险管理", async ({ page, request }) => {
