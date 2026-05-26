@@ -44,13 +44,14 @@ test("摄影师后台：登录与套餐 CRUD", async ({ page, request }) => {
   await createPackageRes;
   await refreshPackagesRes;
 
+  const nameInput = page.locator(`input[value="${packageName}"]`);
   const row = page.locator(".el-table__row", {
-    has: page.getByDisplayValue(packageName)
+    has: nameInput
   });
   await expect(row).toBeVisible({ timeout: 15_000 });
 
   await row.getByRole("button", { name: "删除" }).click();
-  await expect(page.getByDisplayValue(packageName)).toHaveCount(0, { timeout: 15_000 });
+  await expect(nameInput).toHaveCount(0, { timeout: 15_000 });
 });
 
 test("管理员后台：登录后进入审核页并可查看风险管理", async ({ page, request }) => {
