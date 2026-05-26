@@ -39,7 +39,8 @@ jobs:
 
       - name: Run smoke tests
         env:
+          PYTHONPATH: .
           DATABASE_URL: "sqlite+pysqlite:///:memory:"
           JWT_SECRET: ci-jwt-secret
           MEMBERSHIP_CALLBACK_SECRET: ci-membership-secret
-        run: pytest tests/test_smoke.py
+        run: python -m pytest tests/test_smoke.py
