@@ -2,7 +2,18 @@ name: backend-smoke
 
 on:
   pull_request:
+    paths:
+      - ".github/workflows/backend-smoke.yml"
+      - "backend/**"
   push:
+    paths:
+      - ".github/workflows/backend-smoke.yml"
+      - "backend/**"
+  workflow_dispatch:
+
+concurrency:
+  group: backend-smoke-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   smoke:
@@ -28,7 +39,7 @@ jobs:
 
       - name: Run smoke tests
         env:
-          DATABASE_URL: sqlite+pysqlite:///:memory:
+          DATABASE_URL: "sqlite+pysqlite:///:memory:"
           JWT_SECRET: ci-jwt-secret
           MEMBERSHIP_CALLBACK_SECRET: ci-membership-secret
         run: pytest tests/test_smoke.py
