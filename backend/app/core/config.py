@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     s3_bucket: str | None = None
     s3_region: str | None = None
     s3_public_base_url: str | None = None
+    storage_soft_delete_enabled: bool = True
+    storage_soft_delete_prefix: str = "_recycle_bin"
 
     wechat_appid: str | None = None
     wechat_secret: str | None = None
@@ -96,4 +98,3 @@ def _resolve_env_file() -> str:
 
 
 settings = Settings(_env_file=_resolve_env_file())  # type: ignore[call-arg]
-

@@ -106,3 +106,22 @@ pg_restore -U close_shot -h localhost -d close_shot -c --if-exists -F c close_sh
 ```
 
 建议先在测试库上做一次恢复演练。
+
+## 媒体误删恢复
+
+如果启用了应用层回收站（`STORAGE_SOFT_DELETE_ENABLED=true`），对象删除时会先归档到 `_recycle_bin/` 前缀下。
+
+恢复单个对象可执行：
+
+```bash
+cd /path/to/close_shot/backend
+python scripts/restore-soft-deleted-object.py _recycle_bin/20260526T120000Z/portfolio/demo.jpg
+```
+
+如果需要恢复到新路径：
+
+```bash
+python scripts/restore-soft-deleted-object.py \
+  _recycle_bin/20260526T120000Z/portfolio/demo.jpg \
+  --restore-to-key portfolio/demo-restored.jpg
+```

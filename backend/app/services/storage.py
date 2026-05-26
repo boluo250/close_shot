@@ -59,6 +59,33 @@ def _safe_object_key(object_key: str) -> str:
     return str(p)
 
 
+def _soft_delete_prefix() -> str:
+    return str(PurePosixPath((settings.storage_soft_delete_prefix or "_recycle_bin").strip("/")))
+
+
+def _is_soft_deleted_key(object_key: str) -> bool:
+    prefix = _soft_delete_prefix()
+    return object_key == prefix or object_key.startswith(f"{prefix}/")
+
+
+def _build_soft_delete_key(object_key: str) -> str:
+    object_key = _safe_object_key(object_key)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return str(PurePosixPath(_soft_delete_prefix()) / ts / object_key)
+
+
+def _original_key_from_soft_deleted_key(object_key: str) -> str:
+    object_key = _safe_object_key(object_key)
+    prefix = _soft_delete_prefix()
+    if not _is_soft_deleted_key(object_key):
+        raise ValueError("object_key is not archived")
+    relative = PurePosixPath(object_key).relative_to(prefix)
+    parts = relative.parts
+    if len(parts) < 2:
+        raise ValueError("invalid archived object_key")
+    return _safe_object_key(str(PurePosixPath(*parts[1:])))
+
+
 def local_get_object_stream(object_key: str):
     object_key = _safe_object_key(object_key)
     fp = _local_base_dir() / object_key
@@ -80,6 +107,20 @@ def local_delete_object(object_key: str) -> None:
     object_key = _safe_object_key(object_key)
     fp = _local_base_dir() / object_key
     if not fp.exists() or not fp.is_file():
+        return
+    if settings.storage_soft_delete_enabled and not _is_soft_deleted_key(object_key):
+        archive_key = _build_soft_delete_key(object_key)
+        archive_fp = _local_base_dir() / archive_key
+        archive_fp.parent.mkdir(parents=True, exist_ok=True)
+        fp.rename(archive_fp)
+        parent = fp.parent
+        base_dir = _local_base_dir()
+        while parent != base_dir and parent.exists():
+            try:
+                parent.rmdir()
+            except OSError:
+                break
+            parent = parent.parent
         return
     fp.unlink()
     parent = fp.parent
@@ -221,7 +262,48 @@ def delete_object(object_key: str) -> None:
 
     s3 = _s3_client()
     bucket = settings.s3_bucket  # type: ignore[assignment]
+    if settings.storage_soft_delete_enabled and not _is_soft_deleted_key(object_key):
+        archive_key = _build_soft_delete_key(object_key)
+        s3.copy_object(CopySource={"Bucket": bucket, "Key": object_key}, Bucket=bucket, Key=archive_key)
     s3.delete_object(Bucket=bucket, Key=object_key)
+
+
+def restore_soft_deleted_object(
+    archived_object_key: str,
+    *,
+    restore_to_key: str | None = None,
+    purge_archive: bool = False,
+) -> str:
+    archived_object_key = _safe_object_key(archived_object_key)
+    target_key = _safe_object_key(restore_to_key) if restore_to_key else _original_key_from_soft_deleted_key(archived_object_key)
+
+    if settings.storage_backend == "local":
+        archive_fp = _local_base_dir() / archived_object_key
+        if not archive_fp.exists() or not archive_fp.is_file():
+            raise FileNotFoundError(archived_object_key)
+        target_fp = _local_base_dir() / target_key
+        target_fp.parent.mkdir(parents=True, exist_ok=True)
+        target_fp.write_bytes(archive_fp.read_bytes())
+        if purge_archive:
+            archive_fp.unlink()
+        return target_key
+
+    if settings.storage_backend != "s3":
+        raise RuntimeError("Unsupported storage backend")
+
+    s3 = _s3_client()
+    bucket = settings.s3_bucket  # type: ignore[assignment]
+    try:
+        s3.head_object(Bucket=bucket, Key=archived_object_key)
+    except ClientError as exc:
+        code = str(exc.response.get("Error", {}).get("Code") or "").strip()
+        if code in {"404", "NoSuchKey", "NotFound"}:
+            raise FileNotFoundError(archived_object_key)
+        raise
+    s3.copy_object(CopySource={"Bucket": bucket, "Key": archived_object_key}, Bucket=bucket, Key=target_key)
+    if purge_archive:
+        s3.delete_object(Bucket=bucket, Key=archived_object_key)
+    return target_key
 
 
 # 兼容旧命名（被其他模块引用）

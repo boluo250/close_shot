@@ -9,6 +9,12 @@
 
 这几项大多属于云资源配置，不应该只依赖应用代码；建议在 COS / S3 控制台或 IaC 中配置，并把结果纳入上线检查。
 
+如果当前使用的是不支持桶版本控制的轻量对象存储，仓库现在提供了应用层兜底：
+
+- 删除对象时先归档到 `STORAGE_SOFT_DELETE_PREFIX`（默认 `_recycle_bin/`）下，再删除原对象。
+- 可通过 [restore-soft-deleted-object.py](/Users/kkk/kkk-magic/close_shot/backend/scripts/restore-soft-deleted-object.py:1) 将归档对象恢复回原路径或新路径。
+- 相关配置见 [backend/app/core/config.py](/Users/kkk/kkk-magic/close_shot/backend/app/core/config.py:25) 和 [backend/.env.example](/Users/kkk/kkk-magic/close_shot/backend/.env.example:12)。
+
 ## 当前代码现状
 
 - 上传链路使用 `POST /upload/presign` + 预签名 PUT，代码位置：[backend/app/api/routes/upload.py](/Users/kkk/kkk-magic/close_shot/backend/app/api/routes/upload.py:56)。

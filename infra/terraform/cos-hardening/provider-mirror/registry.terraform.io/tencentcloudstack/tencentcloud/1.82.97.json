@@ -1,0 +1,10 @@
+{
+  "archives": {
+    "linux_amd64": {
+      "hashes": [
+        "h1:WRZ9izLskWw84kd/nlogirxCsXD6fi6ca1PzZvLJDg8="
+      ],
+      "url": "terraform-provider-tencentcloud_1.82.97_linux_amd64.zip"
+    }
+  }
+}

@@ -883,6 +883,8 @@ def test_admin_cannot_delete_online_photographer():
 def test_delete_object_local_removes_file(tmp_path, monkeypatch):
     monkeypatch.setattr(storage_service.settings, "storage_backend", "local")
     monkeypatch.setattr(storage_service, "_local_base_dir", lambda: tmp_path)
+    monkeypatch.setattr(storage_service.settings, "storage_soft_delete_enabled", True)
+    monkeypatch.setattr(storage_service.settings, "storage_soft_delete_prefix", "_recycle_bin")
 
     storage_service.local_put_object_bytes(object_key="portfolio/demo/test.jpg", data=b"hello")
     target = tmp_path / "portfolio" / "demo" / "test.jpg"
@@ -892,6 +894,106 @@ def test_delete_object_local_removes_file(tmp_path, monkeypatch):
 
     assert not target.exists()
     assert not (tmp_path / "portfolio" / "demo").exists()
+    archived = list((tmp_path / "_recycle_bin").rglob("test.jpg"))
+    assert len(archived) == 1
+    assert archived[0].read_bytes() == b"hello"
+
+
+def test_delete_object_s3_archives_before_delete(monkeypatch):
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    class FakeS3:
+        def copy_object(self, **kwargs):
+            calls.append(("copy_object", kwargs))
+
+        def delete_object(self, **kwargs):
+            calls.append(("delete_object", kwargs))
+
+    monkeypatch.setattr(storage_service, "_s3_client", lambda: FakeS3())
+    monkeypatch.setattr(storage_service.settings, "storage_backend", "s3")
+    monkeypatch.setattr(storage_service.settings, "s3_bucket", "bianpai-1256560950")
+    monkeypatch.setattr(storage_service.settings, "storage_soft_delete_enabled", True)
+    monkeypatch.setattr(storage_service.settings, "storage_soft_delete_prefix", "_recycle_bin")
+
+    storage_service.delete_object("portfolio/demo/test.jpg")
+
+    assert [name for name, _kwargs in calls] == ["copy_object", "delete_object"]
+    copy_kwargs = calls[0][1]
+    assert copy_kwargs["Bucket"] == "bianpai-1256560950"
+    assert copy_kwargs["CopySource"] == {"Bucket": "bianpai-1256560950", "Key": "portfolio/demo/test.jpg"}
+    assert str(copy_kwargs["Key"]).startswith("_recycle_bin/")
+
+
+def test_delete_object_skips_archive_for_already_archived_key(monkeypatch):
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    class FakeS3:
+        def copy_object(self, **kwargs):
+            calls.append(("copy_object", kwargs))
+
+        def delete_object(self, **kwargs):
+            calls.append(("delete_object", kwargs))
+
+    monkeypatch.setattr(storage_service, "_s3_client", lambda: FakeS3())
+    monkeypatch.setattr(storage_service.settings, "storage_backend", "s3")
+    monkeypatch.setattr(storage_service.settings, "s3_bucket", "bianpai-1256560950")
+    monkeypatch.setattr(storage_service.settings, "storage_soft_delete_enabled", True)
+    monkeypatch.setattr(storage_service.settings, "storage_soft_delete_prefix", "_recycle_bin")
+
+    storage_service.delete_object("_recycle_bin/20260526T120000Z/portfolio/demo/test.jpg")
+
+    assert [name for name, _kwargs in calls] == ["delete_object"]
+
+
+def test_restore_soft_deleted_object_local_restores_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(storage_service.settings, "storage_backend", "local")
+    monkeypatch.setattr(storage_service, "_local_base_dir", lambda: tmp_path)
+    monkeypatch.setattr(storage_service.settings, "storage_soft_delete_prefix", "_recycle_bin")
+
+    archive_path = tmp_path / "_recycle_bin" / "20260526T120000Z" / "portfolio" / "demo" / "test.jpg"
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+    archive_path.write_bytes(b"hello")
+
+    restored_key = storage_service.restore_soft_deleted_object(
+        "_recycle_bin/20260526T120000Z/portfolio/demo/test.jpg"
+    )
+
+    assert restored_key == "portfolio/demo/test.jpg"
+    restored = tmp_path / "portfolio" / "demo" / "test.jpg"
+    assert restored.read_bytes() == b"hello"
+    assert archive_path.exists()
+
+
+def test_restore_soft_deleted_object_s3_copies_back(monkeypatch):
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    class FakeS3:
+        def head_object(self, **kwargs):
+            calls.append(("head_object", kwargs))
+
+        def copy_object(self, **kwargs):
+            calls.append(("copy_object", kwargs))
+
+        def delete_object(self, **kwargs):
+            calls.append(("delete_object", kwargs))
+
+    monkeypatch.setattr(storage_service, "_s3_client", lambda: FakeS3())
+    monkeypatch.setattr(storage_service.settings, "storage_backend", "s3")
+    monkeypatch.setattr(storage_service.settings, "s3_bucket", "bianpai-1256560950")
+    monkeypatch.setattr(storage_service.settings, "storage_soft_delete_prefix", "_recycle_bin")
+
+    restored_key = storage_service.restore_soft_deleted_object(
+        "_recycle_bin/20260526T120000Z/portfolio/demo/test.jpg",
+        purge_archive=True,
+    )
+
+    assert restored_key == "portfolio/demo/test.jpg"
+    assert [name for name, _kwargs in calls] == ["head_object", "copy_object", "delete_object"]
+    assert calls[1][1]["CopySource"] == {
+        "Bucket": "bianpai-1256560950",
+        "Key": "_recycle_bin/20260526T120000Z/portfolio/demo/test.jpg",
+    }
+    assert calls[1][1]["Key"] == "portfolio/demo/test.jpg"
 
 
 def test_presign_put_s3_returns_presigned_url(monkeypatch):
