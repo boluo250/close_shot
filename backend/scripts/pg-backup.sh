@@ -19,6 +19,17 @@ KEEP_REMOTE_DAYS="${KEEP_REMOTE_DAYS:-14}"
 LOG_DIR="${LOG_DIR:-${BACKEND_DIR}/.backups/logs}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 AWS_CONFIG_TMP_FILE=""
+MONITOR_REPORT_URL="${MONITOR_REPORT_URL:-http://127.0.0.1/ops/monitor/backup-report}"
+MONITOR_JOB_NAME="${MONITOR_JOB_NAME:-pg-backup}"
+BACKUP_STARTED_AT="$(date -Iseconds)"
+BACKUP_STARTED_EPOCH="$(date +%s)"
+BACKUP_FINISHED_AT=""
+BACKUP_DURATION_SECONDS=""
+BACKUP_SUCCESS="0"
+LAST_RESULT_MESSAGE=""
+LAST_DUMP_FILE=""
+LAST_REMOTE_OBJECT_KEY=""
+UPLOAD_SKIPPED="0"
 
 docker_cmd() {
   if [[ "$DOCKER_USE_SUDO" == "1" ]]; then
@@ -29,12 +40,57 @@ docker_cmd() {
 }
 
 cleanup() {
+  local exit_code=$?
+  trap - EXIT
+  BACKUP_FINISHED_AT="$(date -Iseconds)"
+  BACKUP_DURATION_SECONDS="$(( $(date +%s) - BACKUP_STARTED_EPOCH ))"
+  if [[ "$exit_code" == "0" ]]; then
+    BACKUP_SUCCESS="1"
+    if [[ -z "$LAST_RESULT_MESSAGE" ]]; then
+      if [[ "$UPLOAD_SKIPPED" == "1" ]]; then
+        LAST_RESULT_MESSAGE="备份完成，但未上传对象存储（缺少 S3 凭证）"
+      else
+        LAST_RESULT_MESSAGE="备份完成并已上报"
+      fi
+    fi
+  elif [[ -z "$LAST_RESULT_MESSAGE" ]]; then
+    LAST_RESULT_MESSAGE="备份任务失败，请检查 pg-backup.log"
+  fi
+  report_status || true
   if [[ -n "$AWS_CONFIG_TMP_FILE" && -f "$AWS_CONFIG_TMP_FILE" ]]; then
     rm -f "$AWS_CONFIG_TMP_FILE"
   fi
+  exit "$exit_code"
 }
 
 trap cleanup EXIT
+
+report_status() {
+  local secret="${MONITOR_REPORT_SECRET:-}"
+  if [[ -z "$MONITOR_REPORT_URL" || -z "$secret" ]]; then
+    return 0
+  fi
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "[$(date -Iseconds)] WARN: curl not found, skip monitor report" >&2
+    return 0
+  fi
+
+  curl -fsS -m 10 -X POST \
+    -H "X-Monitor-Secret: ${secret}" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    --data-urlencode "job_name=${MONITOR_JOB_NAME}" \
+    --data-urlencode "success=${BACKUP_SUCCESS}" \
+    --data-urlencode "message=${LAST_RESULT_MESSAGE}" \
+    --data-urlencode "started_at=${BACKUP_STARTED_AT}" \
+    --data-urlencode "finished_at=${BACKUP_FINISHED_AT}" \
+    --data-urlencode "duration_seconds=${BACKUP_DURATION_SECONDS}" \
+    --data-urlencode "dump_file=${LAST_DUMP_FILE}" \
+    --data-urlencode "remote_object_key=${LAST_REMOTE_OBJECT_KEY}" \
+    "${MONITOR_REPORT_URL}" >/dev/null || {
+      echo "[$(date -Iseconds)] WARN: failed to report backup status to monitor endpoint" >&2
+      return 0
+    }
+}
 
 # 加载 .env（只导出非注释、非空行中的 KEY=VALUE）
 load_env() {
@@ -108,6 +164,7 @@ do_dump() {
     -e PGPASSWORD="$PGPASSWORD" \
     "$DB_CONTAINER_NAME" \
     pg_dump -U "$PGUSER" -d "$DBNAME" -F c >"$dump_file"
+  LAST_DUMP_FILE="$dump_file"
   echo "$dump_file"
 }
 
@@ -132,10 +189,13 @@ upload_s3() {
   export AWS_SECRET_ACCESS_KEY="${S3_SECRET_ACCESS_KEY:-}"
   if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" ]]; then
     echo "[$(date -Iseconds)] WARN: S3 credentials not set, skip upload" >&2
+    UPLOAD_SKIPPED="1"
+    LAST_RESULT_MESSAGE="备份文件已生成，但未上传对象存储（缺少 S3 凭证）"
     return 0
   fi
   if [[ ! -f "$dump_file" ]]; then
     echo "[$(date -Iseconds)] ERROR: dump file not found: $dump_file" >&2
+    LAST_RESULT_MESSAGE="备份文件生成失败，未找到 dump 文件"
     exit 1
   fi
   echo "[$(date -Iseconds)] Uploading to s3://${S3_BUCKET}/${object_key} ..."
@@ -143,6 +203,7 @@ upload_s3() {
     --endpoint-url "${S3_ENDPOINT_URL}" \
     --region "${S3_REGION:-ap-shanghai}" \
     --only-show-errors
+  LAST_REMOTE_OBJECT_KEY="$object_key"
   echo "[$(date -Iseconds)] Upload done."
 }
 
@@ -186,6 +247,11 @@ main() {
     upload_s3 "$dump_file"
     clean_local
     clean_remote
+    if [[ "$UPLOAD_SKIPPED" == "1" ]]; then
+      LAST_RESULT_MESSAGE="备份完成，但对象存储上传被跳过"
+    else
+      LAST_RESULT_MESSAGE="备份完成并上传成功"
+    fi
     echo "[$(date -Iseconds)] Backup finished: $dump_file"
   } 2>&1 | tee -a "$log_file"
 }

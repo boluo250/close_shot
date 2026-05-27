@@ -51,6 +51,7 @@ from app.services.studio_review import (
     snapshot_packages,
     snapshot_preview_urls,
 )
+from app.services.system_monitor import build_system_monitor_summary
 
 router = APIRouter()
 
@@ -178,6 +179,63 @@ class UserPortraitListOut(BaseModel):
     total: int
 
 
+class SystemMonitorCheckOut(BaseModel):
+    key: str
+    category: str
+    title: str
+    status: str
+    summary: str
+    message: str
+    metric_value: float | None = None
+    threshold_value: float | None = None
+    unit: str | None = None
+    detail: dict[str, Any] = {}
+
+
+class SystemMonitorContainerOut(BaseModel):
+    name: str
+    status: str
+    state: str
+    health_status: str | None = None
+    restart_count: int | None = None
+    started_at: datetime | None = None
+    cpu_percent: float | None = None
+    memory_usage_bytes: int | None = None
+    memory_limit_bytes: int | None = None
+    memory_percent: float | None = None
+    message: str
+
+
+class SystemMonitorEventOut(BaseModel):
+    id: int
+    monitor_key: str
+    severity: str
+    status: str
+    title: str
+    message: str
+    source: str | None = None
+    metric_value: float | None = None
+    detail: dict[str, Any] = {}
+    created_at: datetime
+
+
+class SystemMonitorSummaryCountsOut(BaseModel):
+    total_checks: int
+    ok_count: int
+    warning_count: int
+    critical_count: int
+    unknown_count: int
+
+
+class SystemMonitorSummaryOut(BaseModel):
+    generated_at: datetime
+    overall_status: str
+    summary: SystemMonitorSummaryCountsOut
+    checks: list[SystemMonitorCheckOut]
+    containers: list[SystemMonitorContainerOut]
+    recent_events: list[SystemMonitorEventOut]
+
+
 _DB_BROWSE_TABLES = {
     "users",
     "photographers",
@@ -192,6 +250,7 @@ _DB_BROWSE_TABLES = {
     "bio_templates",
     "admin_operation_logs",
     "user_operation_logs",
+    "system_monitor_events",
 }
 _SAFE_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -1127,3 +1186,13 @@ def analytics_events(
         )
 
     return AnalyticsEventListOut(items=items, total=total)
+
+
+@router.get("/system-monitor/summary", response_model=SystemMonitorSummaryOut)
+def system_monitor_summary(
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SystemMonitorSummaryOut:
+    _require_admin(me)
+    payload = build_system_monitor_summary(db)
+    return SystemMonitorSummaryOut(**payload)

@@ -36,6 +36,9 @@ sudo apt-get install -y awscli
 | `S3_PREFIX` | `pg-backup` | 对象存储前缀（目录） |
 | `KEEP_LOCAL_DAYS` | 3 | 本地保留天数 |
 | `KEEP_REMOTE_DAYS` | 14 | 远端 COS 保留天数 |
+| `MONITOR_REPORT_URL` | `http://127.0.0.1/ops/monitor/backup-report` | 备份状态上报地址 |
+| `MONITOR_REPORT_SECRET` | 空 | 备份状态上报密钥；配置后会把成功/失败同步到 admin 系统监控页 |
+| `MONITOR_JOB_NAME` | `pg-backup` | 监控展示用任务名 |
 
 ## 手动执行
 

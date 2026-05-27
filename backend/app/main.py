@@ -18,6 +18,7 @@ from app.api.router import api_router
 from app.core.config import settings
 from app.db.models import AdminOperationLog, User, UserOperationLog
 from app.db.session import SessionLocal
+from app.services.system_monitor import HTTP_5XX_MONITOR_KEY, STATUS_CRITICAL, persist_system_monitor_event
 
 
 _SUSPICIOUS_404_PREFIXES = (
@@ -457,6 +458,41 @@ def _persist_user_operation_log(
         db.close()
 
 
+def _persist_http_5xx_event(
+    *,
+    request: Request,
+    status_code: int,
+    request_body_preview: str,
+    error_message: str = "",
+) -> None:
+    db = SessionLocal()
+    try:
+        persist_system_monitor_event(
+            db,
+            monitor_key=HTTP_5XX_MONITOR_KEY,
+            severity=STATUS_CRITICAL,
+            status="firing",
+            title="HTTP 5xx 异常",
+            message=error_message or f"{request.method} {request.url.path} 返回 {status_code}",
+            source=request.url.path,
+            metric_value=float(status_code),
+            detail={
+                "method": request.method,
+                "path": request.url.path,
+                "query_string": request.url.query or "",
+                "status_code": status_code,
+                "client_ip": _extract_client_ip(request),
+                "user_agent": request.headers.get("user-agent"),
+                "request_body": request_body_preview,
+            },
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
+
 def _create_operation_audit_middleware(app: FastAPI) -> None:
     @app.middleware("http")
     async def operation_audit_log_middleware(request: Request, call_next: Callable[[Request], Any]) -> Response:
@@ -474,9 +510,24 @@ def _create_operation_audit_middleware(app: FastAPI) -> None:
             bearer_actor = _resolve_user_from_bearer_token(_extract_bearer_token(request))
             user_meta = _classify_user_operation(request, request_json)
 
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            _persist_http_5xx_event(
+                request=request,
+                status_code=500,
+                request_body_preview=request_body_preview,
+                error_message=str(exc),
+            )
+            raise
 
         if not should_audit_admin and user_meta is None:
+            if response.status_code >= 500:
+                _persist_http_5xx_event(
+                    request=request,
+                    status_code=int(response.status_code),
+                    request_body_preview=request_body_preview,
+                )
             return response
 
         response, response_body = await _extract_response_body(response)
@@ -499,6 +550,12 @@ def _create_operation_audit_middleware(app: FastAPI) -> None:
                 meta=user_meta,
                 request_body_preview=request_body_preview,
                 status_code=int(response.status_code),
+            )
+        if response.status_code >= 500:
+            _persist_http_5xx_event(
+                request=request,
+                status_code=int(response.status_code),
+                request_body_preview=request_body_preview,
             )
         return response
 

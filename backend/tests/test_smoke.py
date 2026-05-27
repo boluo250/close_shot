@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from botocore.exceptions import ClientError
 from fastapi import HTTPException
+from fastapi.responses import Response
 from fastapi.testclient import TestClient
 
 from app.api.deps import get_current_user
@@ -16,6 +17,7 @@ from app.api.routes import studio as studio_routes
 from app.api.routes import upload as upload_routes
 from app.core.config import settings
 from app.core.security import create_access_token, hash_password
+from app.db.models import SystemMonitorEvent
 from app.db.session import get_db
 from app.main import create_app
 from app.schemas.studio import PackageCreateIn, PhotographerUpdateIn
@@ -109,6 +111,99 @@ def test_health_and_readiness(client, monkeypatch):
     assert ready_response.status_code == 200
     assert ready_response.json() == {"ok": True, "checks": {"database": "ok"}}
     assert fake_db.executed == ["SELECT 1"]
+
+
+def test_admin_system_monitor_summary_smoke(client, app, monkeypatch):
+    now = datetime.now(timezone.utc)
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(role="admin")
+
+    def override_get_db():
+        yield FakeDB()
+
+    app.dependency_overrides[get_db] = override_get_db
+    monkeypatch.setattr(
+        admin_routes,
+        "build_system_monitor_summary",
+        lambda _db: {
+            "generated_at": now,
+            "overall_status": "warning",
+            "summary": {
+                "total_checks": 2,
+                "ok_count": 1,
+                "warning_count": 1,
+                "critical_count": 0,
+                "unknown_count": 0,
+            },
+            "checks": [
+                {
+                    "key": "api_health",
+                    "category": "availability",
+                    "title": "API 健康检查",
+                    "status": "ok",
+                    "summary": "应用正常",
+                    "message": "ok",
+                    "detail": {},
+                }
+            ],
+            "containers": [],
+            "recent_events": [],
+        },
+    )
+
+    response = client.get(f"{settings.admin_api_prefix}/system-monitor/summary")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["overall_status"] == "warning"
+    assert payload["summary"]["total_checks"] == 2
+    assert payload["checks"][0]["key"] == "api_health"
+
+
+def test_backup_report_endpoint_persists_event(client, app, monkeypatch):
+    fake_db = FakeDB()
+
+    def override_get_db():
+        yield fake_db
+
+    app.dependency_overrides[get_db] = override_get_db
+    monkeypatch.setattr(settings, "monitor_report_secret", "monitor-secret")
+
+    response = client.post(
+        "/ops/monitor/backup-report",
+        headers={"x-monitor-secret": "monitor-secret"},
+        data={
+            "job_name": "pg-backup",
+            "success": "true",
+            "message": "备份完成",
+            "duration_seconds": "12",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert fake_db.commit_calls == 1
+    assert len(fake_db.added) == 1
+    event = fake_db.added[0]
+    assert isinstance(event, SystemMonitorEvent)
+    assert event.monitor_key == "backup_job"
+    assert event.severity == "info"
+
+
+def test_middleware_persists_http_5xx_event(client, monkeypatch):
+    @client.app.get("/__monitor_test_503")
+    def monitor_test_503():
+        return Response(status_code=503)
+
+    fake_db = FakeDB()
+    monkeypatch.setattr("app.main.SessionLocal", lambda: fake_db)
+
+    response = client.get("/__monitor_test_503")
+
+    assert response.status_code == 503
+    monitor_events = [item for item in fake_db.added if isinstance(item, SystemMonitorEvent)]
+    assert len(monitor_events) == 1
+    assert monitor_events[0].monitor_key == "http_5xx"
+    assert fake_db.commit_calls == 1
 
 
 def test_login_smoke(client, app):

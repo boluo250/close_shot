@@ -294,3 +294,17 @@ class UserOperationLog(TimestampMixin, Base):
     client_ip: Mapped[str | None] = mapped_column(String(64))
     user_agent: Mapped[str | None] = mapped_column(String(255))
     request_body: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
+class SystemMonitorEvent(TimestampMixin, Base):
+    __tablename__ = "system_monitor_events"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    monitor_key: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="firing", index=True)
+    title: Mapped[str] = mapped_column(String(128), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    source: Mapped[str | None] = mapped_column(String(128), index=True)
+    metric_value: Mapped[float | None] = mapped_column(Float)
+    detail_json: Mapped[str] = mapped_column(Text, nullable=False, default="")

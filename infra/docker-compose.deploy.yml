@@ -37,6 +37,7 @@ services:
         condition: service_healthy
     volumes:
       - backend_local_media:/app/local_media
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
   admin-web:
     build:

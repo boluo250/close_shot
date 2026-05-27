@@ -45,6 +45,24 @@ class Settings(BaseSettings):
     analytics_daily_report_webhook_url: str | None = None
     analytics_daily_report_webhook_secret: str | None = None
 
+    monitor_docker_socket: str | None = "/var/run/docker.sock"
+    monitor_container_names: str = "close-shot-api,close-shot-db,close-shot-admin-web,close-shot-nginx"
+    monitor_disk_paths: str = "/,/app/local_media"
+    monitor_disk_warn_percent: float = 80.0
+    monitor_disk_critical_percent: float = 90.0
+    monitor_cpu_warn_percent: float = 70.0
+    monitor_cpu_critical_percent: float = 90.0
+    monitor_memory_warn_percent: float = 80.0
+    monitor_memory_critical_percent: float = 90.0
+    monitor_db_size_warn_bytes: int = 5 * 1024 * 1024 * 1024
+    monitor_db_size_critical_bytes: int = 10 * 1024 * 1024 * 1024
+    monitor_5xx_window_minutes: int = 15
+    monitor_5xx_warn_count: int = 3
+    monitor_5xx_critical_count: int = 10
+    monitor_backup_max_age_hours: int = 30
+    monitor_container_restart_recent_minutes: int = 24 * 60
+    monitor_report_secret: str | None = None
+
     @property
     def env_lower(self) -> str:
         return (self.env or "").strip().lower()

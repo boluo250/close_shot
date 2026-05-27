@@ -32,6 +32,10 @@ export const router = createRouter({
         { path: "admin/certifications", component: AdminCertificationsView },
         { path: "admin/risk-users", component: AdminRiskUsersView },
         { path: "admin/analytics", component: AdminAnalyticsView },
+        {
+          path: "admin/system-monitor",
+          component: () => import("./views/AdminSystemMonitorView.vue")
+        },
         { path: "admin/db", component: AdminDbView },
         {
           path: "admin/user-portraits",

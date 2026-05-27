@@ -133,8 +133,23 @@ docker compose -f docker-compose.deploy.yml up -d --build
 - Nginx 对外端口默认 `80/443`，可通过环境变量 `NGINX_HTTP_PORT`、`NGINX_HTTPS_PORT` 覆盖
 - `DATABASE_URL` 会在 compose 内自动改为容器网络地址（`db:5432`）
 - 默认挂载 `backend_local_media` 持久化本地媒体文件
+- `api` 服务会只读挂载 `/var/run/docker.sock`，用于后台“系统监控”读取容器重启、CPU、内存等指标
 - 管理端 API 前缀默认 `http://<域名>/admin-x8r7m2q4p9/*`（由 Nginx 转发到后端）
 - `admin-web` 默认会跟随当前页面域名请求 API；如需单独指定，再设置 `VITE_API_BASE_URL`
+- 管理后台新增 `系统监控` 页面，统一展示健康检查、5xx 告警、容器重启、磁盘空间、数据库容量、备份状态、CPU、内存等指标
+
+监控与告警建议补充以下环境变量到 `backend/.env`：
+
+```env
+MONITOR_REPORT_SECRET=change-this-to-a-long-random-string
+MONITOR_5XX_WARN_COUNT=3
+MONITOR_5XX_CRITICAL_COUNT=10
+MONITOR_BACKUP_MAX_AGE_HOURS=30
+MONITOR_DISK_WARN_PERCENT=80
+MONITOR_DISK_CRITICAL_PERCENT=90
+MONITOR_DB_SIZE_WARN_BYTES=5368709120
+MONITOR_DB_SIZE_CRITICAL_BYTES=10737418240
+```
 
 ### 线上域名 + HTTPS（Let's Encrypt）
 
