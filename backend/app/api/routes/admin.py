@@ -12,6 +12,12 @@ from sqlalchemy import case, delete, func, inspect, or_, select, text
 from sqlalchemy.orm import Session, aliased
 
 from app.api.deps import get_current_user
+from app.api.routes.appointments import (
+    accept_appointment_for_user,
+    complete_appointment_for_user,
+    confirm_appointment_for_user,
+    reject_appointment_for_user,
+)
 from app.db.models import (
     AdminOperationLog,
     AppointmentRequest,
@@ -32,6 +38,7 @@ from app.db.models import (
 )
 from app.db.session import get_db
 from app.schemas.analytics import AnalyticsEventListOut, AnalyticsEventOut, AnalyticsSummaryItemOut, AnalyticsSummaryOut
+from app.schemas.appointment import AppointmentDecisionIn, AppointmentOut
 from app.schemas.photographer import (
     CertificationDetailOut,
     CertificationListOut,
@@ -1174,6 +1181,48 @@ def list_admin_appointments(
         for item, customer_name, photographer_name, photographer_phone, photographer_wechat, package_name in rows
     ]
     return AdminAppointmentListOut(items=items, total=total)
+
+
+@router.post("/appointments/{appointment_id}/accept", response_model=AppointmentOut)
+def accept_admin_appointment(
+    appointment_id: int,
+    payload: AppointmentDecisionIn,
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AppointmentOut:
+    _require_admin(me)
+    return accept_appointment_for_user(appointment_id=appointment_id, payload=payload, me=me, db=db)
+
+
+@router.post("/appointments/{appointment_id}/reject", response_model=AppointmentOut)
+def reject_admin_appointment(
+    appointment_id: int,
+    payload: AppointmentDecisionIn,
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AppointmentOut:
+    _require_admin(me)
+    return reject_appointment_for_user(appointment_id=appointment_id, payload=payload, me=me, db=db)
+
+
+@router.post("/appointments/{appointment_id}/confirm", response_model=AppointmentOut)
+def confirm_admin_appointment(
+    appointment_id: int,
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AppointmentOut:
+    _require_admin(me)
+    return confirm_appointment_for_user(appointment_id=appointment_id, me=me, db=db)
+
+
+@router.post("/appointments/{appointment_id}/complete", response_model=AppointmentOut)
+def complete_admin_appointment(
+    appointment_id: int,
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AppointmentOut:
+    _require_admin(me)
+    return complete_appointment_for_user(appointment_id=appointment_id, me=me, db=db)
 
 
 @router.get("/analytics/summary", response_model=AnalyticsSummaryOut)

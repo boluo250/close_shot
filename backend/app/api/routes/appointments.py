@@ -233,6 +233,160 @@ def _finalize_completion_if_ready(item: AppointmentRequest, now: datetime) -> No
         item.completed_at = item.completed_at or now
 
 
+def accept_appointment_for_user(
+    *,
+    appointment_id: int,
+    payload: AppointmentDecisionIn,
+    me: User,
+    db: Session,
+) -> AppointmentOut:
+    item = _load_appointment(db, appointment_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="appointment not found")
+    photographer = _ensure_photographer_owner(item, me, db)
+    if item.status != AppointmentStatus.pending.value:
+        raise HTTPException(status_code=409, detail="only pending appointments can be accepted")
+    _ensure_photographer_available(db, photographer=photographer, scheduled_at=item.scheduled_at, appointment_id=item.id)
+    now = datetime.now(timezone.utc)
+    item.status = AppointmentStatus.accepted_pending_customer.value
+    item.accepted_at = now
+    item.response_note = (payload.response_note or "").strip() or None
+    db.add(item)
+    db.commit()
+    loaded = _load_appointment(db, appointment_id)
+    if not loaded:
+        raise HTTPException(status_code=500, detail="appointment accept failed")
+    wechat_subscribe.notify_customer_appointment_accepted(loaded)
+    return _appointment_to_out(loaded, viewer_user=me, is_photographer_owner=True)
+
+
+def reject_appointment_for_user(
+    *,
+    appointment_id: int,
+    payload: AppointmentDecisionIn,
+    me: User,
+    db: Session,
+) -> AppointmentOut:
+    item = _load_appointment(db, appointment_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="appointment not found")
+    _ensure_photographer_owner(item, me, db)
+    if item.status != AppointmentStatus.pending.value:
+        raise HTTPException(status_code=409, detail="only pending appointments can be rejected")
+    item.status = AppointmentStatus.rejected.value
+    item.rejected_at = datetime.now(timezone.utc)
+    item.response_note = (payload.response_note or "").strip() or None
+    db.add(item)
+    db.commit()
+    loaded = _load_appointment(db, appointment_id)
+    if not loaded:
+        raise HTTPException(status_code=500, detail="appointment reject failed")
+    return _appointment_to_out(loaded, viewer_user=me, is_photographer_owner=True)
+
+
+def confirm_appointment_for_user(
+    *,
+    appointment_id: int,
+    me: User,
+    db: Session,
+) -> AppointmentOut:
+    item = _load_appointment(db, appointment_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="appointment not found")
+    _ensure_customer_owner(item, me)
+    if item.status != AppointmentStatus.accepted_pending_customer.value:
+        raise HTTPException(status_code=409, detail="only accepted appointments can be confirmed by customer")
+    now = datetime.now(timezone.utc)
+    item.status = AppointmentStatus.confirmed.value
+    item.customer_confirmed_at = now
+    item.contact_unlocked_at = now
+    db.add(item)
+    db.commit()
+    loaded = _load_appointment(db, appointment_id)
+    if not loaded:
+        raise HTTPException(status_code=500, detail="appointment confirm failed")
+    return _appointment_to_out(loaded, viewer_user=me, is_customer_owner=True)
+
+
+def cancel_appointment_for_user(
+    *,
+    appointment_id: int,
+    payload: AppointmentDecisionIn,
+    me: User,
+    db: Session,
+) -> AppointmentOut:
+    item = _load_appointment(db, appointment_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="appointment not found")
+    _ensure_customer_owner(item, me)
+    if item.status not in (
+        AppointmentStatus.pending.value,
+        AppointmentStatus.accepted_pending_customer.value,
+        AppointmentStatus.confirmed.value,
+    ):
+        raise HTTPException(status_code=409, detail="only active appointments can be cancelled")
+    item.status = AppointmentStatus.cancelled.value
+    item.cancelled_at = datetime.now(timezone.utc)
+    if not item.response_note:
+        item.response_note = (payload.response_note or "").strip() or None
+    db.add(item)
+    db.commit()
+    loaded = _load_appointment(db, appointment_id)
+    if not loaded:
+        raise HTTPException(status_code=500, detail="appointment cancel failed")
+    return _appointment_to_out(loaded, viewer_user=me, is_customer_owner=True)
+
+
+def complete_appointment_for_user(
+    *,
+    appointment_id: int,
+    me: User,
+    db: Session,
+) -> AppointmentOut:
+    item = _load_appointment(db, appointment_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="appointment not found")
+    if item.status not in (AppointmentStatus.confirmed.value, AppointmentStatus.completed.value):
+        raise HTTPException(status_code=409, detail="only confirmed appointments can be completed")
+
+    now = datetime.now(timezone.utc)
+    should_notify_customer_completion = False
+    if me.role == UserRole.admin.value:
+        item.photographer_completed_at = item.photographer_completed_at or now
+        item.customer_completed_at = item.customer_completed_at or now
+        _finalize_completion_if_ready(item, now)
+    elif int(item.customer_user_id) == int(me.id):
+        if item.photographer_completed_at is None:
+            raise HTTPException(status_code=409, detail="photographer has not marked appointment complete yet")
+        if item.customer_completed_at is None:
+            item.customer_completed_at = now
+        _finalize_completion_if_ready(item, now)
+    else:
+        _ensure_photographer_owner(item, me, db)
+        if item.photographer_completed_at is None:
+            item.photographer_completed_at = now
+            should_notify_customer_completion = True
+        _finalize_completion_if_ready(item, now)
+
+    db.add(item)
+    db.commit()
+    loaded = _load_appointment(db, appointment_id)
+    if not loaded:
+        raise HTTPException(status_code=500, detail="appointment complete failed")
+    if should_notify_customer_completion:
+        wechat_subscribe.notify_customer_appointment_completed(loaded)
+    is_customer = int(item.customer_user_id) == int(me.id)
+    is_photographer = not is_customer and me.role != UserRole.admin.value
+    reviewed_ids = _load_reviewed_appointment_ids(db, [appointment_id])
+    return _appointment_to_out(
+        loaded,
+        reviewed_appointment_ids=reviewed_ids,
+        viewer_user=me,
+        is_customer_owner=is_customer,
+        is_photographer_owner=is_photographer,
+    )
+
+
 @router.post("", response_model=AppointmentOut)
 def create_appointment(
     payload: AppointmentCreateIn,
@@ -422,24 +576,7 @@ def accept_appointment(
     me: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> AppointmentOut:
-    item = _load_appointment(db, appointment_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="appointment not found")
-    photographer = _ensure_photographer_owner(item, me, db)
-    if item.status != AppointmentStatus.pending.value:
-        raise HTTPException(status_code=409, detail="only pending appointments can be accepted")
-    _ensure_photographer_available(db, photographer=photographer, scheduled_at=item.scheduled_at, appointment_id=item.id)
-    now = datetime.now(timezone.utc)
-    item.status = AppointmentStatus.accepted_pending_customer.value
-    item.accepted_at = now
-    item.response_note = (payload.response_note or "").strip() or None
-    db.add(item)
-    db.commit()
-    loaded = _load_appointment(db, appointment_id)
-    if not loaded:
-        raise HTTPException(status_code=500, detail="appointment accept failed")
-    wechat_subscribe.notify_customer_appointment_accepted(loaded)
-    return _appointment_to_out(loaded, viewer_user=me, is_photographer_owner=True)
+    return accept_appointment_for_user(appointment_id=appointment_id, payload=payload, me=me, db=db)
 
 
 @router.post("/{appointment_id}/confirm", response_model=AppointmentOut)
@@ -448,22 +585,7 @@ def confirm_appointment(
     me: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> AppointmentOut:
-    item = _load_appointment(db, appointment_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="appointment not found")
-    _ensure_customer_owner(item, me)
-    if item.status != AppointmentStatus.accepted_pending_customer.value:
-        raise HTTPException(status_code=409, detail="only accepted appointments can be confirmed by customer")
-    now = datetime.now(timezone.utc)
-    item.status = AppointmentStatus.confirmed.value
-    item.customer_confirmed_at = now
-    item.contact_unlocked_at = now
-    db.add(item)
-    db.commit()
-    loaded = _load_appointment(db, appointment_id)
-    if not loaded:
-        raise HTTPException(status_code=500, detail="appointment confirm failed")
-    return _appointment_to_out(loaded, viewer_user=me, is_customer_owner=True)
+    return confirm_appointment_for_user(appointment_id=appointment_id, me=me, db=db)
 
 
 @router.post("/{appointment_id}/reject", response_model=AppointmentOut)
@@ -473,21 +595,7 @@ def reject_appointment(
     me: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> AppointmentOut:
-    item = _load_appointment(db, appointment_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="appointment not found")
-    _ensure_photographer_owner(item, me, db)
-    if item.status != AppointmentStatus.pending.value:
-        raise HTTPException(status_code=409, detail="only pending appointments can be rejected")
-    item.status = AppointmentStatus.rejected.value
-    item.rejected_at = datetime.now(timezone.utc)
-    item.response_note = (payload.response_note or "").strip() or None
-    db.add(item)
-    db.commit()
-    loaded = _load_appointment(db, appointment_id)
-    if not loaded:
-        raise HTTPException(status_code=500, detail="appointment reject failed")
-    return _appointment_to_out(loaded, viewer_user=me, is_photographer_owner=True)
+    return reject_appointment_for_user(appointment_id=appointment_id, payload=payload, me=me, db=db)
 
 
 @router.post("/{appointment_id}/cancel", response_model=AppointmentOut)
@@ -497,26 +605,7 @@ def cancel_appointment(
     me: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> AppointmentOut:
-    item = _load_appointment(db, appointment_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="appointment not found")
-    _ensure_customer_owner(item, me)
-    if item.status not in (
-        AppointmentStatus.pending.value,
-        AppointmentStatus.accepted_pending_customer.value,
-        AppointmentStatus.confirmed.value,
-    ):
-        raise HTTPException(status_code=409, detail="only active appointments can be cancelled")
-    item.status = AppointmentStatus.cancelled.value
-    item.cancelled_at = datetime.now(timezone.utc)
-    if not item.response_note:
-        item.response_note = (payload.response_note or "").strip() or None
-    db.add(item)
-    db.commit()
-    loaded = _load_appointment(db, appointment_id)
-    if not loaded:
-        raise HTTPException(status_code=500, detail="appointment cancel failed")
-    return _appointment_to_out(loaded, viewer_user=me, is_customer_owner=True)
+    return cancel_appointment_for_user(appointment_id=appointment_id, payload=payload, me=me, db=db)
 
 
 @router.post("/{appointment_id}/complete", response_model=AppointmentOut)
@@ -525,48 +614,7 @@ def complete_appointment(
     me: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> AppointmentOut:
-    item = _load_appointment(db, appointment_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="appointment not found")
-    if item.status not in (AppointmentStatus.confirmed.value, AppointmentStatus.completed.value):
-        raise HTTPException(status_code=409, detail="only confirmed appointments can be completed")
-
-    now = datetime.now(timezone.utc)
-    should_notify_customer_completion = False
-    if me.role == UserRole.admin.value:
-        item.photographer_completed_at = item.photographer_completed_at or now
-        item.customer_completed_at = item.customer_completed_at or now
-        _finalize_completion_if_ready(item, now)
-    elif int(item.customer_user_id) == int(me.id):
-        if item.photographer_completed_at is None:
-            raise HTTPException(status_code=409, detail="photographer has not marked appointment complete yet")
-        if item.customer_completed_at is None:
-            item.customer_completed_at = now
-        _finalize_completion_if_ready(item, now)
-    else:
-        _ensure_photographer_owner(item, me, db)
-        if item.photographer_completed_at is None:
-            item.photographer_completed_at = now
-            should_notify_customer_completion = True
-        _finalize_completion_if_ready(item, now)
-
-    db.add(item)
-    db.commit()
-    loaded = _load_appointment(db, appointment_id)
-    if not loaded:
-        raise HTTPException(status_code=500, detail="appointment complete failed")
-    if should_notify_customer_completion:
-        wechat_subscribe.notify_customer_appointment_completed(loaded)
-    is_customer = int(item.customer_user_id) == int(me.id)
-    is_photographer = not is_customer and me.role != UserRole.admin.value
-    reviewed_ids = _load_reviewed_appointment_ids(db, [appointment_id])
-    return _appointment_to_out(
-        loaded,
-        reviewed_appointment_ids=reviewed_ids,
-        viewer_user=me,
-        is_customer_owner=is_customer,
-        is_photographer_owner=is_photographer,
-    )
+    return complete_appointment_for_user(appointment_id=appointment_id, me=me, db=db)
 
 
 @router.post("/{appointment_id}/review", response_model=ReviewOut, status_code=status.HTTP_201_CREATED)

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_db
+from app.core.config import settings
 from app.core.security import create_access_token
 from app.db.base import Base
 from app.db.models import AppointmentRequest, Package, Photographer, Review, ScheduleBlock, User, UserRole
@@ -46,6 +47,7 @@ def _seed_basic_data(session_factory: sessionmaker) -> None:
     with session_factory() as db:
         customer = User(id=1, role=UserRole.customer.value, display_name="客户甲")
         photographer_user = User(id=2, role=UserRole.photographer.value, display_name="摄影师乙")
+        admin_user = User(id=99, role=UserRole.admin.value, display_name="管理员")
         photographer = Photographer(
             id=10,
             user_id=2,
@@ -57,7 +59,7 @@ def _seed_basic_data(session_factory: sessionmaker) -> None:
             wechat_id="photo-ethan",
         )
         package = Package(id=20, photographer_id=10, name="基础套餐", price_cents=19900, is_active=True)
-        db.add_all([customer, photographer_user, photographer, package])
+        db.add_all([customer, photographer_user, admin_user, photographer, package])
         db.commit()
 
 
@@ -207,6 +209,37 @@ def test_customer_cannot_complete_before_photographer_marks_done():
     )
     assert early_complete.status_code == 409
     assert early_complete.json()["detail"] == "photographer has not marked appointment complete yet"
+
+
+def test_admin_appointment_action_routes_accept_pending_request():
+    client, session_factory = _build_test_client()
+    _seed_basic_data(session_factory)
+
+    create_resp = client.post(
+        "/appointments",
+        headers=_auth_headers(1),
+        json={
+            "photographer_id": 10,
+            "scheduled_at": "2026-06-08T09:00:00+08:00",
+            "location_text": "上海浦东",
+            "participant_count": 1,
+        },
+    )
+    assert create_resp.status_code == 200
+    appointment_id = create_resp.json()["id"]
+
+    accept_resp = client.post(
+        f"{settings.admin_api_prefix}/appointments/{appointment_id}/accept",
+        headers=_auth_headers(99),
+        json={},
+    )
+    assert accept_resp.status_code == 200
+    assert accept_resp.json()["status"] == "accepted_pending_customer"
+
+    with session_factory() as db:
+        appointment = db.scalar(select(AppointmentRequest).where(AppointmentRequest.id == appointment_id))
+        assert appointment is not None
+        assert appointment.status == "accepted_pending_customer"
 
 
 def test_subscribe_config_endpoint_returns_template_keys():

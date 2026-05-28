@@ -1,6 +1,11 @@
 const { getToken, clearAuthState, ensureLogin } = require("../../utils/auth");
 const { request } = require("../../utils/request");
+const {
+  requestPhotographerAppointmentSubscriptions,
+  clearAppointmentSubscribeCache
+} = require("../../utils/subscribe");
 const IDENTITY_CACHE_KEY = "mine_identity_cache_v1";
+const APPOINTMENT_PROMPT_CACHE_KEY = "mine_appointment_prompt_cache_v1";
 
 Component({
   data: {
@@ -19,6 +24,17 @@ Component({
       isMember: false,
       expiresAt: "",
       loading: false
+    },
+    appointmentSummary: {
+      mineWaitingCustomerConfirm: 0,
+      mineWaitingCompletionConfirm: 0,
+      mineCompletedWithoutReview: 0,
+      assignedPendingDecision: 0,
+      assignedWaitingCustomerConfirm: 0,
+      assignedWaitingCompletionMark: 0,
+      minePendingTotal: 0,
+      assignedPendingTotal: 0,
+      centerPendingTotal: 0
     },
     uiText: {
       guestNickname: "游客",
@@ -98,6 +114,7 @@ Component({
       this.syncViewState();
       this.loadIdentity();
       this.loadMembership();
+      this.loadAppointmentSummary();
     },
 
     syncViewState() {
@@ -171,6 +188,7 @@ Component({
       } finally {
         this.setData({ identityLoading: false });
         this.syncViewState();
+        this.maybeShowAppointmentPrompt();
       }
     },
 
@@ -247,6 +265,88 @@ Component({
       }
     },
 
+    async loadAppointmentSummary() {
+      const token = getToken();
+      if (!token) {
+        this.setData({
+          appointmentSummary: {
+            mineWaitingCustomerConfirm: 0,
+            mineWaitingCompletionConfirm: 0,
+            mineCompletedWithoutReview: 0,
+            assignedPendingDecision: 0,
+            assignedWaitingCustomerConfirm: 0,
+            assignedWaitingCompletionMark: 0,
+            minePendingTotal: 0,
+            assignedPendingTotal: 0,
+            centerPendingTotal: 0
+          }
+        });
+        return;
+      }
+      try {
+        const data = await request("/appointments/summary", { auth: true });
+        const mineWaitingCustomerConfirm = data?.mine_waiting_customer_confirm || 0;
+        const mineWaitingCompletionConfirm = data?.mine_waiting_completion_confirm || 0;
+        const mineCompletedWithoutReview = data?.mine_completed_without_review || 0;
+        const assignedPendingDecision = data?.assigned_pending_decision || 0;
+        const assignedWaitingCustomerConfirm = data?.assigned_waiting_customer_confirm || 0;
+        const assignedWaitingCompletionMark = data?.assigned_waiting_completion_mark || 0;
+        this.setData({
+          appointmentSummary: {
+            mineWaitingCustomerConfirm,
+            mineWaitingCompletionConfirm,
+            mineCompletedWithoutReview,
+            assignedPendingDecision,
+            assignedWaitingCustomerConfirm,
+            assignedWaitingCompletionMark,
+            minePendingTotal: mineWaitingCustomerConfirm + mineWaitingCompletionConfirm + mineCompletedWithoutReview,
+            assignedPendingTotal: assignedPendingDecision + assignedWaitingCustomerConfirm + assignedWaitingCompletionMark,
+            centerPendingTotal:
+              mineWaitingCustomerConfirm +
+              mineWaitingCompletionConfirm +
+              mineCompletedWithoutReview +
+              assignedPendingDecision +
+              assignedWaitingCustomerConfirm +
+              assignedWaitingCompletionMark
+          }
+        });
+        this.maybeShowAppointmentPrompt();
+      } catch (_e) {
+        this.setData({
+          appointmentSummary: {
+            mineWaitingCustomerConfirm: 0,
+            mineWaitingCompletionConfirm: 0,
+            mineCompletedWithoutReview: 0,
+            assignedPendingDecision: 0,
+            assignedWaitingCustomerConfirm: 0,
+            assignedWaitingCompletionMark: 0,
+            minePendingTotal: 0,
+            assignedPendingTotal: 0,
+            centerPendingTotal: 0
+          }
+        });
+      }
+    },
+
+    maybeShowAppointmentPrompt() {
+      if (this.data.identityState !== "verified_photographer") return;
+      const pendingCount = this.data.appointmentSummary.assignedPendingDecision || 0;
+      if (!pendingCount) return;
+      const cacheValue = `${pendingCount}-${new Date().toISOString().slice(0, 10)}`;
+      if (wx.getStorageSync(APPOINTMENT_PROMPT_CACHE_KEY) === cacheValue) return;
+      wx.setStorageSync(APPOINTMENT_PROMPT_CACHE_KEY, cacheValue);
+      wx.showModal({
+        title: "收到新的预约申请",
+        content: `现在有 ${pendingCount} 条预约待你处理，去预约中心看看吗？`,
+        confirmText: "去处理",
+        cancelText: "稍后再看",
+        success: (res) => {
+          if (!res.confirm) return;
+          wx.navigateTo({ url: "/pages/appointments/index?tab=assigned" });
+        }
+      });
+    },
+
     async login() {
       this.setData({ loading: true });
       try {
@@ -264,6 +364,7 @@ Component({
 
     logout() {
       clearAuthState();
+      clearAppointmentSubscribeCache();
       this._clearIdentityCache();
       this.setData({
         token: "",
@@ -276,6 +377,18 @@ Component({
       });
       this.syncViewState();
       wx.showToast({ title: "已退出", icon: "none" });
+    },
+
+    async goAppointmentCenter() {
+      try {
+        await ensureLogin();
+        if (this.data.identityState === "verified_photographer") {
+          await requestPhotographerAppointmentSubscriptions();
+        }
+        wx.navigateTo({ url: "/pages/appointments/index" });
+      } catch (_e) {
+        wx.showToast({ title: "请先登录", icon: "none" });
+      }
     },
 
     goEditPhotographerProfile() {
