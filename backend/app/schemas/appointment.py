@@ -40,6 +40,8 @@ class AppointmentOut(TimestampOut):
     note: str | None = None
     response_note: str | None = None
     accepted_at: datetime | None = None
+    customer_confirmed_at: datetime | None = None
+    contact_unlocked_at: datetime | None = None
     rejected_at: datetime | None = None
     cancelled_at: datetime | None = None
     completed_at: datetime | None = None
@@ -49,6 +51,15 @@ class AppointmentOut(TimestampOut):
     customer_avatar_url: str | None = None
     photographer_display_name: str | None = None
     photographer_avatar_url: str | None = None
+    photographer_phone: str | None = None
+    photographer_wechat_id: str | None = None
+    customer_contact_name: str | None = None
+    customer_contact_phone: str | None = None
+    can_view_customer_contact: bool = False
+    can_view_photographer_contact: bool = False
+    can_customer_confirm: bool = False
+    can_customer_complete: bool = False
+    can_photographer_complete: bool = False
     package_name: str | None = None
     has_review: bool = False
     can_review: bool = False
@@ -57,3 +68,11 @@ class AppointmentOut(TimestampOut):
 class AppointmentListOut(BaseModel):
     items: list[AppointmentOut]
 
+
+class AppointmentSummaryOut(BaseModel):
+    mine_waiting_customer_confirm: int = 0
+    mine_waiting_completion_confirm: int = 0
+    mine_completed_without_review: int = 0
+    assigned_pending_decision: int = 0
+    assigned_waiting_customer_confirm: int = 0
+    assigned_waiting_completion_mark: int = 0

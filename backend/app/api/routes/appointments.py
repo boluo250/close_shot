@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
@@ -20,7 +20,13 @@ from app.db.models import (
     UserRole,
 )
 from app.db.session import get_db
-from app.schemas.appointment import AppointmentCreateIn, AppointmentDecisionIn, AppointmentListOut, AppointmentOut
+from app.schemas.appointment import (
+    AppointmentCreateIn,
+    AppointmentDecisionIn,
+    AppointmentListOut,
+    AppointmentOut,
+    AppointmentSummaryOut,
+)
 from app.schemas.review import ReviewCreateIn, ReviewOut
 
 router = APIRouter()
@@ -55,55 +61,6 @@ def _load_reviewed_appointment_ids(db: Session, appointment_ids: list[int]) -> s
     )
 
 
-def _appointment_to_out(
-    item: AppointmentRequest,
-    *,
-    reviewed_appointment_ids: set[int] | None = None,
-    viewer_user_id: int | None = None,
-) -> AppointmentOut:
-    reviewed_ids = reviewed_appointment_ids or set()
-    customer = item.customer
-    photographer_user = item.photographer.user if item.photographer else None
-    has_review = int(item.id) in reviewed_ids
-    can_review = (
-        item.status == AppointmentStatus.completed.value
-        and viewer_user_id is not None
-        and int(item.customer_user_id) == int(viewer_user_id)
-        and not has_review
-    )
-    return AppointmentOut(
-        id=int(item.id),
-        customer_user_id=int(item.customer_user_id),
-        photographer_id=int(item.photographer_id),
-        package_id=int(item.package_id) if item.package_id is not None else None,
-        status=item.status,
-        scheduled_at=item.scheduled_at,
-        location_text=item.location_text,
-        contact_name=item.contact_name,
-        contact_phone=item.contact_phone,
-        shooting_type=item.shooting_type,
-        budget_cents=item.budget_cents,
-        participant_count=int(item.participant_count or 1),
-        note=item.note,
-        response_note=item.response_note,
-        accepted_at=item.accepted_at,
-        rejected_at=item.rejected_at,
-        cancelled_at=item.cancelled_at,
-        completed_at=item.completed_at,
-        customer_completed_at=item.customer_completed_at,
-        photographer_completed_at=item.photographer_completed_at,
-        customer_display_name=customer.display_name if customer else None,
-        customer_avatar_url=customer.avatar_url if customer else None,
-        photographer_display_name=photographer_user.display_name if photographer_user else None,
-        photographer_avatar_url=photographer_user.avatar_url if photographer_user else None,
-        package_name=item.package.name if item.package else None,
-        has_review=has_review,
-        can_review=can_review,
-        created_at=item.created_at,
-        updated_at=item.updated_at,
-    )
-
-
 def _get_my_approved_photographer(db: Session, me: User) -> Photographer:
     photographer = db.scalar(
         select(Photographer).where(
@@ -116,14 +73,18 @@ def _get_my_approved_photographer(db: Session, me: User) -> Photographer:
     return photographer
 
 
-def _ensure_appointment_visible(item: AppointmentRequest, me: User, db: Session) -> None:
-    if me.role == UserRole.admin.value:
-        return
-    if int(item.customer_user_id) == int(me.id):
-        return
+def _viewer_flags(item: AppointmentRequest, me: User, db: Session) -> tuple[bool, bool]:
+    is_customer = me.role == UserRole.admin.value or int(item.customer_user_id) == int(me.id)
+    if is_customer:
+        return True, False
     photographer = _get_my_approved_photographer(db, me)
-    if int(item.photographer_id) == int(photographer.id):
-        return
+    return False, int(item.photographer_id) == int(photographer.id)
+
+
+def _ensure_appointment_visible(item: AppointmentRequest, me: User, db: Session) -> tuple[bool, bool]:
+    is_customer, is_photographer = _viewer_flags(item, me, db)
+    if is_customer or is_photographer or me.role == UserRole.admin.value:
+        return is_customer, is_photographer
     raise HTTPException(status_code=403, detail="no permission to view this appointment")
 
 
@@ -146,7 +107,13 @@ def _ensure_photographer_owner(item: AppointmentRequest, me: User, db: Session) 
     return photographer
 
 
-def _ensure_photographer_available(db: Session, *, photographer: Photographer, scheduled_at: datetime, appointment_id: int | None = None) -> None:
+def _ensure_photographer_available(
+    db: Session,
+    *,
+    photographer: Photographer,
+    scheduled_at: datetime,
+    appointment_id: int | None = None,
+) -> None:
     scheduled_day = scheduled_at.astimezone(timezone.utc).date() if scheduled_at.tzinfo else scheduled_at.date()
     blocked = db.scalar(
         select(ScheduleBlock).where(
@@ -160,7 +127,13 @@ def _ensure_photographer_available(db: Session, *, photographer: Photographer, s
 
     conflict_stmt = select(AppointmentRequest.id).where(
         AppointmentRequest.photographer_id == photographer.id,
-        AppointmentRequest.status.in_((AppointmentStatus.accepted.value, AppointmentStatus.completed.value)),
+        AppointmentRequest.status.in_(
+            (
+                AppointmentStatus.accepted_pending_customer.value,
+                AppointmentStatus.confirmed.value,
+                AppointmentStatus.completed.value,
+            )
+        ),
         func.date(AppointmentRequest.scheduled_at) == scheduled_day,
     )
     if appointment_id is not None:
@@ -168,6 +141,94 @@ def _ensure_photographer_available(db: Session, *, photographer: Photographer, s
     conflict = db.scalar(conflict_stmt)
     if conflict is not None:
         raise HTTPException(status_code=409, detail="photographer already has an appointment on selected date")
+
+
+def _appointment_to_out(
+    item: AppointmentRequest,
+    *,
+    reviewed_appointment_ids: set[int] | None = None,
+    viewer_user: User | None = None,
+    is_customer_owner: bool = False,
+    is_photographer_owner: bool = False,
+) -> AppointmentOut:
+    reviewed_ids = reviewed_appointment_ids or set()
+    customer = item.customer
+    photographer = item.photographer
+    photographer_user = photographer.user if photographer else None
+    contact_unlocked = item.contact_unlocked_at is not None
+    has_review = int(item.id) in reviewed_ids
+    can_review = (
+        item.status == AppointmentStatus.completed.value
+        and is_customer_owner
+        and not has_review
+    )
+    can_customer_confirm = is_customer_owner and item.status == AppointmentStatus.accepted_pending_customer.value
+    can_photographer_complete = (
+        is_photographer_owner
+        and item.status == AppointmentStatus.confirmed.value
+        and item.photographer_completed_at is None
+    )
+    can_customer_complete = (
+        is_customer_owner
+        and item.status == AppointmentStatus.confirmed.value
+        and item.photographer_completed_at is not None
+        and item.customer_completed_at is None
+    )
+
+    can_view_customer_contact = is_photographer_owner and contact_unlocked
+    can_view_photographer_contact = is_customer_owner and contact_unlocked
+    if viewer_user and viewer_user.role == UserRole.admin.value:
+        can_view_customer_contact = True
+        can_view_photographer_contact = True
+
+    return AppointmentOut(
+        id=int(item.id),
+        customer_user_id=int(item.customer_user_id),
+        photographer_id=int(item.photographer_id),
+        package_id=int(item.package_id) if item.package_id is not None else None,
+        status=item.status,
+        scheduled_at=item.scheduled_at,
+        location_text=item.location_text,
+        contact_name=item.contact_name if is_customer_owner or can_view_customer_contact else None,
+        contact_phone=item.contact_phone if is_customer_owner or can_view_customer_contact else None,
+        shooting_type=item.shooting_type,
+        budget_cents=item.budget_cents,
+        participant_count=int(item.participant_count or 1),
+        note=item.note,
+        response_note=item.response_note,
+        accepted_at=item.accepted_at,
+        customer_confirmed_at=item.customer_confirmed_at,
+        contact_unlocked_at=item.contact_unlocked_at,
+        rejected_at=item.rejected_at,
+        cancelled_at=item.cancelled_at,
+        completed_at=item.completed_at,
+        customer_completed_at=item.customer_completed_at,
+        photographer_completed_at=item.photographer_completed_at,
+        customer_display_name=customer.display_name if customer else None,
+        customer_avatar_url=customer.avatar_url if customer else None,
+        photographer_display_name=photographer_user.display_name if photographer_user else None,
+        photographer_avatar_url=photographer_user.avatar_url if photographer_user else None,
+        photographer_phone=(photographer.phone if photographer and can_view_photographer_contact else None),
+        photographer_wechat_id=(photographer.wechat_id if photographer and can_view_photographer_contact else None),
+        customer_contact_name=(item.contact_name if can_view_customer_contact else None),
+        customer_contact_phone=(item.contact_phone if can_view_customer_contact else None),
+        can_view_customer_contact=can_view_customer_contact,
+        can_view_photographer_contact=can_view_photographer_contact,
+        can_customer_confirm=can_customer_confirm,
+        can_customer_complete=can_customer_complete,
+        can_photographer_complete=can_photographer_complete,
+        package_name=item.package.name if item.package else None,
+        has_review=has_review,
+        can_review=can_review,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
+def _finalize_completion_if_ready(item: AppointmentRequest, now: datetime) -> None:
+    if item.photographer_completed_at and item.customer_completed_at:
+        item.status = AppointmentStatus.completed.value
+        item.completed_at = item.completed_at or now
 
 
 @router.post("", response_model=AppointmentOut)
@@ -225,7 +286,54 @@ def create_appointment(
     loaded = _load_appointment(db, int(appointment.id))
     if not loaded:
         raise HTTPException(status_code=500, detail="appointment create failed")
-    return _appointment_to_out(loaded, viewer_user_id=me.id)
+    return _appointment_to_out(loaded, viewer_user=me, is_customer_owner=True)
+
+
+@router.get("/summary", response_model=AppointmentSummaryOut)
+def get_appointment_summary(
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AppointmentSummaryOut:
+    mine_items = db.scalars(
+        select(AppointmentRequest).where(AppointmentRequest.customer_user_id == me.id)
+    ).all()
+    reviewed_ids = _load_reviewed_appointment_ids(db, [int(item.id) for item in mine_items])
+
+    assigned_items: list[AppointmentRequest] = []
+    if me.role in (UserRole.photographer.value, UserRole.admin.value):
+        try:
+            photographer = _get_my_approved_photographer(db, me)
+        except HTTPException:
+            photographer = None
+        if photographer:
+            assigned_items = db.scalars(
+                select(AppointmentRequest).where(AppointmentRequest.photographer_id == photographer.id)
+            ).all()
+
+    return AppointmentSummaryOut(
+        mine_waiting_customer_confirm=sum(
+            1 for item in mine_items if item.status == AppointmentStatus.accepted_pending_customer.value
+        ),
+        mine_waiting_completion_confirm=sum(
+            1
+            for item in mine_items
+            if item.status == AppointmentStatus.confirmed.value
+            and item.photographer_completed_at is not None
+            and item.customer_completed_at is None
+        ),
+        mine_completed_without_review=sum(
+            1 for item in mine_items if item.status == AppointmentStatus.completed.value and int(item.id) not in reviewed_ids
+        ),
+        assigned_pending_decision=sum(1 for item in assigned_items if item.status == AppointmentStatus.pending.value),
+        assigned_waiting_customer_confirm=sum(
+            1 for item in assigned_items if item.status == AppointmentStatus.accepted_pending_customer.value
+        ),
+        assigned_waiting_completion_mark=sum(
+            1
+            for item in assigned_items
+            if item.status == AppointmentStatus.confirmed.value and item.photographer_completed_at is None
+        ),
+    )
 
 
 @router.get("/mine", response_model=AppointmentListOut)
@@ -245,7 +353,10 @@ def list_my_appointments(
     ).all()
     reviewed_ids = _load_reviewed_appointment_ids(db, [int(item.id) for item in items])
     return AppointmentListOut(
-        items=[_appointment_to_out(item, reviewed_appointment_ids=reviewed_ids, viewer_user_id=me.id) for item in items]
+        items=[
+            _appointment_to_out(item, reviewed_appointment_ids=reviewed_ids, viewer_user=me, is_customer_owner=True)
+            for item in items
+        ]
     )
 
 
@@ -266,7 +377,12 @@ def list_assigned_appointments(
         )
     ).all()
     reviewed_ids = _load_reviewed_appointment_ids(db, [int(item.id) for item in items])
-    return AppointmentListOut(items=[_appointment_to_out(item, reviewed_appointment_ids=reviewed_ids) for item in items])
+    return AppointmentListOut(
+        items=[
+            _appointment_to_out(item, reviewed_appointment_ids=reviewed_ids, viewer_user=me, is_photographer_owner=True)
+            for item in items
+        ]
+    )
 
 
 @router.get("/{appointment_id}", response_model=AppointmentOut)
@@ -278,9 +394,15 @@ def get_appointment_detail(
     item = _load_appointment(db, appointment_id)
     if not item:
         raise HTTPException(status_code=404, detail="appointment not found")
-    _ensure_appointment_visible(item, me, db)
+    is_customer, is_photographer = _ensure_appointment_visible(item, me, db)
     reviewed_ids = _load_reviewed_appointment_ids(db, [appointment_id])
-    return _appointment_to_out(item, reviewed_appointment_ids=reviewed_ids, viewer_user_id=me.id)
+    return _appointment_to_out(
+        item,
+        reviewed_appointment_ids=reviewed_ids,
+        viewer_user=me,
+        is_customer_owner=is_customer,
+        is_photographer_owner=is_photographer,
+    )
 
 
 @router.post("/{appointment_id}/accept", response_model=AppointmentOut)
@@ -298,7 +420,7 @@ def accept_appointment(
         raise HTTPException(status_code=409, detail="only pending appointments can be accepted")
     _ensure_photographer_available(db, photographer=photographer, scheduled_at=item.scheduled_at, appointment_id=item.id)
     now = datetime.now(timezone.utc)
-    item.status = AppointmentStatus.accepted.value
+    item.status = AppointmentStatus.accepted_pending_customer.value
     item.accepted_at = now
     item.response_note = (payload.response_note or "").strip() or None
     db.add(item)
@@ -306,7 +428,31 @@ def accept_appointment(
     loaded = _load_appointment(db, appointment_id)
     if not loaded:
         raise HTTPException(status_code=500, detail="appointment accept failed")
-    return _appointment_to_out(loaded, viewer_user_id=me.id)
+    return _appointment_to_out(loaded, viewer_user=me, is_photographer_owner=True)
+
+
+@router.post("/{appointment_id}/confirm", response_model=AppointmentOut)
+def confirm_appointment(
+    appointment_id: int,
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AppointmentOut:
+    item = _load_appointment(db, appointment_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="appointment not found")
+    _ensure_customer_owner(item, me)
+    if item.status != AppointmentStatus.accepted_pending_customer.value:
+        raise HTTPException(status_code=409, detail="only accepted appointments can be confirmed by customer")
+    now = datetime.now(timezone.utc)
+    item.status = AppointmentStatus.confirmed.value
+    item.customer_confirmed_at = now
+    item.contact_unlocked_at = now
+    db.add(item)
+    db.commit()
+    loaded = _load_appointment(db, appointment_id)
+    if not loaded:
+        raise HTTPException(status_code=500, detail="appointment confirm failed")
+    return _appointment_to_out(loaded, viewer_user=me, is_customer_owner=True)
 
 
 @router.post("/{appointment_id}/reject", response_model=AppointmentOut)
@@ -330,7 +476,7 @@ def reject_appointment(
     loaded = _load_appointment(db, appointment_id)
     if not loaded:
         raise HTTPException(status_code=500, detail="appointment reject failed")
-    return _appointment_to_out(loaded, viewer_user_id=me.id)
+    return _appointment_to_out(loaded, viewer_user=me, is_photographer_owner=True)
 
 
 @router.post("/{appointment_id}/cancel", response_model=AppointmentOut)
@@ -344,8 +490,12 @@ def cancel_appointment(
     if not item:
         raise HTTPException(status_code=404, detail="appointment not found")
     _ensure_customer_owner(item, me)
-    if item.status not in (AppointmentStatus.pending.value, AppointmentStatus.accepted.value):
-        raise HTTPException(status_code=409, detail="only pending or accepted appointments can be cancelled")
+    if item.status not in (
+        AppointmentStatus.pending.value,
+        AppointmentStatus.accepted_pending_customer.value,
+        AppointmentStatus.confirmed.value,
+    ):
+        raise HTTPException(status_code=409, detail="only active appointments can be cancelled")
     item.status = AppointmentStatus.cancelled.value
     item.cancelled_at = datetime.now(timezone.utc)
     if not item.response_note:
@@ -355,7 +505,7 @@ def cancel_appointment(
     loaded = _load_appointment(db, appointment_id)
     if not loaded:
         raise HTTPException(status_code=500, detail="appointment cancel failed")
-    return _appointment_to_out(loaded, viewer_user_id=me.id)
+    return _appointment_to_out(loaded, viewer_user=me, is_customer_owner=True)
 
 
 @router.post("/{appointment_id}/complete", response_model=AppointmentOut)
@@ -367,35 +517,41 @@ def complete_appointment(
     item = _load_appointment(db, appointment_id)
     if not item:
         raise HTTPException(status_code=404, detail="appointment not found")
-
-    is_customer = me.role == UserRole.admin.value or int(item.customer_user_id) == int(me.id)
-    is_photographer = True
-    if not is_customer:
-        try:
-            _ensure_photographer_owner(item, me, db)
-        except HTTPException:
-            is_photographer = False
-        else:
-            is_photographer = True
-    if not is_customer and not is_photographer:
-        raise HTTPException(status_code=403, detail="no permission to complete this appointment")
-    if item.status not in (AppointmentStatus.accepted.value, AppointmentStatus.completed.value):
-        raise HTTPException(status_code=409, detail="only accepted appointments can be completed")
+    if item.status not in (AppointmentStatus.confirmed.value, AppointmentStatus.completed.value):
+        raise HTTPException(status_code=409, detail="only confirmed appointments can be completed")
 
     now = datetime.now(timezone.utc)
-    if is_customer:
-        item.customer_completed_at = item.customer_completed_at or now
-    else:
+    if me.role == UserRole.admin.value:
         item.photographer_completed_at = item.photographer_completed_at or now
-    item.completed_at = item.completed_at or now
-    item.status = AppointmentStatus.completed.value
+        item.customer_completed_at = item.customer_completed_at or now
+        _finalize_completion_if_ready(item, now)
+    elif int(item.customer_user_id) == int(me.id):
+        if item.photographer_completed_at is None:
+            raise HTTPException(status_code=409, detail="photographer has not marked appointment complete yet")
+        if item.customer_completed_at is None:
+            item.customer_completed_at = now
+        _finalize_completion_if_ready(item, now)
+    else:
+        _ensure_photographer_owner(item, me, db)
+        if item.photographer_completed_at is None:
+            item.photographer_completed_at = now
+        _finalize_completion_if_ready(item, now)
+
     db.add(item)
     db.commit()
     loaded = _load_appointment(db, appointment_id)
     if not loaded:
         raise HTTPException(status_code=500, detail="appointment complete failed")
+    is_customer = int(item.customer_user_id) == int(me.id)
+    is_photographer = not is_customer and me.role != UserRole.admin.value
     reviewed_ids = _load_reviewed_appointment_ids(db, [appointment_id])
-    return _appointment_to_out(loaded, reviewed_appointment_ids=reviewed_ids, viewer_user_id=me.id)
+    return _appointment_to_out(
+        loaded,
+        reviewed_appointment_ids=reviewed_ids,
+        viewer_user=me,
+        is_customer_owner=is_customer,
+        is_photographer_owner=is_photographer,
+    )
 
 
 @router.post("/{appointment_id}/review", response_model=ReviewOut, status_code=status.HTTP_201_CREATED)

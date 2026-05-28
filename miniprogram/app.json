@@ -8,6 +8,7 @@
     "pages/photographer/index",
     "pages/appointments/index",
     "pages/appointments/create/index",
+    "pages/appointments/detail/index",
     "pages/agreement/index",
     "pages/privacy/index",
     "pages/studio/index",

@@ -41,7 +41,7 @@ _SUSPICIOUS_404_PREFIXES = (
 )
 _LOGIN_PATHS = {"/auth/login", "/auth/wechat", "/auth/wechat/studio"}
 _USER_FAVORITE_RE = re.compile(r"^/photographers/(?P<photographer_id>\d+)/favorite$")
-_APPOINTMENT_RE = re.compile(r"^/appointments/(?P<appointment_id>\d+)(?:/(?P<action>accept|reject|cancel|complete|review))?$")
+_APPOINTMENT_RE = re.compile(r"^/appointments/(?P<appointment_id>\d+)(?:/(?P<action>accept|confirm|reject|cancel|complete|review))?$")
 _STUDIO_PORTFOLIO_RE = re.compile(r"^/studio/portfolio/(?P<item_id>\d+)$")
 _STUDIO_PACKAGE_RE = re.compile(r"^/studio/packages/(?P<package_id>\d+)$")
 _STUDIO_SCHEDULE_RE = re.compile(r"^/studio/schedule/(?P<item_date>[^/]+)$")
@@ -299,6 +299,8 @@ def _classify_user_operation(request: Request, request_json: dict[str, Any]) -> 
         action = appointment_match.group("action")
         if method == "POST" and action == "accept":
             return _UserAuditMeta("mini_program", "accept_appointment", "接受预约申请", "appointment_request", appointment_id)
+        if method == "POST" and action == "confirm":
+            return _UserAuditMeta("mini_program", "confirm_appointment", "确认预约并解锁联系方式", "appointment_request", appointment_id)
         if method == "POST" and action == "reject":
             return _UserAuditMeta("mini_program", "reject_appointment", "拒绝预约申请", "appointment_request", appointment_id)
         if method == "POST" and action == "cancel":

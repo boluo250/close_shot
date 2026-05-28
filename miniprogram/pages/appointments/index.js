@@ -5,7 +5,8 @@ function formatStatus(status) {
   return (
     {
       pending: "待摄影师确认",
-      accepted: "已接单",
+      accepted_pending_customer: "待你确认预约",
+      confirmed: "已确认预约",
       rejected: "已拒绝",
       completed: "已完成",
       cancelled: "已取消"
@@ -67,80 +68,9 @@ Page({
     }
   },
 
-  async handleAccept(e) {
+  goDetail(e) {
     const id = e.currentTarget.dataset.id;
-    try {
-      await request(`/appointments/${id}/accept`, { method: "POST", data: {}, auth: true });
-      wx.showToast({ title: "已接单", icon: "none" });
-      this.load();
-    } catch (err) {
-      wx.showToast({ title: err?.message || "操作失败", icon: "none" });
-    }
-  },
-
-  async handleReject(e) {
-    const id = e.currentTarget.dataset.id;
-    try {
-      await request(`/appointments/${id}/reject`, { method: "POST", data: {}, auth: true });
-      wx.showToast({ title: "已拒绝", icon: "none" });
-      this.load();
-    } catch (err) {
-      wx.showToast({ title: err?.message || "操作失败", icon: "none" });
-    }
-  },
-
-  async handleCancel(e) {
-    const id = e.currentTarget.dataset.id;
-    try {
-      await request(`/appointments/${id}/cancel`, { method: "POST", data: {}, auth: true });
-      wx.showToast({ title: "已取消", icon: "none" });
-      this.load();
-    } catch (err) {
-      wx.showToast({ title: err?.message || "操作失败", icon: "none" });
-    }
-  },
-
-  async handleComplete(e) {
-    const id = e.currentTarget.dataset.id;
-    try {
-      await request(`/appointments/${id}/complete`, { method: "POST", auth: true });
-      wx.showToast({ title: "已确认完成", icon: "none" });
-      this.load();
-    } catch (err) {
-      wx.showToast({ title: err?.message || "操作失败", icon: "none" });
-    }
-  },
-
-  handleReview(e) {
-    const id = e.currentTarget.dataset.id;
-    const options = ["5 分", "4 分", "3 分", "2 分", "1 分"];
-    wx.showActionSheet({
-      itemList: options,
-      success: ({ tapIndex }) => {
-        const rating = 5 - Number(tapIndex || 0);
-        wx.showModal({
-          title: "填写评价",
-          editable: true,
-          placeholderText: "可选，写下本次拍摄体验",
-          success: async (res) => {
-            if (!res.confirm) return;
-            try {
-              await request(`/appointments/${id}/review`, {
-                method: "POST",
-                auth: true,
-                data: {
-                  rating,
-                  content: res.content || ""
-                }
-              });
-              wx.showToast({ title: "评价已提交", icon: "none" });
-              this.load();
-            } catch (err) {
-              wx.showToast({ title: err?.message || "提交失败", icon: "none" });
-            }
-          }
-        });
-      }
-    });
+    if (!id) return;
+    wx.navigateTo({ url: `/pages/appointments/detail/index?id=${id}&mode=${this.data.mode}` });
   }
 });

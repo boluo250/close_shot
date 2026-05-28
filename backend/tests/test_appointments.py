@@ -53,13 +53,15 @@ def _seed_basic_data(session_factory: sessionmaker) -> None:
             status="approved",
             is_accepting_orders=True,
             service_radius_m=5000,
+            phone="13900139000",
+            wechat_id="photo-ethan",
         )
         package = Package(id=20, photographer_id=10, name="基础套餐", price_cents=19900, is_active=True)
         db.add_all([customer, photographer_user, photographer, package])
         db.commit()
 
 
-def test_appointment_flow_requires_completed_order_for_review():
+def test_appointment_flow_requires_customer_confirm_before_contact_unlock_and_review():
     client, session_factory = _build_test_client()
     _seed_basic_data(session_factory)
 
@@ -96,14 +98,41 @@ def test_appointment_flow_requires_completed_order_for_review():
         json={"response_note": "时间没问题，可以拍"},
     )
     assert accept_resp.status_code == 200
-    assert accept_resp.json()["status"] == "accepted"
+    assert accept_resp.json()["status"] == "accepted_pending_customer"
+
+    detail_before_confirm = client.get(f"/appointments/{appointment_id}", headers=_auth_headers(1))
+    assert detail_before_confirm.status_code == 200
+    assert detail_before_confirm.json()["can_customer_confirm"] is True
+    assert detail_before_confirm.json()["can_view_photographer_contact"] is False
+    assert detail_before_confirm.json()["photographer_phone"] is None
+
+    photographer_before_confirm = client.get(f"/appointments/{appointment_id}", headers=_auth_headers(2))
+    assert photographer_before_confirm.status_code == 200
+    assert photographer_before_confirm.json()["can_view_customer_contact"] is False
+    assert photographer_before_confirm.json()["customer_contact_phone"] is None
+
+    confirm_resp = client.post(
+        f"/appointments/{appointment_id}/confirm",
+        headers=_auth_headers(1),
+    )
+    assert confirm_resp.status_code == 200
+    assert confirm_resp.json()["status"] == "confirmed"
+    assert confirm_resp.json()["can_view_photographer_contact"] is True
+    assert confirm_resp.json()["photographer_phone"] == "13900139000"
 
     complete_resp = client.post(
         f"/appointments/{appointment_id}/complete",
         headers=_auth_headers(2),
     )
     assert complete_resp.status_code == 200
-    assert complete_resp.json()["status"] == "completed"
+    assert complete_resp.json()["status"] == "confirmed"
+
+    customer_complete_resp = client.post(
+        f"/appointments/{appointment_id}/complete",
+        headers=_auth_headers(1),
+    )
+    assert customer_complete_resp.status_code == 200
+    assert customer_complete_resp.json()["status"] == "completed"
 
     review_resp = client.post(
         f"/appointments/{appointment_id}/review",
@@ -151,3 +180,30 @@ def test_accept_appointment_respects_schedule_block():
     )
     assert accept_resp.status_code == 409
     assert accept_resp.json()["detail"] == "photographer unavailable on selected date"
+
+
+def test_customer_cannot_complete_before_photographer_marks_done():
+    client, session_factory = _build_test_client()
+    _seed_basic_data(session_factory)
+
+    create_resp = client.post(
+        "/appointments",
+        headers=_auth_headers(1),
+        json={
+            "photographer_id": 10,
+            "scheduled_at": "2026-06-06T09:00:00+08:00",
+            "location_text": "上海普陀",
+            "participant_count": 1,
+        },
+    )
+    appointment_id = create_resp.json()["id"]
+
+    client.post(f"/appointments/{appointment_id}/accept", headers=_auth_headers(2), json={})
+    client.post(f"/appointments/{appointment_id}/confirm", headers=_auth_headers(1))
+
+    early_complete = client.post(
+        f"/appointments/{appointment_id}/complete",
+        headers=_auth_headers(1),
+    )
+    assert early_complete.status_code == 409
+    assert early_complete.json()["detail"] == "photographer has not marked appointment complete yet"

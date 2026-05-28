@@ -20,6 +20,16 @@ Page({
       expiresAt: "",
       loading: false
     },
+    appointmentSummary: {
+      mineWaitingCustomerConfirm: 0,
+      mineWaitingCompletionConfirm: 0,
+      mineCompletedWithoutReview: 0,
+      assignedPendingDecision: 0,
+      assignedWaitingCustomerConfirm: 0,
+      assignedWaitingCompletionMark: 0,
+      minePendingTotal: 0,
+      assignedPendingTotal: 0
+    },
     uiText: {
       guestNickname: "游客",
       loginNickname: "微信用户",
@@ -97,6 +107,7 @@ Page({
     this.syncViewState();
     this.loadIdentity();
     this.loadMembership();
+    this.loadAppointmentSummary();
   },
 
   syncViewState() {
@@ -243,6 +254,59 @@ Page({
       });
     } catch (_e) {
       this.setData({ membership: { isMember: false, expiresAt: "", loading: false } });
+    }
+  },
+
+  async loadAppointmentSummary() {
+    const token = getToken();
+    if (!token) {
+      this.setData({
+        appointmentSummary: {
+          mineWaitingCustomerConfirm: 0,
+          mineWaitingCompletionConfirm: 0,
+          mineCompletedWithoutReview: 0,
+          assignedPendingDecision: 0,
+          assignedWaitingCustomerConfirm: 0,
+          assignedWaitingCompletionMark: 0,
+          minePendingTotal: 0,
+          assignedPendingTotal: 0
+        }
+      });
+      return;
+    }
+    try {
+      const data = await request("/appointments/summary", { auth: true });
+      const mineWaitingCustomerConfirm = data?.mine_waiting_customer_confirm || 0;
+      const mineWaitingCompletionConfirm = data?.mine_waiting_completion_confirm || 0;
+      const mineCompletedWithoutReview = data?.mine_completed_without_review || 0;
+      const assignedPendingDecision = data?.assigned_pending_decision || 0;
+      const assignedWaitingCustomerConfirm = data?.assigned_waiting_customer_confirm || 0;
+      const assignedWaitingCompletionMark = data?.assigned_waiting_completion_mark || 0;
+      this.setData({
+        appointmentSummary: {
+          mineWaitingCustomerConfirm,
+          mineWaitingCompletionConfirm,
+          mineCompletedWithoutReview,
+          assignedPendingDecision,
+          assignedWaitingCustomerConfirm,
+          assignedWaitingCompletionMark,
+          minePendingTotal: mineWaitingCustomerConfirm + mineWaitingCompletionConfirm + mineCompletedWithoutReview,
+          assignedPendingTotal: assignedPendingDecision + assignedWaitingCustomerConfirm + assignedWaitingCompletionMark
+        }
+      });
+    } catch (_e) {
+      this.setData({
+        appointmentSummary: {
+          mineWaitingCustomerConfirm: 0,
+          mineWaitingCompletionConfirm: 0,
+          mineCompletedWithoutReview: 0,
+          assignedPendingDecision: 0,
+          assignedWaitingCustomerConfirm: 0,
+          assignedWaitingCompletionMark: 0,
+          minePendingTotal: 0,
+          assignedPendingTotal: 0
+        }
+      });
     }
   },
 

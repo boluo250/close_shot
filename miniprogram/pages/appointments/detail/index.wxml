@@ -1,0 +1,47 @@
+<view class="cs-page appointment-detail-page">
+  <view wx:if="{{loading}}" class="detail-empty">加载中...</view>
+
+  <view wx:elif="{{item}}" class="detail-stack">
+    <view class="detail-card">
+      <view class="detail-top">
+        <view class="detail-title">{{mode === 'assigned' ? (item.customer_display_name || ('客户 #' + item.customer_user_id)) : (item.photographer_display_name || ('摄影师 #' + item.photographer_id))}}</view>
+        <text class="detail-status detail-status-{{item.status}}">{{item.statusLabel}}</text>
+      </view>
+      <view class="detail-row">拍摄时间：{{item.scheduledText}}</view>
+      <view class="detail-row">拍摄地点：{{item.location_text}}</view>
+      <view wx:if="{{item.package_name}}" class="detail-row">套餐：{{item.package_name}}</view>
+      <view wx:if="{{item.shooting_type}}" class="detail-row">拍摄类型：{{item.shooting_type}}</view>
+      <view wx:if="{{item.note}}" class="detail-note">预约备注：{{item.note}}</view>
+      <view wx:if="{{item.response_note}}" class="detail-note">摄影师反馈：{{item.response_note}}</view>
+    </view>
+
+    <view class="detail-card" wx:if="{{item.status === 'accepted_pending_customer' && mode === 'mine'}}">
+      <view class="detail-section-title">等待你确认</view>
+      <view class="detail-note">摄影师已经同意本次预约。你确认后，双方联系方式会在平台内解锁。</view>
+    </view>
+
+    <view class="detail-card" wx:if="{{item.can_view_photographer_contact || item.can_view_customer_contact}}">
+      <view class="detail-section-title">联系方式</view>
+      <view wx:if="{{item.can_view_photographer_contact && item.photographer_phone}}" class="detail-row">摄影师电话：{{item.photographer_phone}}</view>
+      <view wx:if="{{item.can_view_photographer_contact && item.photographer_wechat_id}}" class="detail-row">摄影师微信：{{item.photographer_wechat_id}}</view>
+      <view wx:if="{{item.can_view_customer_contact && item.customer_contact_name}}" class="detail-row">客户称呼：{{item.customer_contact_name}}</view>
+      <view wx:if="{{item.can_view_customer_contact && item.customer_contact_phone}}" class="detail-row">客户电话：{{item.customer_contact_phone}}</view>
+    </view>
+
+    <view class="detail-card" wx:if="{{item.status === 'confirmed'}}">
+      <view class="detail-section-title">完成确认</view>
+      <view wx:if="{{!item.photographer_completed_at}}" class="detail-note">拍摄结束后，请先由摄影师标记“拍摄已完成”。</view>
+      <view wx:if="{{item.photographer_completed_at && !item.customer_completed_at}}" class="detail-note">摄影师已标记拍摄完成，现在等待用户确认完成并评价。</view>
+    </view>
+
+    <view class="detail-actions">
+      <button wx:if="{{mode === 'assigned' && item.status === 'pending'}}" class="detail-btn detail-btn-primary" bindtap="handleAccept">同意预约</button>
+      <button wx:if="{{mode === 'assigned' && item.status === 'pending'}}" class="detail-btn" bindtap="handleReject">拒绝预约</button>
+      <button wx:if="{{mode === 'mine' && item.can_customer_confirm}}" class="detail-btn detail-btn-primary" bindtap="handleConfirm">确认预约</button>
+      <button wx:if="{{mode === 'mine' && (item.status === 'pending' || item.status === 'accepted_pending_customer' || item.status === 'confirmed')}}" class="detail-btn" bindtap="handleCancel">取消预约</button>
+      <button wx:if="{{item.can_photographer_complete}}" class="detail-btn detail-btn-primary" bindtap="handleComplete">拍摄已完成</button>
+      <button wx:if="{{item.can_customer_complete}}" class="detail-btn detail-btn-primary" bindtap="handleComplete">确认已完成</button>
+      <button wx:if="{{mode === 'mine' && item.can_review}}" class="detail-btn detail-btn-primary" bindtap="handleReview">去评价</button>
+    </view>
+  </view>
+</view>

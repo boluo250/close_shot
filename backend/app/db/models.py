@@ -47,7 +47,8 @@ class PhotographerStatus(str, enum.Enum):
 
 class AppointmentStatus(str, enum.Enum):
     pending = "pending"
-    accepted = "accepted"
+    accepted_pending_customer = "accepted_pending_customer"
+    confirmed = "confirmed"
     rejected = "rejected"
     completed = "completed"
     cancelled = "cancelled"
@@ -231,6 +232,8 @@ class AppointmentRequest(TimestampMixin, Base):
     note: Mapped[str | None] = mapped_column(Text)
     response_note: Mapped[str | None] = mapped_column(Text)
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    customer_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    contact_unlocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

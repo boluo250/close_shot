@@ -21,61 +21,17 @@
       <view class="appointment-meta">地点：{{item.location_text}}</view>
       <view wx:if="{{item.package_name}}" class="appointment-meta">套餐：{{item.package_name}}</view>
       <view wx:if="{{item.shooting_type}}" class="appointment-meta">类型：{{item.shooting_type}}</view>
-      <view wx:if="{{item.contact_name || item.contact_phone}}" class="appointment-meta">
-        联系人：{{item.contact_name || '-'}} {{item.contact_phone || ''}}
-      </view>
       <view wx:if="{{item.note}}" class="appointment-note">备注：{{item.note}}</view>
       <view wx:if="{{item.response_note}}" class="appointment-note">反馈：{{item.response_note}}</view>
+      <view wx:if="{{item.status === 'accepted_pending_customer' && mode === 'mine'}}" class="appointment-tip">
+        摄影师已同意，等待你确认后解锁双方联系方式
+      </view>
+      <view wx:if="{{item.status === 'confirmed' && mode === 'mine' && item.photographer_completed_at}}" class="appointment-tip">
+        摄影师已标记拍摄完成，进入详情确认后即可评价
+      </view>
 
       <view class="appointment-actions">
-        <button
-          wx:if="{{mode === 'assigned' && item.status === 'pending'}}"
-          class="appointment-btn appointment-btn-primary"
-          data-id="{{item.id}}"
-          bindtap="handleAccept"
-        >
-          接单
-        </button>
-        <button
-          wx:if="{{mode === 'assigned' && item.status === 'pending'}}"
-          class="appointment-btn"
-          data-id="{{item.id}}"
-          bindtap="handleReject"
-        >
-          拒绝
-        </button>
-        <button
-          wx:if="{{mode === 'assigned' && item.status === 'accepted'}}"
-          class="appointment-btn appointment-btn-primary"
-          data-id="{{item.id}}"
-          bindtap="handleComplete"
-        >
-          确认完成
-        </button>
-        <button
-          wx:if="{{mode === 'mine' && (item.status === 'pending' || item.status === 'accepted')}}"
-          class="appointment-btn"
-          data-id="{{item.id}}"
-          bindtap="handleCancel"
-        >
-          取消预约
-        </button>
-        <button
-          wx:if="{{mode === 'mine' && item.status === 'accepted'}}"
-          class="appointment-btn appointment-btn-primary"
-          data-id="{{item.id}}"
-          bindtap="handleComplete"
-        >
-          我已完成
-        </button>
-        <button
-          wx:if="{{mode === 'mine' && item.can_review}}"
-          class="appointment-btn appointment-btn-primary"
-          data-id="{{item.id}}"
-          bindtap="handleReview"
-        >
-          去评价
-        </button>
+        <button class="appointment-btn appointment-btn-primary" data-id="{{item.id}}" bindtap="goDetail">查看详情</button>
       </view>
     </view>
   </view>

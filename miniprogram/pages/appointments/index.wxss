@@ -93,6 +93,13 @@
   color: #cbd5e1;
 }
 
+.appointment-tip {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: #bfe84a;
+}
+
 .appointment-actions {
   margin-top: 22rpx;
   display: flex;

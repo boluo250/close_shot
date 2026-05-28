@@ -48,7 +48,12 @@
       >
         <view class="mine-cell-main">
           <text class="mine-cell-title">我的预约</text>
-          <text class="mine-cell-desc">查看已发起的预约、完成确认和评价入口</text>
+          <text class="mine-cell-desc">
+            查看已发起的预约、完成确认和评价入口
+            <block wx:if="{{appointmentSummary.minePendingTotal}}">
+              （待处理 {{appointmentSummary.minePendingTotal}}）
+            </block>
+          </text>
         </view>
         <text class="mine-cell-arrow">›</text>
       </button>
@@ -61,7 +66,12 @@
       >
         <view class="mine-cell-main">
           <text class="mine-cell-title">预约工作台</text>
-          <text class="mine-cell-desc">处理待接单预约，并确认拍摄完成</text>
+          <text class="mine-cell-desc">
+            处理待接单预约，并确认拍摄完成
+            <block wx:if="{{appointmentSummary.assignedPendingTotal}}">
+              （待处理 {{appointmentSummary.assignedPendingTotal}}）
+            </block>
+          </text>
         </view>
         <text class="mine-cell-arrow">›</text>
       </button>
