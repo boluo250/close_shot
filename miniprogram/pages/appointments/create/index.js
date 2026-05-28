@@ -98,10 +98,19 @@ Page({
           note: note.trim()
         }
       });
-      wx.showToast({ title: "预约已提交", icon: "none" });
-      setTimeout(() => {
-        wx.redirectTo({ url: "/pages/appointments/index?mode=mine" });
-      }, 500);
+      wx.showModal({
+        title: "预约已提交",
+        content: "你可以在“我的 -> 预约中心”里查看这条预约记录。",
+        confirmText: "去查看",
+        cancelText: "返回我的",
+        success: (res) => {
+          if (res.confirm) {
+            wx.redirectTo({ url: "/pages/appointments/index?tab=mine" });
+            return;
+          }
+          wx.redirectTo({ url: "/pages/mine/index" });
+        }
+      });
     } catch (e) {
       wx.showToast({ title: e?.message || "提交失败", icon: "none" });
     } finally {

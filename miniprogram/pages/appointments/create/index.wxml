@@ -26,32 +26,41 @@
 
     <view class="field">
       <text class="field-label">拍摄地点</text>
-      <input class="field-input" placeholder="例如：上海静安寺 / 某咖啡馆" value="{{form.locationText}}" data-field="locationText" bindinput="bindInput" />
+      <input class="field-input" maxlength="255" placeholder="例如：上海静安寺 / 某咖啡馆" value="{{form.locationText}}" data-field="locationText" bindinput="bindInput" bindblur="bindInput" />
     </view>
 
     <view class="field">
       <text class="field-label">联系人</text>
-      <input class="field-input" placeholder="填写称呼，方便摄影师确认" value="{{form.contactName}}" data-field="contactName" bindinput="bindInput" />
+      <input class="field-input" maxlength="64" placeholder="填写称呼，方便摄影师确认" value="{{form.contactName}}" data-field="contactName" bindinput="bindInput" bindblur="bindInput" />
     </view>
 
     <view class="field">
       <text class="field-label">联系电话</text>
-      <input class="field-input" type="number" placeholder="便于临时沟通" value="{{form.contactPhone}}" data-field="contactPhone" bindinput="bindInput" />
+      <input class="field-input" type="number" maxlength="20" placeholder="便于临时沟通" value="{{form.contactPhone}}" data-field="contactPhone" bindinput="bindInput" bindblur="bindInput" />
     </view>
 
     <view class="field">
       <text class="field-label">拍摄类型</text>
-      <input class="field-input" placeholder="例如：人像 / 亲子 / 活动跟拍" value="{{form.shootingType}}" data-field="shootingType" bindinput="bindInput" />
+      <input class="field-input" maxlength="64" placeholder="例如：人像 / 亲子 / 活动跟拍" value="{{form.shootingType}}" data-field="shootingType" bindinput="bindInput" bindblur="bindInput" />
     </view>
 
     <view class="field">
       <text class="field-label">参与人数</text>
-      <input class="field-input" type="number" placeholder="默认 1 人" value="{{form.participantCount}}" data-field="participantCount" bindinput="bindInput" />
+      <input class="field-input" type="number" maxlength="2" placeholder="默认 1 人" value="{{form.participantCount}}" data-field="participantCount" bindinput="bindInput" bindblur="bindInput" />
     </view>
 
     <view class="field">
       <text class="field-label">补充说明</text>
       <textarea class="field-textarea" maxlength="2000" placeholder="风格偏好、是否需要外景、特殊需求等" value="{{form.note}}" data-field="note" bindinput="bindInput"></textarea>
+    </view>
+
+    <view class="draft-card">
+      <view class="draft-title">当前预约摘要</view>
+      <view class="draft-row">时间：{{form.date}} {{form.time}}</view>
+      <view class="draft-row">地点：{{form.locationText || '未填写'}}</view>
+      <view class="draft-row">联系人：{{form.contactName || '未填写'}} {{form.contactPhone || ''}}</view>
+      <view class="draft-row">类型：{{form.shootingType || '未填写'}}</view>
+      <view class="draft-row">人数：{{form.participantCount || '1'}} 人</view>
     </view>
   </view>
 

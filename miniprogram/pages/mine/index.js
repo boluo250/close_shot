@@ -1,6 +1,7 @@
 const { getToken, clearAuthState, ensureLogin } = require("../../utils/auth");
 const { request } = require("../../utils/request");
 const IDENTITY_CACHE_KEY = "mine_identity_cache_v1";
+const APPOINTMENT_PROMPT_CACHE_KEY = "mine_appointment_prompt_cache_v1";
 
 Page({
   data: {
@@ -28,7 +29,8 @@ Page({
       assignedWaitingCustomerConfirm: 0,
       assignedWaitingCompletionMark: 0,
       minePendingTotal: 0,
-      assignedPendingTotal: 0
+      assignedPendingTotal: 0,
+      centerPendingTotal: 0
     },
     uiText: {
       guestNickname: "游客",
@@ -181,6 +183,7 @@ Page({
     } finally {
       this.setData({ identityLoading: false });
       this.syncViewState();
+      this.maybeShowAppointmentPrompt();
     }
   },
 
@@ -269,7 +272,8 @@ Page({
           assignedWaitingCustomerConfirm: 0,
           assignedWaitingCompletionMark: 0,
           minePendingTotal: 0,
-          assignedPendingTotal: 0
+          assignedPendingTotal: 0,
+          centerPendingTotal: 0
         }
       });
       return;
@@ -291,9 +295,17 @@ Page({
           assignedWaitingCustomerConfirm,
           assignedWaitingCompletionMark,
           minePendingTotal: mineWaitingCustomerConfirm + mineWaitingCompletionConfirm + mineCompletedWithoutReview,
-          assignedPendingTotal: assignedPendingDecision + assignedWaitingCustomerConfirm + assignedWaitingCompletionMark
+          assignedPendingTotal: assignedPendingDecision + assignedWaitingCustomerConfirm + assignedWaitingCompletionMark,
+          centerPendingTotal:
+            mineWaitingCustomerConfirm +
+            mineWaitingCompletionConfirm +
+            mineCompletedWithoutReview +
+            assignedPendingDecision +
+            assignedWaitingCustomerConfirm +
+            assignedWaitingCompletionMark
         }
       });
+      this.maybeShowAppointmentPrompt();
     } catch (_e) {
       this.setData({
         appointmentSummary: {
@@ -304,10 +316,30 @@ Page({
           assignedWaitingCustomerConfirm: 0,
           assignedWaitingCompletionMark: 0,
           minePendingTotal: 0,
-          assignedPendingTotal: 0
+          assignedPendingTotal: 0,
+          centerPendingTotal: 0
         }
       });
     }
+  },
+
+  maybeShowAppointmentPrompt() {
+    if (this.data.identityState !== "verified_photographer") return;
+    const pendingCount = this.data.appointmentSummary.assignedPendingDecision || 0;
+    if (!pendingCount) return;
+    const cacheValue = `${pendingCount}-${new Date().toISOString().slice(0, 10)}`;
+    if (wx.getStorageSync(APPOINTMENT_PROMPT_CACHE_KEY) === cacheValue) return;
+    wx.setStorageSync(APPOINTMENT_PROMPT_CACHE_KEY, cacheValue);
+    wx.showModal({
+      title: "收到新的预约申请",
+      content: `现在有 ${pendingCount} 条预约待你处理，去预约中心看看吗？`,
+      confirmText: "去处理",
+      cancelText: "稍后再看",
+      success: (res) => {
+        if (!res.confirm) return;
+        wx.navigateTo({ url: "/pages/appointments/index?tab=assigned" });
+      }
+    });
   },
 
   async login() {
@@ -411,19 +443,10 @@ Page({
     }
   },
 
-  async goMyAppointments() {
+  async goAppointmentCenter() {
     try {
       await ensureLogin();
-      wx.navigateTo({ url: "/pages/appointments/index?mode=mine" });
-    } catch (_e) {
-      wx.showToast({ title: "请先登录", icon: "none" });
-    }
-  },
-
-  async goAssignedAppointments() {
-    try {
-      await ensureLogin();
-      wx.navigateTo({ url: "/pages/appointments/index?mode=assigned" });
+      wx.navigateTo({ url: "/pages/appointments/index" });
     } catch (_e) {
       wx.showToast({ title: "请先登录", icon: "none" });
     }

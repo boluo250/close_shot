@@ -9,11 +9,12 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import case, delete, func, inspect, or_, select, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.api.deps import get_current_user
 from app.db.models import (
     AdminOperationLog,
+    AppointmentRequest,
     AnalyticsEvent,
     BlacklistStatus,
     Favorite,
@@ -176,6 +177,39 @@ class UserPortraitItemOut(BaseModel):
 
 class UserPortraitListOut(BaseModel):
     items: list[UserPortraitItemOut]
+    total: int
+
+
+class AdminAppointmentItemOut(BaseModel):
+    id: int
+    status: str
+    scheduled_at: datetime
+    location_text: str
+    contact_name: str | None = None
+    contact_phone: str | None = None
+    shooting_type: str | None = None
+    participant_count: int
+    note: str | None = None
+    response_note: str | None = None
+    customer_display_name: str | None = None
+    photographer_display_name: str | None = None
+    photographer_phone: str | None = None
+    photographer_wechat_id: str | None = None
+    package_name: str | None = None
+    accepted_at: datetime | None = None
+    customer_confirmed_at: datetime | None = None
+    contact_unlocked_at: datetime | None = None
+    photographer_completed_at: datetime | None = None
+    customer_completed_at: datetime | None = None
+    completed_at: datetime | None = None
+    cancelled_at: datetime | None = None
+    rejected_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AdminAppointmentListOut(BaseModel):
+    items: list[AdminAppointmentItemOut]
     total: int
 
 
@@ -1050,6 +1084,96 @@ def list_user_portraits(
             )
         )
     return UserPortraitListOut(items=items, total=total)
+
+
+@router.get("/appointments", response_model=AdminAppointmentListOut)
+def list_admin_appointments(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    status: str | None = Query(default=None, description="按预约状态过滤"),
+    keyword: str | None = Query(default=None, description="搜索客户名/摄影师名/地点/电话"),
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AdminAppointmentListOut:
+    _require_admin(me)
+
+    customer_user = aliased(User)
+    photographer_user = aliased(User)
+    photographer = aliased(Photographer)
+    package = aliased(Package)
+
+    stmt = (
+        select(
+            AppointmentRequest,
+            customer_user.display_name,
+            photographer_user.display_name,
+            photographer.phone,
+            photographer.wechat_id,
+            package.name,
+        )
+        .join(customer_user, customer_user.id == AppointmentRequest.customer_user_id)
+        .join(photographer, photographer.id == AppointmentRequest.photographer_id)
+        .join(photographer_user, photographer_user.id == photographer.user_id)
+        .outerjoin(package, package.id == AppointmentRequest.package_id)
+    )
+    count_stmt = (
+        select(func.count(AppointmentRequest.id))
+        .join(customer_user, customer_user.id == AppointmentRequest.customer_user_id)
+        .join(photographer, photographer.id == AppointmentRequest.photographer_id)
+        .join(photographer_user, photographer_user.id == photographer.user_id)
+    )
+
+    if status:
+        stmt = stmt.where(AppointmentRequest.status == status)
+        count_stmt = count_stmt.where(AppointmentRequest.status == status)
+    if keyword:
+        like_pattern = f"%{keyword.strip()}%"
+        cond = or_(
+            customer_user.display_name.ilike(like_pattern),
+            photographer_user.display_name.ilike(like_pattern),
+            AppointmentRequest.location_text.ilike(like_pattern),
+            AppointmentRequest.contact_phone.ilike(like_pattern),
+            photographer.phone.ilike(like_pattern),
+        )
+        stmt = stmt.where(cond)
+        count_stmt = count_stmt.where(cond)
+
+    total = int(db.scalar(count_stmt) or 0)
+    rows = db.execute(
+        stmt.order_by(AppointmentRequest.created_at.desc(), AppointmentRequest.id.desc()).limit(limit).offset(offset)
+    ).all()
+
+    items = [
+        AdminAppointmentItemOut(
+            id=int(item.id),
+            status=item.status,
+            scheduled_at=item.scheduled_at,
+            location_text=item.location_text,
+            contact_name=item.contact_name,
+            contact_phone=item.contact_phone,
+            shooting_type=item.shooting_type,
+            participant_count=int(item.participant_count or 1),
+            note=item.note,
+            response_note=item.response_note,
+            customer_display_name=customer_name,
+            photographer_display_name=photographer_name,
+            photographer_phone=photographer_phone,
+            photographer_wechat_id=photographer_wechat,
+            package_name=package_name,
+            accepted_at=item.accepted_at,
+            customer_confirmed_at=getattr(item, "customer_confirmed_at", None),
+            contact_unlocked_at=getattr(item, "contact_unlocked_at", None),
+            photographer_completed_at=item.photographer_completed_at,
+            customer_completed_at=item.customer_completed_at,
+            completed_at=item.completed_at,
+            cancelled_at=item.cancelled_at,
+            rejected_at=item.rejected_at,
+            created_at=item.created_at,
+            updated_at=item.updated_at,
+        )
+        for item, customer_name, photographer_name, photographer_phone, photographer_wechat, package_name in rows
+    ]
+    return AdminAppointmentListOut(items=items, total=total)
 
 
 @router.get("/analytics/summary", response_model=AnalyticsSummaryOut)

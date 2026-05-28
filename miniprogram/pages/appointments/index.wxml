@@ -1,15 +1,88 @@
 <view class="cs-page appointments-page">
+  <view class="appointments-hero">
+    <view class="appointments-hero-main">
+      <text class="appointments-hero-eyebrow">BOOKING CENTER</text>
+      <text class="appointments-hero-title">预约中心</text>
+      <text class="appointments-hero-desc">
+        {{isPhotographer ? '统一查看我发起的预约和收到的预约，按阶段推进确认、联系和完单。' : '统一查看预约状态、确认流程和评价入口。'}}
+      </text>
+    </view>
+    <view class="appointments-hero-meter">
+      <text class="appointments-hero-meter-label">待处理</text>
+      <text class="appointments-hero-meter-value">
+        {{activeTab === 'assigned' ? summary.assignedPendingTotal : summary.minePendingTotal}}
+      </text>
+    </view>
+  </view>
+
+  <view class="appointments-tabs">
+    <button
+      class="appointments-tab {{activeTab === 'mine' ? 'appointments-tab-active' : ''}}"
+      bindtap="switchTab"
+      data-tab="mine"
+    >
+      <text>我发起的</text>
+      <text wx:if="{{summary.minePendingTotal}}" class="appointments-tab-badge">{{summary.minePendingTotal}}</text>
+    </button>
+
+    <button
+      wx:if="{{isPhotographer}}"
+      class="appointments-tab {{activeTab === 'assigned' ? 'appointments-tab-active' : ''}}"
+      bindtap="switchTab"
+      data-tab="assigned"
+    >
+      <text>收到的预约</text>
+      <text wx:if="{{summary.assignedPendingTotal}}" class="appointments-tab-badge">{{summary.assignedPendingTotal}}</text>
+    </button>
+  </view>
+
+  <view class="appointments-dashboard">
+    <view class="dashboard-card">
+      <text class="dashboard-label">待确认</text>
+      <text class="dashboard-value">
+        {{activeTab === 'assigned' ? summary.assignedPendingDecision : summary.mineWaitingCustomerConfirm}}
+      </text>
+      <text class="dashboard-desc">
+        {{activeTab === 'assigned' ? '等你同意或拒绝' : '摄影师同意后等你确认'}}
+      </text>
+    </view>
+    <view class="dashboard-card">
+      <text class="dashboard-label">待收尾</text>
+      <text class="dashboard-value">
+        {{activeTab === 'assigned' ? summary.assignedWaitingCompletionMark : summary.mineWaitingCompletionConfirm}}
+      </text>
+      <text class="dashboard-desc">
+        {{activeTab === 'assigned' ? '拍摄结束后待你标记完成' : '摄影师已标记完成，等你确认'}}
+      </text>
+    </view>
+    <view wx:if="{{activeTab === 'mine'}}" class="dashboard-card">
+      <text class="dashboard-label">待评价</text>
+      <text class="dashboard-value">{{summary.mineCompletedWithoutReview}}</text>
+      <text class="dashboard-desc">已完成但还没写评价</text>
+    </view>
+    <view wx:if="{{activeTab === 'assigned'}}" class="dashboard-card">
+      <text class="dashboard-label">待客户确认</text>
+      <text class="dashboard-value">{{summary.assignedWaitingCustomerConfirm}}</text>
+      <text class="dashboard-desc">你已同意，等客户确认解锁联系</text>
+    </view>
+  </view>
+
+  <view wx:if="{{activeTab === 'assigned' && summary.assignedPendingDecision}}" class="appointments-alert">
+    <text class="appointments-alert-title">新预约待处理</text>
+    <text class="appointments-alert-desc">优先处理新的预约申请，客户确认后才会解锁双方联系方式。</text>
+  </view>
+
   <view wx:if="{{loading}}" class="appointments-empty">加载中...</view>
 
-  <view wx:elif="{{!items.length}}" class="appointments-empty">
+  <view wx:elif="{{!displayItems.length}}" class="appointments-empty">
     <text class="appointments-empty-title">还没有预约记录</text>
     <text class="appointments-empty-desc">
-      {{mode === 'assigned' ? '新的预约会出现在这里，方便你接单和确认完成。' : '去摄影师详情页发起预约后，会在这里看到状态。'}}
+      {{activeTab === 'assigned' ? '新的预约会出现在这里，方便你接单和确认完成。' : '去摄影师详情页发起预约后，会在这里看到状态。'}}
     </text>
   </view>
 
   <view wx:else class="appointments-list">
-    <view wx:for="{{items}}" wx:key="id" class="appointment-card">
+    <view wx:for="{{displayItems}}" wx:key="id" class="appointment-card">
       <view class="appointment-top">
         <view>
           <view class="appointment-name">{{item.counterpartyName}}</view>
@@ -23,11 +96,14 @@
       <view wx:if="{{item.shooting_type}}" class="appointment-meta">类型：{{item.shooting_type}}</view>
       <view wx:if="{{item.note}}" class="appointment-note">备注：{{item.note}}</view>
       <view wx:if="{{item.response_note}}" class="appointment-note">反馈：{{item.response_note}}</view>
-      <view wx:if="{{item.status === 'accepted_pending_customer' && mode === 'mine'}}" class="appointment-tip">
+      <view wx:if="{{item.status === 'accepted_pending_customer' && activeTab === 'mine'}}" class="appointment-tip">
         摄影师已同意，等待你确认后解锁双方联系方式
       </view>
-      <view wx:if="{{item.status === 'confirmed' && mode === 'mine' && item.photographer_completed_at}}" class="appointment-tip">
+      <view wx:if="{{item.status === 'confirmed' && activeTab === 'mine' && item.photographer_completed_at}}" class="appointment-tip">
         摄影师已标记拍摄完成，进入详情确认后即可评价
+      </view>
+      <view wx:if="{{item.status === 'pending' && activeTab === 'assigned'}}" class="appointment-tip">
+        处理后会通知客户，客户确认预约后才会展示双方联系方式
       </view>
 
       <view class="appointment-actions">
