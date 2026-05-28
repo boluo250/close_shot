@@ -1,5 +1,6 @@
 const { ensureLogin, getToken } = require("../../../utils/auth");
 const { request } = require("../../../utils/request");
+const { requestCustomerAppointmentSubscriptions } = require("../../../utils/subscribe");
 
 function buildDefaultDate() {
   const now = new Date();
@@ -82,6 +83,7 @@ Page({
     this.setData({ submitting: true });
     try {
       await ensureLogin();
+      await requestCustomerAppointmentSubscriptions();
       const packageOption = this.data.packageOptions[this.data.packageIndex] || { id: null };
       await request("/appointments", {
         method: "POST",

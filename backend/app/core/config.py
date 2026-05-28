@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     wechat_secret: str | None = None
     wechat_login_allow_mock: bool = False
     wechat_mock_openid_seed: str = "local-dev"
+    wechat_subscribe_miniprogram_state: str = "formal"
+    wechat_subscribe_photographer_new_appointment_template_id: str | None = None
+    wechat_subscribe_customer_appointment_accepted_template_id: str | None = None
+    wechat_subscribe_customer_appointment_completed_template_id: str | None = None
     membership_callback_secret: str = "dev-membership-callback"
     upload_max_bytes: int = 10 * 1024 * 1024
     upload_allowed_prefixes: str = "avatar,portfolio,watermark,uploads"

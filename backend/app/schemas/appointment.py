@@ -76,3 +76,9 @@ class AppointmentSummaryOut(BaseModel):
     assigned_pending_decision: int = 0
     assigned_waiting_customer_confirm: int = 0
     assigned_waiting_completion_mark: int = 0
+
+
+class AppointmentSubscribeConfigOut(BaseModel):
+    photographer_new_appointment_template_id: str | None = None
+    customer_appointment_accepted_template_id: str | None = None
+    customer_appointment_completed_template_id: str | None = None

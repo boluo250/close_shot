@@ -207,3 +207,53 @@ def test_customer_cannot_complete_before_photographer_marks_done():
     )
     assert early_complete.status_code == 409
     assert early_complete.json()["detail"] == "photographer has not marked appointment complete yet"
+
+
+def test_subscribe_config_endpoint_returns_template_keys():
+    client, session_factory = _build_test_client()
+    _seed_basic_data(session_factory)
+
+    resp = client.get("/appointments/subscribe-config", headers=_auth_headers(1))
+    assert resp.status_code == 200
+    assert "photographer_new_appointment_template_id" in resp.json()
+    assert "customer_appointment_accepted_template_id" in resp.json()
+    assert "customer_appointment_completed_template_id" in resp.json()
+
+
+def test_appointment_flow_triggers_subscription_notifications(monkeypatch):
+    client, session_factory = _build_test_client()
+    _seed_basic_data(session_factory)
+
+    calls: list[tuple[str, int]] = []
+
+    monkeypatch.setattr(
+        "app.api.routes.appointments.wechat_subscribe.notify_photographer_new_appointment",
+        lambda item: calls.append(("create", int(item.id))) or True,
+    )
+    monkeypatch.setattr(
+        "app.api.routes.appointments.wechat_subscribe.notify_customer_appointment_accepted",
+        lambda item: calls.append(("accept", int(item.id))) or True,
+    )
+    monkeypatch.setattr(
+        "app.api.routes.appointments.wechat_subscribe.notify_customer_appointment_completed",
+        lambda item: calls.append(("complete", int(item.id))) or True,
+    )
+
+    create_resp = client.post(
+        "/appointments",
+        headers=_auth_headers(1),
+        json={
+            "photographer_id": 10,
+            "scheduled_at": "2026-06-08T11:00:00+08:00",
+            "location_text": "上海虹口",
+            "participant_count": 1,
+        },
+    )
+    appointment_id = create_resp.json()["id"]
+
+    client.post(f"/appointments/{appointment_id}/accept", headers=_auth_headers(2), json={})
+    client.post(f"/appointments/{appointment_id}/confirm", headers=_auth_headers(1))
+    client.post(f"/appointments/{appointment_id}/complete", headers=_auth_headers(2))
+    client.post(f"/appointments/{appointment_id}/complete", headers=_auth_headers(1))
+
+    assert calls == [("create", appointment_id), ("accept", appointment_id), ("complete", appointment_id)]

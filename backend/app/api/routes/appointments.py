@@ -25,9 +25,11 @@ from app.schemas.appointment import (
     AppointmentDecisionIn,
     AppointmentListOut,
     AppointmentOut,
+    AppointmentSubscribeConfigOut,
     AppointmentSummaryOut,
 )
 from app.schemas.review import ReviewCreateIn, ReviewOut
+from app.services import wechat_subscribe
 
 router = APIRouter()
 
@@ -286,7 +288,15 @@ def create_appointment(
     loaded = _load_appointment(db, int(appointment.id))
     if not loaded:
         raise HTTPException(status_code=500, detail="appointment create failed")
+    wechat_subscribe.notify_photographer_new_appointment(loaded)
     return _appointment_to_out(loaded, viewer_user=me, is_customer_owner=True)
+
+
+@router.get("/subscribe-config", response_model=AppointmentSubscribeConfigOut)
+def get_appointment_subscribe_config(
+    _: User = Depends(get_current_user),
+) -> AppointmentSubscribeConfigOut:
+    return AppointmentSubscribeConfigOut(**wechat_subscribe.get_appointment_subscribe_config())
 
 
 @router.get("/summary", response_model=AppointmentSummaryOut)
@@ -428,6 +438,7 @@ def accept_appointment(
     loaded = _load_appointment(db, appointment_id)
     if not loaded:
         raise HTTPException(status_code=500, detail="appointment accept failed")
+    wechat_subscribe.notify_customer_appointment_accepted(loaded)
     return _appointment_to_out(loaded, viewer_user=me, is_photographer_owner=True)
 
 
@@ -521,6 +532,7 @@ def complete_appointment(
         raise HTTPException(status_code=409, detail="only confirmed appointments can be completed")
 
     now = datetime.now(timezone.utc)
+    should_notify_customer_completion = False
     if me.role == UserRole.admin.value:
         item.photographer_completed_at = item.photographer_completed_at or now
         item.customer_completed_at = item.customer_completed_at or now
@@ -535,6 +547,7 @@ def complete_appointment(
         _ensure_photographer_owner(item, me, db)
         if item.photographer_completed_at is None:
             item.photographer_completed_at = now
+            should_notify_customer_completion = True
         _finalize_completion_if_ready(item, now)
 
     db.add(item)
@@ -542,6 +555,8 @@ def complete_appointment(
     loaded = _load_appointment(db, appointment_id)
     if not loaded:
         raise HTTPException(status_code=500, detail="appointment complete failed")
+    if should_notify_customer_completion:
+        wechat_subscribe.notify_customer_appointment_completed(loaded)
     is_customer = int(item.customer_user_id) == int(me.id)
     is_photographer = not is_customer and me.role != UserRole.admin.value
     reviewed_ids = _load_reviewed_appointment_ids(db, [appointment_id])

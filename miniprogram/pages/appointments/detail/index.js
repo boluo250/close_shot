@@ -1,5 +1,6 @@
 const { ensureLogin } = require("../../../utils/auth");
 const { request } = require("../../../utils/request");
+const { requestCustomerAppointmentSubscriptions } = require("../../../utils/subscribe");
 
 function formatStatus(status) {
   return (
@@ -65,8 +66,14 @@ Page({
     }
   },
 
-  async postAction(path, successText) {
+  async postAction(path, successText, options = {}) {
     try {
+      if (options.subscribeCustomerCompletion) {
+        await requestCustomerAppointmentSubscriptions({
+          includeAccepted: false,
+          includeCompleted: true
+        });
+      }
       await request(path, { method: "POST", auth: true, data: {} });
       wx.showToast({ title: successText, icon: "none" });
       this.load();
@@ -84,7 +91,9 @@ Page({
   },
 
   handleConfirm() {
-    this.postAction(`/appointments/${this.data.id}/confirm`, "已确认预约");
+    this.postAction(`/appointments/${this.data.id}/confirm`, "已确认预约", {
+      subscribeCustomerCompletion: true
+    });
   },
 
   handleCancel() {

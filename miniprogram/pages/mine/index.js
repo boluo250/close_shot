@@ -1,5 +1,9 @@
 const { getToken, clearAuthState, ensureLogin } = require("../../utils/auth");
 const { request } = require("../../utils/request");
+const {
+  requestPhotographerAppointmentSubscriptions,
+  clearAppointmentSubscribeCache
+} = require("../../utils/subscribe");
 const IDENTITY_CACHE_KEY = "mine_identity_cache_v1";
 const APPOINTMENT_PROMPT_CACHE_KEY = "mine_appointment_prompt_cache_v1";
 
@@ -359,6 +363,7 @@ Page({
 
   logout() {
     clearAuthState();
+    clearAppointmentSubscribeCache();
     this._clearIdentityCache();
     this.setData({
       token: "",
@@ -446,6 +451,9 @@ Page({
   async goAppointmentCenter() {
     try {
       await ensureLogin();
+      if (this.data.identityState === "verified_photographer") {
+        await requestPhotographerAppointmentSubscriptions();
+      }
       wx.navigateTo({ url: "/pages/appointments/index" });
     } catch (_e) {
       wx.showToast({ title: "请先登录", icon: "none" });
