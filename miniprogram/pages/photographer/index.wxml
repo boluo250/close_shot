@@ -97,9 +97,12 @@
   <!-- 底部操作栏 -->
   <view class="bottom-bar">
     <button wx:if="{{isOwnerPhotographer}}" class="contact-btn" bindtap="goEditProfile">编辑我的主页</button>
-    <button wx:else class="contact-btn" bindtap="contact">
-      {{canViewContact ? '查看联系方式' : (contactAccessMode === 'member' ? '开通会员查看联系方式' : '联系摄影师')}}
-    </button>
+    <view wx:else class="bottom-bar-actions">
+      <button class="appointment-btn" bindtap="goCreateAppointment">发起预约</button>
+      <button class="contact-btn contact-btn-half" bindtap="contact">
+        {{canViewContact ? '查看联系方式' : (contactAccessMode === 'member' ? '开通会员查看联系方式' : '联系摄影师')}}
+      </button>
+    </view>
   </view>
 
   <!-- 底部安全区占位 -->

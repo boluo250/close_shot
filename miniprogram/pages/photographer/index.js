@@ -260,6 +260,15 @@ Page({
     });
   },
 
+  async goCreateAppointment() {
+    try {
+      await ensureLogin();
+      wx.navigateTo({ url: `/pages/appointments/create/index?photographerId=${this.data.id}` });
+    } catch (_e) {
+      wx.showToast({ title: "登录失败", icon: "none" });
+    }
+  },
+
   goEditProfile() {
     wx.navigateTo({ url: "/pages/studio/index" });
   }

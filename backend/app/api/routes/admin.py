@@ -247,6 +247,7 @@ _DB_BROWSE_TABLES = {
     "app_settings",
     "membership_orders",
     "schedule_blocks",
+    "appointment_requests",
     "bio_templates",
     "admin_operation_logs",
     "user_operation_logs",

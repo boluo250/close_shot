@@ -41,6 +41,7 @@ _SUSPICIOUS_404_PREFIXES = (
 )
 _LOGIN_PATHS = {"/auth/login", "/auth/wechat", "/auth/wechat/studio"}
 _USER_FAVORITE_RE = re.compile(r"^/photographers/(?P<photographer_id>\d+)/favorite$")
+_APPOINTMENT_RE = re.compile(r"^/appointments/(?P<appointment_id>\d+)(?:/(?P<action>accept|reject|cancel|complete|review))?$")
 _STUDIO_PORTFOLIO_RE = re.compile(r"^/studio/portfolio/(?P<item_id>\d+)$")
 _STUDIO_PACKAGE_RE = re.compile(r"^/studio/packages/(?P<package_id>\d+)$")
 _STUDIO_SCHEDULE_RE = re.compile(r"^/studio/schedule/(?P<item_date>[^/]+)$")
@@ -246,6 +247,14 @@ def _classify_user_operation(request: Request, request_json: dict[str, Any]) -> 
             "membership_order",
             _coerce_resource_id(request_json.get("plan_code")),
         )
+    if path == "/appointments" and method == "POST":
+        return _UserAuditMeta(
+            "mini_program",
+            "create_appointment",
+            "发起预约申请",
+            "appointment_request",
+            _coerce_resource_id(request_json.get("photographer_id")),
+        )
     if path == "/upload/presign" and method == "POST":
         prefix = request_json.get("prefix")
         explicit_channel = _normalize_upload_channel(request_json.get("channel"))
@@ -283,6 +292,21 @@ def _classify_user_operation(request: Request, request_json: dict[str, Any]) -> 
             "photographer",
             favorite_match.group("photographer_id"),
         )
+
+    appointment_match = _APPOINTMENT_RE.match(path)
+    if appointment_match:
+        appointment_id = appointment_match.group("appointment_id")
+        action = appointment_match.group("action")
+        if method == "POST" and action == "accept":
+            return _UserAuditMeta("mini_program", "accept_appointment", "接受预约申请", "appointment_request", appointment_id)
+        if method == "POST" and action == "reject":
+            return _UserAuditMeta("mini_program", "reject_appointment", "拒绝预约申请", "appointment_request", appointment_id)
+        if method == "POST" and action == "cancel":
+            return _UserAuditMeta("mini_program", "cancel_appointment", "取消预约申请", "appointment_request", appointment_id)
+        if method == "POST" and action == "complete":
+            return _UserAuditMeta("mini_program", "complete_appointment", "确认预约完成", "appointment_request", appointment_id)
+        if method == "POST" and action == "review":
+            return _UserAuditMeta("mini_program", "review_appointment", "评价预约订单", "appointment_review", appointment_id)
 
     portfolio_match = _STUDIO_PORTFOLIO_RE.match(path)
     if portfolio_match:

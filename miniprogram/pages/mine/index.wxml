@@ -41,6 +41,32 @@
 
     <view class="mine-cell-group">
       <button
+        wx:if="{{identityState !== 'guest'}}"
+        class="mine-cell"
+        bindtap="goMyAppointments"
+        hover-class="mine-cell-hover"
+      >
+        <view class="mine-cell-main">
+          <text class="mine-cell-title">我的预约</text>
+          <text class="mine-cell-desc">查看已发起的预约、完成确认和评价入口</text>
+        </view>
+        <text class="mine-cell-arrow">›</text>
+      </button>
+
+      <button
+        wx:if="{{identityState === 'verified_photographer'}}"
+        class="mine-cell"
+        bindtap="goAssignedAppointments"
+        hover-class="mine-cell-hover"
+      >
+        <view class="mine-cell-main">
+          <text class="mine-cell-title">预约工作台</text>
+          <text class="mine-cell-desc">处理待接单预约，并确认拍摄完成</text>
+        </view>
+        <text class="mine-cell-arrow">›</text>
+      </button>
+
+      <button
         wx:if="{{identityState === 'verified_photographer'}}"
         class="mine-cell"
         bindtap="goEditPhotographerProfile"

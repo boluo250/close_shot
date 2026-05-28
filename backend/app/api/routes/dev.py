@@ -37,7 +37,7 @@ def seed(
         # 注意：dev-only；生产环境禁用 seed
         db.execute(
             text(
-                "TRUNCATE TABLE favorites, reviews, portfolio_items, packages, photographers, users "
+                "TRUNCATE TABLE favorites, reviews, appointment_requests, portfolio_items, packages, photographers, users "
                 ", analytics_events "
                 "RESTART IDENTITY CASCADE"
             )
@@ -267,4 +267,3 @@ def seed(
 
     db.commit()
     return {"ok": True, "created": created, "default_password": "123456", "usernames": usernames}
-

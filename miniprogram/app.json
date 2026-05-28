@@ -6,6 +6,8 @@
     "pages/favorites/index",
     "pages/mine/index",
     "pages/photographer/index",
+    "pages/appointments/index",
+    "pages/appointments/create/index",
     "pages/agreement/index",
     "pages/privacy/index",
     "pages/studio/index",

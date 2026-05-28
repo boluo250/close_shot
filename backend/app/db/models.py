@@ -45,6 +45,14 @@ class PhotographerStatus(str, enum.Enum):
     rejected = "rejected"
 
 
+class AppointmentStatus(str, enum.Enum):
+    pending = "pending"
+    accepted = "accepted"
+    rejected = "rejected"
+    completed = "completed"
+    cancelled = "cancelled"
+
+
 class CertificationLevel(int, enum.Enum):
     none = 0       # 未认证
     basic = 1      # Lv1 基础认证（实名 + 作品）
@@ -201,6 +209,39 @@ class ScheduleBlock(TimestampMixin, Base):
     photographer: Mapped[Photographer] = relationship(back_populates="schedule_blocks")
 
 
+class AppointmentRequest(TimestampMixin, Base):
+    __tablename__ = "appointment_requests"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    customer_user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    photographer_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("photographers.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    package_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("packages.id", ondelete="SET NULL"))
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default=AppointmentStatus.pending.value, index=True)
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    location_text: Mapped[str] = mapped_column(String(255), nullable=False)
+    contact_name: Mapped[str | None] = mapped_column(String(64))
+    contact_phone: Mapped[str | None] = mapped_column(String(20))
+    shooting_type: Mapped[str | None] = mapped_column(String(64))
+    budget_cents: Mapped[int | None] = mapped_column(Integer)
+    participant_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    note: Mapped[str | None] = mapped_column(Text)
+    response_note: Mapped[str | None] = mapped_column(Text)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    customer_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    photographer_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    customer: Mapped[User] = relationship(foreign_keys=[customer_user_id])
+    photographer: Mapped[Photographer] = relationship(foreign_keys=[photographer_id])
+    package: Mapped["Package | None"] = relationship(foreign_keys=[package_id])
+
+
 class Favorite(TimestampMixin, Base):
     __tablename__ = "favorites"
     __table_args__ = (UniqueConstraint("user_id", "photographer_id", name="uq_favorites_user_photographer"),)
@@ -212,10 +253,14 @@ class Favorite(TimestampMixin, Base):
 
 class Review(TimestampMixin, Base):
     __tablename__ = "reviews"
+    __table_args__ = (UniqueConstraint("appointment_request_id", name="uq_reviews_appointment_request_id"),)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     user_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"))
     photographer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("photographers.id", ondelete="CASCADE"))
+    appointment_request_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("appointment_requests.id", ondelete="SET NULL"), index=True
+    )
 
     rating: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[str | None] = mapped_column(Text)

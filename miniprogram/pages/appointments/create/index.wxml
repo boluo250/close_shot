@@ -1,0 +1,61 @@
+<view class="cs-page appointment-create-page">
+  <view class="create-card">
+    <view class="create-title">预约 {{photographerName}}</view>
+    <view class="create-desc">先提交时间和地点，摄影师确认后这次撮合就有了可追踪的记录。</view>
+
+    <view class="field">
+      <text class="field-label">预约日期</text>
+      <picker mode="date" value="{{form.date}}" bindchange="bindDateChange">
+        <view class="field-picker">{{form.date}}</view>
+      </picker>
+    </view>
+
+    <view class="field">
+      <text class="field-label">预约时间</text>
+      <picker mode="time" value="{{form.time}}" bindchange="bindTimeChange">
+        <view class="field-picker">{{form.time}}</view>
+      </picker>
+    </view>
+
+    <view class="field">
+      <text class="field-label">套餐选择</text>
+      <picker mode="selector" range="{{packageOptions}}" range-key="label" value="{{packageIndex}}" bindchange="bindPackageChange">
+        <view class="field-picker">{{packageOptions[packageIndex].label}}</view>
+      </picker>
+    </view>
+
+    <view class="field">
+      <text class="field-label">拍摄地点</text>
+      <input class="field-input" placeholder="例如：上海静安寺 / 某咖啡馆" value="{{form.locationText}}" data-field="locationText" bindinput="bindInput" />
+    </view>
+
+    <view class="field">
+      <text class="field-label">联系人</text>
+      <input class="field-input" placeholder="填写称呼，方便摄影师确认" value="{{form.contactName}}" data-field="contactName" bindinput="bindInput" />
+    </view>
+
+    <view class="field">
+      <text class="field-label">联系电话</text>
+      <input class="field-input" type="number" placeholder="便于临时沟通" value="{{form.contactPhone}}" data-field="contactPhone" bindinput="bindInput" />
+    </view>
+
+    <view class="field">
+      <text class="field-label">拍摄类型</text>
+      <input class="field-input" placeholder="例如：人像 / 亲子 / 活动跟拍" value="{{form.shootingType}}" data-field="shootingType" bindinput="bindInput" />
+    </view>
+
+    <view class="field">
+      <text class="field-label">参与人数</text>
+      <input class="field-input" type="number" placeholder="默认 1 人" value="{{form.participantCount}}" data-field="participantCount" bindinput="bindInput" />
+    </view>
+
+    <view class="field">
+      <text class="field-label">补充说明</text>
+      <textarea class="field-textarea" maxlength="2000" placeholder="风格偏好、是否需要外景、特殊需求等" value="{{form.note}}" data-field="note" bindinput="bindInput"></textarea>
+    </view>
+  </view>
+
+  <view class="create-footer">
+    <button class="create-submit" loading="{{submitting}}" bindtap="submit">提交预约</button>
+  </view>
+</view>

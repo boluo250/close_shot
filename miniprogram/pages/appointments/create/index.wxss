@@ -1,0 +1,83 @@
+.appointment-create-page {
+  min-height: 100vh;
+  padding: 28rpx 28rpx 180rpx;
+  background: #0b0d12;
+  box-sizing: border-box;
+}
+
+.create-card {
+  padding: 28rpx 24rpx;
+  border-radius: 28rpx;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
+}
+
+.create-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.create-desc {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: #94a3b8;
+}
+
+.field {
+  margin-top: 24rpx;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 12rpx;
+  font-size: 24rpx;
+  color: #cbd5e1;
+}
+
+.field-input,
+.field-picker,
+.field-textarea {
+  width: 100%;
+  padding: 22rpx 24rpx;
+  border-radius: 20rpx;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  font-size: 28rpx;
+}
+
+.field-picker {
+  min-height: 72rpx;
+}
+
+.field-textarea {
+  min-height: 180rpx;
+}
+
+.create-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 18rpx 28rpx calc(18rpx + env(safe-area-inset-bottom));
+  background: rgba(11, 13, 18, 0.94);
+  box-shadow: 0 -12rpx 30rpx rgba(0, 0, 0, 0.2);
+}
+
+.create-submit {
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 44rpx;
+  background: linear-gradient(135deg, #bfe84a 0%, #8ddf4f 100%);
+  color: #0b0d12;
+  font-size: 30rpx;
+  font-weight: 700;
+  border: 0;
+}
+
+.create-submit::after {
+  border: none;
+}

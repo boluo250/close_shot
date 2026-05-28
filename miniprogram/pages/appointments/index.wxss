@@ -1,0 +1,123 @@
+.appointments-page {
+  min-height: 100vh;
+  padding: 28rpx 28rpx 40rpx;
+  background: #0b0d12;
+  box-sizing: border-box;
+}
+
+.appointments-empty {
+  margin-top: 120rpx;
+  padding: 48rpx 36rpx;
+  border-radius: 28rpx;
+  background: rgba(255, 255, 255, 0.06);
+  color: #d2d7e1;
+  text-align: center;
+}
+
+.appointments-empty-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.appointments-empty-desc {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: #94a3b8;
+}
+
+.appointments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.appointment-card {
+  padding: 24rpx;
+  border-radius: 28rpx;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
+  color: #e5e7eb;
+}
+
+.appointment-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
+.appointment-name {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.appointment-time {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #94a3b8;
+}
+
+.appointment-status {
+  flex-shrink: 0;
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+}
+
+.appointment-status-pending {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fcd34d;
+}
+
+.appointment-status-accepted,
+.appointment-status-completed {
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
+}
+
+.appointment-status-rejected,
+.appointment-status-cancelled {
+  background: rgba(248, 113, 113, 0.16);
+  color: #fca5a5;
+}
+
+.appointment-meta,
+.appointment-note {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: #cbd5e1;
+}
+
+.appointment-actions {
+  margin-top: 22rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+}
+
+.appointment-btn {
+  min-width: 180rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+  font-size: 26rpx;
+}
+
+.appointment-btn::after {
+  border: none;
+}
+
+.appointment-btn-primary {
+  background: linear-gradient(135deg, #bfe84a 0%, #8ddf4f 100%);
+  color: #0b0d12;
+  font-weight: 700;
+}

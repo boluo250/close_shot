@@ -1,0 +1,82 @@
+<view class="cs-page appointments-page">
+  <view wx:if="{{loading}}" class="appointments-empty">加载中...</view>
+
+  <view wx:elif="{{!items.length}}" class="appointments-empty">
+    <text class="appointments-empty-title">还没有预约记录</text>
+    <text class="appointments-empty-desc">
+      {{mode === 'assigned' ? '新的预约会出现在这里，方便你接单和确认完成。' : '去摄影师详情页发起预约后，会在这里看到状态。'}}
+    </text>
+  </view>
+
+  <view wx:else class="appointments-list">
+    <view wx:for="{{items}}" wx:key="id" class="appointment-card">
+      <view class="appointment-top">
+        <view>
+          <view class="appointment-name">{{item.counterpartyName}}</view>
+          <view class="appointment-time">{{item.scheduledText}}</view>
+        </view>
+        <text class="appointment-status appointment-status-{{item.status}}">{{item.statusLabel}}</text>
+      </view>
+
+      <view class="appointment-meta">地点：{{item.location_text}}</view>
+      <view wx:if="{{item.package_name}}" class="appointment-meta">套餐：{{item.package_name}}</view>
+      <view wx:if="{{item.shooting_type}}" class="appointment-meta">类型：{{item.shooting_type}}</view>
+      <view wx:if="{{item.contact_name || item.contact_phone}}" class="appointment-meta">
+        联系人：{{item.contact_name || '-'}} {{item.contact_phone || ''}}
+      </view>
+      <view wx:if="{{item.note}}" class="appointment-note">备注：{{item.note}}</view>
+      <view wx:if="{{item.response_note}}" class="appointment-note">反馈：{{item.response_note}}</view>
+
+      <view class="appointment-actions">
+        <button
+          wx:if="{{mode === 'assigned' && item.status === 'pending'}}"
+          class="appointment-btn appointment-btn-primary"
+          data-id="{{item.id}}"
+          bindtap="handleAccept"
+        >
+          接单
+        </button>
+        <button
+          wx:if="{{mode === 'assigned' && item.status === 'pending'}}"
+          class="appointment-btn"
+          data-id="{{item.id}}"
+          bindtap="handleReject"
+        >
+          拒绝
+        </button>
+        <button
+          wx:if="{{mode === 'assigned' && item.status === 'accepted'}}"
+          class="appointment-btn appointment-btn-primary"
+          data-id="{{item.id}}"
+          bindtap="handleComplete"
+        >
+          确认完成
+        </button>
+        <button
+          wx:if="{{mode === 'mine' && (item.status === 'pending' || item.status === 'accepted')}}"
+          class="appointment-btn"
+          data-id="{{item.id}}"
+          bindtap="handleCancel"
+        >
+          取消预约
+        </button>
+        <button
+          wx:if="{{mode === 'mine' && item.status === 'accepted'}}"
+          class="appointment-btn appointment-btn-primary"
+          data-id="{{item.id}}"
+          bindtap="handleComplete"
+        >
+          我已完成
+        </button>
+        <button
+          wx:if="{{mode === 'mine' && item.can_review}}"
+          class="appointment-btn appointment-btn-primary"
+          data-id="{{item.id}}"
+          bindtap="handleReview"
+        >
+          去评价
+        </button>
+      </view>
+    </view>
+  </view>
+</view>

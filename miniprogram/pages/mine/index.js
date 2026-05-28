@@ -345,5 +345,23 @@ Page({
     } finally {
       wx.hideLoading();
     }
+  },
+
+  async goMyAppointments() {
+    try {
+      await ensureLogin();
+      wx.navigateTo({ url: "/pages/appointments/index?mode=mine" });
+    } catch (_e) {
+      wx.showToast({ title: "请先登录", icon: "none" });
+    }
+  },
+
+  async goAssignedAppointments() {
+    try {
+      await ensureLogin();
+      wx.navigateTo({ url: "/pages/appointments/index?mode=assigned" });
+    } catch (_e) {
+      wx.showToast({ title: "请先登录", icon: "none" });
+    }
   }
 });
