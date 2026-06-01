@@ -221,7 +221,7 @@ class AppointmentRequest(TimestampMixin, Base):
         BigInteger, ForeignKey("photographers.id", ondelete="CASCADE"), nullable=False, index=True
     )
     package_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("packages.id", ondelete="SET NULL"))
-    status: Mapped[str] = mapped_column(String(16), nullable=False, default=AppointmentStatus.pending.value, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default=AppointmentStatus.pending.value, index=True)
     scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     location_text: Mapped[str] = mapped_column(String(255), nullable=False)
     contact_name: Mapped[str | None] = mapped_column(String(64))

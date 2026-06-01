@@ -11,7 +11,7 @@ from app.api.deps import get_db
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.db.base import Base
-from app.db.models import AppointmentRequest, Package, Photographer, Review, ScheduleBlock, User, UserRole
+from app.db.models import AppointmentRequest, AppointmentStatus, Package, Photographer, Review, ScheduleBlock, User, UserRole
 from app.main import create_app
 
 
@@ -240,6 +240,13 @@ def test_admin_appointment_action_routes_accept_pending_request():
         appointment = db.scalar(select(AppointmentRequest).where(AppointmentRequest.id == appointment_id))
         assert appointment is not None
         assert appointment.status == "accepted_pending_customer"
+
+
+def test_appointment_status_column_length_covers_all_enum_values():
+    status_column = AppointmentRequest.__table__.c.status
+    max_status_len = max(len(item.value) for item in AppointmentStatus)
+    assert status_column.type.length is not None
+    assert status_column.type.length >= max_status_len
 
 
 def test_subscribe_config_endpoint_returns_template_keys():
