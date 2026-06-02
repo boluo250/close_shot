@@ -2,6 +2,7 @@
   <view class="create-card">
     <view class="create-title">预约 {{photographerName}}</view>
     <view class="create-desc">先提交时间和地点，摄影师确认后这次撮合就有了可追踪的记录。</view>
+    <view class="create-subscribe-tip">提交时会申请“预约处理结果提醒”，方便你及时收到接单通知。</view>
 
     <view class="field">
       <text class="field-label">预约日期</text>

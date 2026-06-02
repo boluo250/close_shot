@@ -25,6 +25,13 @@
   color: #94a3b8;
 }
 
+.create-subscribe-tip {
+  margin-top: 14rpx;
+  font-size: 22rpx;
+  line-height: 1.7;
+  color: #d9f99d;
+}
+
 .field {
   margin-top: 24rpx;
 }

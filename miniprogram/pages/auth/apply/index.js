@@ -1,6 +1,11 @@
 const { request } = require("../../../utils/request");
 const { ensureLogin } = require("../../../utils/auth");
 const { uploadImageToS3Like } = require("../../../utils/upload");
+const {
+  warmAppointmentSubscribeConfig,
+  requestPhotographerAppointmentSubscriptions,
+  summarizeAppointmentSubscribeResult
+} = require("../../../utils/subscribe");
 
 const PRICE_RANGES = ["199-399", "399-699", "699+"];
 
@@ -9,6 +14,7 @@ Page({
     step: 1,        // 当前步骤 1-2
     totalSteps: 2,
     submitting: false,
+    notificationActionLoading: false,
     applicationStatus: "not_applied",
     rejectReason: "",
 
@@ -72,8 +78,11 @@ Page({
       const res = await request("/me/photographer/certification", { method: "GET", auth: true });
 
       if (res.status === "approved") {
-        wx.showToast({ title: "你已通过入驻审核", icon: "none" });
-        wx.redirectTo({ url: "/pages/studio/index" });
+        warmAppointmentSubscribeConfig();
+        this.setData({
+          applicationStatus: "approved",
+          rejectReason: ""
+        });
         return;
       }
       this.setData({
@@ -666,6 +675,30 @@ Page({
   onRefreshStatus() {
     this._loadCertificationStatus();
     wx.showToast({ title: "已刷新", icon: "none" });
+  },
+
+  async enablePhotographerNotifications() {
+    if (this.data.notificationActionLoading) return;
+    this.setData({ notificationActionLoading: true });
+    try {
+      await ensureLogin();
+      await warmAppointmentSubscribeConfig();
+      const result = await requestPhotographerAppointmentSubscriptions();
+      const summary = summarizeAppointmentSubscribeResult(result);
+      let title = "提醒申请已发起";
+      if (summary === "accept") title = "已开启新预约提醒";
+      else if (summary === "reject") title = "你这次没有开启提醒";
+      else if (summary === "skipped") title = "当前暂无可用提醒模板";
+      wx.showToast({ title, icon: "none" });
+    } catch (e) {
+      wx.showToast({ title: e?.message || "开启提醒失败", icon: "none" });
+    } finally {
+      this.setData({ notificationActionLoading: false });
+    }
+  },
+
+  onEnterStudio() {
+    wx.redirectTo({ url: "/pages/studio/index" });
   },
 
   onBackMine() {

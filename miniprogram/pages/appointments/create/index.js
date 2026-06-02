@@ -1,6 +1,9 @@
 const { ensureLogin, getToken } = require("../../../utils/auth");
 const { request } = require("../../../utils/request");
-const { requestCustomerAppointmentSubscriptions } = require("../../../utils/subscribe");
+const {
+  warmAppointmentSubscribeConfig,
+  requestCustomerAppointmentAcceptedSubscription
+} = require("../../../utils/subscribe");
 
 function buildDefaultDate() {
   const now = new Date();
@@ -34,7 +37,13 @@ Page({
       return;
     }
     this.setData({ photographerId });
+    this.prepareAppointmentSubscriptions();
     await this.loadPhotographer();
+  },
+
+  prepareAppointmentSubscriptions() {
+    if (!getToken()) return;
+    warmAppointmentSubscribeConfig();
   },
 
   async loadPhotographer() {
@@ -83,7 +92,8 @@ Page({
     this.setData({ submitting: true });
     try {
       await ensureLogin();
-      await requestCustomerAppointmentSubscriptions();
+      this.prepareAppointmentSubscriptions();
+      await requestCustomerAppointmentAcceptedSubscription();
       const packageOption = this.data.packageOptions[this.data.packageIndex] || { id: null };
       await request("/appointments", {
         method: "POST",

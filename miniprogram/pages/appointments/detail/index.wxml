@@ -18,6 +18,7 @@
     <view class="detail-card" wx:if="{{item.status === 'accepted_pending_customer' && mode === 'mine'}}">
       <view class="detail-section-title">等待你确认</view>
       <view class="detail-note">摄影师已经同意本次预约。你确认后，双方联系方式会在平台内解锁。</view>
+      <view class="detail-tip">点击“确认预约”时会同步申请“拍摄完成提醒”订阅。</view>
     </view>
 
     <view class="detail-card" wx:if="{{item.can_view_photographer_contact || item.can_view_customer_contact}}">

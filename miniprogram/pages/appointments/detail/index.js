@@ -1,6 +1,9 @@
 const { ensureLogin } = require("../../../utils/auth");
 const { request } = require("../../../utils/request");
-const { requestCustomerAppointmentSubscriptions } = require("../../../utils/subscribe");
+const {
+  loadAppointmentSubscribeConfig,
+  requestTemplates
+} = require("../../../utils/subscribe");
 
 function formatStatus(status) {
   return (
@@ -32,7 +35,9 @@ Page({
     id: null,
     mode: "mine",
     loading: false,
-    item: null
+    item: null,
+    completedTemplateId: "",
+    completionSubscriptionPreparing: false
   },
 
   onLoad(query) {
@@ -52,13 +57,17 @@ Page({
     try {
       await ensureLogin();
       const item = await request(`/appointments/${this.data.id}`, { auth: true });
-      this.setData({
-        item: {
-          ...item,
-          statusLabel: formatStatus(item.status),
-          scheduledText: formatTime(item.scheduled_at)
-        }
-      });
+      const viewItem = {
+        ...item,
+        statusLabel: formatStatus(item.status),
+        scheduledText: formatTime(item.scheduled_at)
+      };
+      this.setData({ item: viewItem });
+      if (viewItem.can_customer_confirm) {
+        this.prepareCompletionSubscription();
+      } else if (this.data.completedTemplateId) {
+        this.setData({ completedTemplateId: "" });
+      }
     } catch (e) {
       wx.showToast({ title: e?.message || "加载失败", icon: "none" });
     } finally {
@@ -66,13 +75,30 @@ Page({
     }
   },
 
+  async prepareCompletionSubscription() {
+    return this.prepareCompletionSubscriptionWithOptions();
+  },
+
+  async prepareCompletionSubscriptionWithOptions(options = {}) {
+    const { refresh = false } = options;
+    this.setData({ completionSubscriptionPreparing: true });
+    try {
+      const config = await loadAppointmentSubscribeConfig({ refresh });
+      const completedTemplateId = (config && config.customer_appointment_completed_template_id) || "";
+      this.setData({ completedTemplateId });
+      return completedTemplateId;
+    } catch (_e) {
+      this.setData({ completedTemplateId: "" });
+      return "";
+    } finally {
+      this.setData({ completionSubscriptionPreparing: false });
+    }
+  },
+
   async postAction(path, successText, options = {}) {
     try {
-      if (options.subscribeCustomerCompletion) {
-        await requestCustomerAppointmentSubscriptions({
-          includeAccepted: false,
-          includeCompleted: true
-        });
+      if (typeof options.beforeRequest === "function") {
+        await options.beforeRequest();
       }
       await request(path, { method: "POST", auth: true, data: {} });
       wx.showToast({ title: successText, icon: "none" });
@@ -91,9 +117,26 @@ Page({
   },
 
   handleConfirm() {
-    this.postAction(`/appointments/${this.data.id}/confirm`, "已确认预约", {
-      subscribeCustomerCompletion: true
-    });
+    this.confirmAppointment();
+  },
+
+  async confirmAppointment() {
+    try {
+      let templateId = this.data.completedTemplateId;
+      if (!templateId) {
+        templateId = await this.prepareCompletionSubscriptionWithOptions({ refresh: true });
+      }
+      if (templateId) {
+        await requestTemplates([templateId]);
+      } else {
+        wx.showToast({ title: "未获取到拍摄完成提醒模板", icon: "none" });
+      }
+      await request(`/appointments/${this.data.id}/confirm`, { method: "POST", auth: true, data: {} });
+      wx.showToast({ title: "已确认预约", icon: "none" });
+      this.load();
+    } catch (err) {
+      wx.showToast({ title: err?.message || "操作失败", icon: "none" });
+    }
   },
 
   handleCancel() {

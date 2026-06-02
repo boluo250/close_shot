@@ -76,6 +76,13 @@
   color: #d7dee8;
 }
 
+.detail-tip {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  line-height: 1.7;
+  color: #d9f99d;
+}
+
 .detail-section-title {
   font-size: 28rpx;
   font-weight: 700;

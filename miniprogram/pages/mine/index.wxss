@@ -215,6 +215,10 @@
   border-bottom-color: rgba(74, 222, 128, 0.24);
 }
 
+.mine-cell-highlight {
+  background: linear-gradient(120deg, rgba(191, 232, 74, 0.16) 0%, rgba(255, 255, 255, 0.04) 72%);
+}
+
 .mine-skeleton-card {
   border-color: rgba(255, 255, 255, 0.06);
 }
