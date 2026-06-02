@@ -10,7 +10,7 @@
         bindtap="enablePhotographerNotifications"
         loading="{{notificationActionLoading}}"
         disabled="{{notificationActionLoading}}"
-      >开启新预约提醒</button>
+      >{{photographerNotificationEnabled ? '已开启提醒，可重新订阅' : '开启新预约提醒'}}</button>
     </view>
     <view class="status-actions">
       <button class="cs-btn flex-btn" bindtap="onBackMine">返回我的</button>

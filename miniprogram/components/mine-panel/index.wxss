@@ -91,6 +91,13 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+.mine-status-pill-soda {
+  color: #04130d;
+  font-weight: 700;
+  background: var(--cs-gradient-primary);
+  box-shadow: 0 8rpx 18rpx rgba(57, 255, 136, 0.18);
+}
+
 .mine-stats-card {
   margin-top: 32rpx;
   border-radius: 40rpx;
@@ -193,6 +200,7 @@
   display: flex;
   align-items: center;
   gap: 10rpx;
+  flex-wrap: wrap;
 }
 
 .mine-cell-title-strong {
@@ -227,6 +235,23 @@
 .mine-cell-membership {
   background: linear-gradient(120deg, rgba(34, 197, 94, 0.14) 0%, rgba(20, 20, 20, 0.65) 65%);
   border-bottom-color: rgba(74, 222, 128, 0.24);
+}
+
+.mine-cell-highlight {
+  background: transparent;
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.mine-accent-chip {
+  height: 34rpx;
+  line-height: 34rpx;
+  padding: 0 12rpx;
+  border-radius: 17rpx;
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #04130d;
+  background: var(--cs-gradient-primary);
+  box-shadow: 0 8rpx 18rpx rgba(57, 255, 136, 0.18);
 }
 
 .mine-skeleton-card {

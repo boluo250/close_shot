@@ -1,17 +1,24 @@
 const { getToken, clearAuthState, ensureLogin } = require("../../utils/auth");
 const { request } = require("../../utils/request");
 const {
+  warmAppointmentSubscribeConfig,
   requestPhotographerAppointmentSubscriptions,
+  summarizeAppointmentSubscribeResult,
+  isPhotographerNotificationEnabled,
+  setPhotographerNotificationEnabled,
   clearAppointmentSubscribeCache
 } = require("../../utils/subscribe");
 const IDENTITY_CACHE_KEY = "mine_identity_cache_v1";
 const APPOINTMENT_PROMPT_CACHE_KEY = "mine_appointment_prompt_cache_v1";
+const PHOTOGRAPHER_NOTIFY_PROMPT_KEY = "photographer_notify_prompt_v1";
 
 Component({
   data: {
     token: "",
     loading: false,
     identityLoading: false,
+    notificationActionLoading: false,
+    photographerNotificationEnabled: false,
     identityState: "unknown",
     role: "",
     photographerStatus: "",
@@ -87,6 +94,7 @@ Component({
         this.setData({
           token: "",
           identityLoading: false,
+          photographerNotificationEnabled: false,
           identityState: "guest",
           role: "",
           photographerStatus: "not_applied",
@@ -96,6 +104,7 @@ Component({
         this.setData({
           token,
           identityLoading: false,
+          photographerNotificationEnabled: isPhotographerNotificationEnabled(),
           identityState: this._deriveIdentityState(token, cached.role, cached.photographerStatus),
           role: cached.role || "",
           photographerStatus: cached.photographerStatus || "not_applied",
@@ -105,6 +114,7 @@ Component({
         this.setData({
           token,
           identityLoading: true,
+          photographerNotificationEnabled: isPhotographerNotificationEnabled(),
           identityState: "unknown",
           role: "",
           photographerStatus: "not_applied",
@@ -112,6 +122,7 @@ Component({
         });
       }
       this.syncViewState();
+      if (token) warmAppointmentSubscribeConfig();
       this.loadIdentity();
       this.loadMembership();
       this.loadAppointmentSummary();
@@ -169,6 +180,8 @@ Component({
         const role = data.role || "";
         const photographerStatus = data.photographer_status || "not_applied";
         const rejectReason = data.photographer_reject_reason || "";
+        const previousIdentityState = this.data.identityState;
+        const previousPhotographerStatus = this.data.photographerStatus;
         this.setData({
           role,
           photographerStatus,
@@ -176,6 +189,13 @@ Component({
           identityState: this._deriveIdentityState(token, role, photographerStatus)
         });
         this._writeIdentityCache(token, { role, photographerStatus, rejectReason });
+        this.maybePromptPhotographerNotifications({
+          token,
+          role,
+          photographerStatus,
+          previousIdentityState,
+          previousPhotographerStatus
+        });
       } catch (e) {
         if (this.data.identityState === "unknown") {
           this.setData({
@@ -347,6 +367,36 @@ Component({
       });
     },
 
+    maybePromptPhotographerNotifications({
+      token,
+      role,
+      photographerStatus,
+      previousIdentityState,
+      previousPhotographerStatus
+    }) {
+      const isApprovedPhotographer = role !== "admin" && photographerStatus === "approved";
+      if (!token || !isApprovedPhotographer) return;
+      if (this.data.photographerNotificationEnabled) return;
+      const promptKey = `${this._tokenFingerprint(token)}:approved`;
+      if (wx.getStorageSync(PHOTOGRAPHER_NOTIFY_PROMPT_KEY) === promptKey) return;
+
+      const wasApprovedBefore =
+        previousIdentityState === "verified_photographer" || previousPhotographerStatus === "approved";
+      if (!wasApprovedBefore || this.data.identityState === "verified_photographer") {
+        wx.setStorageSync(PHOTOGRAPHER_NOTIFY_PROMPT_KEY, promptKey);
+        wx.showModal({
+          title: "开启新预约提醒",
+          content: "你已经通过入驻审核。开启后，有新预约时微信会第一时间提醒你。",
+          confirmText: "去开启",
+          cancelText: "稍后",
+          success: (res) => {
+            if (!res.confirm) return;
+            this.enablePhotographerNotifications();
+          }
+        });
+      }
+    },
+
     async login() {
       this.setData({ loading: true });
       try {
@@ -369,6 +419,7 @@ Component({
       this.setData({
         token: "",
         identityLoading: false,
+        photographerNotificationEnabled: false,
         identityState: "guest",
         role: "",
         photographerStatus: "not_applied",
@@ -382,12 +433,37 @@ Component({
     async goAppointmentCenter() {
       try {
         await ensureLogin();
-        if (this.data.identityState === "verified_photographer") {
-          await requestPhotographerAppointmentSubscriptions();
-        }
         wx.navigateTo({ url: "/pages/appointments/index" });
       } catch (_e) {
         wx.showToast({ title: "请先登录", icon: "none" });
+      }
+    },
+
+    async enablePhotographerNotifications() {
+      if (this.data.notificationActionLoading) return;
+      if (this.data.identityState !== "verified_photographer") {
+        wx.showToast({ title: "通过入驻后可开启提醒", icon: "none" });
+        return;
+      }
+      this.setData({ notificationActionLoading: true });
+      try {
+        await ensureLogin();
+        await warmAppointmentSubscribeConfig();
+        const result = await requestPhotographerAppointmentSubscriptions();
+        const summary = summarizeAppointmentSubscribeResult(result);
+        let title = "提醒申请已发起";
+        if (summary === "accept") {
+          setPhotographerNotificationEnabled(true);
+          this.setData({ photographerNotificationEnabled: true });
+          title = "已开启新预约提醒";
+        }
+        else if (summary === "reject") title = "你这次没有开启提醒";
+        else if (summary === "skipped") title = "当前暂无可用提醒模板";
+        wx.showToast({ title, icon: "none" });
+      } catch (e) {
+        wx.showToast({ title: e?.message || "开启提醒失败", icon: "none" });
+      } finally {
+        this.setData({ notificationActionLoading: false });
       }
     },
 

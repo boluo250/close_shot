@@ -1,4 +1,6 @@
 {
-  "navigationBarTitleText": "我的"
+  "navigationBarTitleText": "我的",
+  "usingComponents": {
+    "mine-panel": "/components/mine-panel/index"
+  }
 }
-

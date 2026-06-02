@@ -34,7 +34,7 @@
             <text wx:if="{{membership.isMember}}" class="mine-vip-badge">VIP</text>
           </view>
           <view class="mine-status-row">
-            <text class="mine-status-pill">{{viewState.certLabel}}</text>
+            <text class="mine-status-pill {{identityState === 'verified_photographer' ? 'mine-status-pill-soda' : ''}}">{{viewState.certLabel}}</text>
           </view>
         </view>
       </view>
@@ -68,6 +68,24 @@
         <view class="mine-cell-main">
           <text class="mine-cell-title">{{uiText.editProfileTitle}}</text>
           <text class="mine-cell-desc">{{uiText.editProfileDesc}}</text>
+        </view>
+        <text class="mine-cell-arrow">›</text>
+      </button>
+
+      <button
+        wx:if="{{identityState === 'verified_photographer'}}"
+        class="mine-cell mine-cell-highlight"
+        bindtap="enablePhotographerNotifications"
+        loading="{{notificationActionLoading}}"
+        disabled="{{notificationActionLoading}}"
+        hover-class="mine-cell-hover"
+      >
+        <view class="mine-cell-main">
+          <view class="mine-cell-title-row">
+            <text class="mine-cell-title">{{photographerNotificationEnabled ? '已开启提醒，可重新订阅' : '开启新预约提醒'}}</text>
+            <text wx:if="{{photographerNotificationEnabled}}" class="mine-accent-chip">已开启</text>
+          </view>
+          <text class="mine-cell-desc">{{photographerNotificationEnabled ? '当前设备已记录你开启过提醒；如需重新申请订阅，可再次点击。' : '收到新预约后，通过微信提醒你及时处理，不必反复手动查看。'}}</text>
         </view>
         <text class="mine-cell-arrow">›</text>
       </button>

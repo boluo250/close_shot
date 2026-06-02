@@ -4,7 +4,9 @@ const { uploadImageToS3Like } = require("../../../utils/upload");
 const {
   warmAppointmentSubscribeConfig,
   requestPhotographerAppointmentSubscriptions,
-  summarizeAppointmentSubscribeResult
+  summarizeAppointmentSubscribeResult,
+  isPhotographerNotificationEnabled,
+  setPhotographerNotificationEnabled
 } = require("../../../utils/subscribe");
 
 const PRICE_RANGES = ["199-399", "399-699", "699+"];
@@ -15,6 +17,7 @@ Page({
     totalSteps: 2,
     submitting: false,
     notificationActionLoading: false,
+    photographerNotificationEnabled: false,
     applicationStatus: "not_applied",
     rejectReason: "",
 
@@ -81,6 +84,7 @@ Page({
         warmAppointmentSubscribeConfig();
         this.setData({
           applicationStatus: "approved",
+          photographerNotificationEnabled: isPhotographerNotificationEnabled(),
           rejectReason: ""
         });
         return;
@@ -686,7 +690,11 @@ Page({
       const result = await requestPhotographerAppointmentSubscriptions();
       const summary = summarizeAppointmentSubscribeResult(result);
       let title = "提醒申请已发起";
-      if (summary === "accept") title = "已开启新预约提醒";
+      if (summary === "accept") {
+        setPhotographerNotificationEnabled(true);
+        this.setData({ photographerNotificationEnabled: true });
+        title = "已开启新预约提醒";
+      }
       else if (summary === "reject") title = "你这次没有开启提醒";
       else if (summary === "skipped") title = "当前暂无可用提醒模板";
       wx.showToast({ title, icon: "none" });

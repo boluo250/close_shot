@@ -3,9 +3,15 @@ const { request } = require("./request");
 
 let subscribeConfigCache = null;
 let subscribeConfigLoading = null;
+const PHOTOGRAPHER_NOTIFY_STATUS_KEY = "photographer_notify_status_v1";
 
 function uniqueTemplateIds(values) {
   return Array.from(new Set((values || []).filter((item) => typeof item === "string" && item.trim())));
+}
+
+function tokenFingerprint(token) {
+  if (!token) return "";
+  return token.slice(-24);
 }
 
 async function loadAppointmentSubscribeConfig(options = {}) {
@@ -68,6 +74,32 @@ function summarizeAppointmentSubscribeResult(result) {
   return "unknown";
 }
 
+function isPhotographerNotificationEnabled() {
+  const token = getToken();
+  const fingerprint = tokenFingerprint(token);
+  if (!fingerprint) return false;
+  try {
+    const cache = wx.getStorageSync(PHOTOGRAPHER_NOTIFY_STATUS_KEY);
+    return !!(cache && typeof cache === "object" && cache[fingerprint]);
+  } catch (_e) {
+    return false;
+  }
+}
+
+function setPhotographerNotificationEnabled(enabled) {
+  const token = getToken();
+  const fingerprint = tokenFingerprint(token);
+  if (!fingerprint) return;
+  try {
+    const cache = wx.getStorageSync(PHOTOGRAPHER_NOTIFY_STATUS_KEY);
+    const next = cache && typeof cache === "object" ? { ...cache } : {};
+    next[fingerprint] = !!enabled;
+    wx.setStorageSync(PHOTOGRAPHER_NOTIFY_STATUS_KEY, next);
+  } catch (_e) {
+    // ignore storage failures
+  }
+}
+
 function clearAppointmentSubscribeCache() {
   subscribeConfigCache = null;
   subscribeConfigLoading = null;
@@ -81,5 +113,7 @@ module.exports = {
   requestCustomerAppointmentAcceptedSubscription,
   requestCustomerAppointmentCompletedSubscription,
   summarizeAppointmentSubscribeResult,
+  isPhotographerNotificationEnabled,
+  setPhotographerNotificationEnabled,
   clearAppointmentSubscribeCache
 };
