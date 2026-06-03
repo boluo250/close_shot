@@ -15,6 +15,7 @@ from app.db.models import (
     Photographer,
     PhotographerStatus,
     Review,
+    ReviewStatus,
     ScheduleBlock,
     User,
     UserRole,
@@ -642,6 +643,7 @@ def create_appointment_review(
         appointment_request_id=item.id,
         rating=payload.rating,
         content=(payload.content or "").strip() or None,
+        status=ReviewStatus.pending.value,
     )
     db.add(review)
     db.commit()
@@ -652,6 +654,7 @@ def create_appointment_review(
         photographer_id=int(review.photographer_id),
         rating=int(review.rating),
         content=review.content,
+        status=review.status,
         user_display_name=me.display_name,
         user_avatar_url=me.avatar_url,
         created_at=review.created_at,

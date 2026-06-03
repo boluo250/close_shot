@@ -21,6 +21,11 @@
       <view class="detail-tip">点击“确认预约”时会同步申请“拍摄完成提醒”订阅。</view>
     </view>
 
+    <view class="detail-card" wx:if="{{item.status === 'accepted_pending_customer' && mode === 'assigned'}}">
+      <view class="detail-section-title">等待客户最终确认</view>
+      <view class="detail-note">你已同意本次预约，正在等待客户完成最终确认。客户确认后，双方联系方式会在平台内解锁。</view>
+    </view>
+
     <view class="detail-card" wx:if="{{item.can_view_photographer_contact || item.can_view_customer_contact}}">
       <view class="detail-section-title">联系方式</view>
       <view wx:if="{{item.can_view_photographer_contact && item.photographer_phone}}" class="detail-row">摄影师电话：{{item.photographer_phone}}</view>
@@ -37,7 +42,8 @@
     <view class="detail-card" wx:if="{{item.status === 'confirmed'}}">
       <view class="detail-section-title">完成确认</view>
       <view wx:if="{{!item.photographer_completed_at}}" class="detail-note">拍摄结束后，请先由摄影师标记“拍摄已完成”。</view>
-      <view wx:if="{{item.photographer_completed_at && !item.customer_completed_at}}" class="detail-note">摄影师已标记拍摄完成，现在等待用户确认完成并评价。</view>
+      <view wx:if="{{mode === 'mine' && item.photographer_completed_at && !item.customer_completed_at}}" class="detail-note">摄影师已标记拍摄完成，请确认完成并评价本次服务。</view>
+      <view wx:if="{{mode === 'assigned' && item.photographer_completed_at && !item.customer_completed_at}}" class="detail-note">摄影师已标记拍摄完成，现在等待用户确认完成并评价。</view>
     </view>
 
     <view class="detail-actions">
@@ -46,8 +52,8 @@
       <button wx:if="{{mode === 'mine' && item.can_customer_confirm}}" class="detail-btn detail-btn-primary" bindtap="handleConfirm">确认预约</button>
       <button wx:if="{{mode === 'mine' && (item.status === 'pending' || item.status === 'accepted_pending_customer' || item.status === 'confirmed')}}" class="detail-btn" bindtap="handleCancel">取消预约</button>
       <button wx:if="{{item.can_photographer_complete}}" class="detail-btn detail-btn-primary" bindtap="handleComplete">拍摄已完成</button>
-      <button wx:if="{{item.can_customer_complete}}" class="detail-btn detail-btn-primary" bindtap="handleComplete">确认已完成</button>
-      <button wx:if="{{mode === 'mine' && item.can_review}}" class="detail-btn detail-btn-primary" bindtap="handleReview">去评价</button>
+      <button wx:if="{{item.can_customer_complete}}" class="detail-btn detail-btn-primary" bindtap="handleCustomerComplete">点击评价</button>
+      <button wx:if="{{mode === 'mine' && item.can_review}}" class="detail-btn detail-btn-primary" bindtap="handleReview">点击评价</button>
     </view>
   </view>
 </view>

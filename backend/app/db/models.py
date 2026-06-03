@@ -55,6 +55,12 @@ class AppointmentStatus(str, enum.Enum):
     cancelled = "cancelled"
 
 
+class ReviewStatus(str, enum.Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+
 class CertificationLevel(int, enum.Enum):
     none = 0       # 未认证
     basic = 1      # Lv1 基础认证（实名 + 作品）
@@ -268,6 +274,7 @@ class Review(TimestampMixin, Base):
 
     rating: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default=ReviewStatus.pending.value, index=True)
 
 
 class AnalyticsEvent(TimestampMixin, Base):

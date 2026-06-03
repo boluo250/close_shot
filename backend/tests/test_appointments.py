@@ -11,7 +11,17 @@ from app.api.deps import get_db
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.db.base import Base
-from app.db.models import AppointmentRequest, AppointmentStatus, Package, Photographer, Review, ScheduleBlock, User, UserRole
+from app.db.models import (
+    AppointmentRequest,
+    AppointmentStatus,
+    Package,
+    Photographer,
+    Review,
+    ReviewStatus,
+    ScheduleBlock,
+    User,
+    UserRole,
+)
 from app.main import create_app
 
 
@@ -143,6 +153,24 @@ def test_appointment_flow_requires_customer_confirm_before_contact_unlock_and_re
     )
     assert review_resp.status_code == 201
     assert review_resp.json()["photographer_id"] == 10
+    assert review_resp.json()["status"] == "pending"
+
+    detail_before_review_approved = client.get("/photographers/10", headers=_auth_headers(1))
+    assert detail_before_review_approved.status_code == 200
+    assert detail_before_review_approved.json()["reviews"] == []
+
+    approve_review_resp = client.post(
+        f"{settings.admin_api_prefix}/reviews/{review_resp.json()['id']}/moderate",
+        headers=_auth_headers(99),
+        json={"action": "approve"},
+    )
+    assert approve_review_resp.status_code == 200
+    assert approve_review_resp.json()["status"] == "approved"
+
+    detail_after_review_approved = client.get("/photographers/10", headers=_auth_headers(1))
+    assert detail_after_review_approved.status_code == 200
+    assert len(detail_after_review_approved.json()["reviews"]) == 1
+    assert detail_after_review_approved.json()["reviews"][0]["content"] == "沟通顺畅，成片也不错"
 
     with session_factory() as db:
         appointment = db.scalar(select(AppointmentRequest).where(AppointmentRequest.id == appointment_id))
@@ -151,6 +179,7 @@ def test_appointment_flow_requires_customer_confirm_before_contact_unlock_and_re
         assert appointment.status == "completed"
         assert review is not None
         assert review.rating == 5
+        assert review.status == ReviewStatus.approved.value
         assert review.appointment_request_id == appointment_id
 
 

@@ -11,6 +11,7 @@ Page({
     bioCanExpand: false,
     portfolio: [],
     packages: [],
+    reviews: [],
     rateCard: [],
     offerings: [],
     equipmentList: [],
@@ -93,6 +94,14 @@ Page({
       const equipmentList = Array.isArray(data.equipment_list) ? data.equipment_list : [];
       const droneModels = Array.isArray(data.drone_models) ? data.drone_models : [];
       const hasEquipment = equipmentList.length > 0 || droneModels.length > 0;
+      const reviews = Array.isArray(data.reviews)
+        ? data.reviews.map((item) => ({
+            ...item,
+            stars: "★★★★★".slice(0, Number(item.rating || 0)),
+            dateText: this.formatDate(item.created_at),
+            userName: item.user_display_name || "匿名用户"
+          }))
+        : [];
 
       // 服务范围 km
       const serviceRadiusKm = data.service_radius_m
@@ -105,6 +114,7 @@ Page({
         bioCanExpand: false,
         portfolio: data.portfolio_items || [],
         packages,
+        reviews,
         rateCard,
         offerings,
         equipmentList,
@@ -118,6 +128,13 @@ Page({
     } catch (e) {
       wx.showToast({ title: "加载失败", icon: "none" });
     }
+  },
+
+  formatDate(text) {
+    if (!text) return "";
+    const dt = new Date(text);
+    if (Number.isNaN(dt.getTime())) return "";
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
   },
 
   async checkOwnerEditable(detailData) {

@@ -31,6 +31,7 @@ from app.db.models import (
     PortfolioItem,
     RiskLevel,
     Review,
+    ReviewStatus,
     ScheduleBlock,
     User,
     UserOperationLog,
@@ -108,6 +109,29 @@ class RiskUserUpdateIn(BaseModel):
     trust_score: int
     risk_level: Literal["low", "medium", "high"]
     blacklist_status: Literal["normal", "watch", "blocked"]
+
+
+class AdminReviewOut(BaseModel):
+    id: int
+    user_id: int | None = None
+    user_display_name: str | None = None
+    photographer_id: int
+    photographer_display_name: str | None = None
+    appointment_request_id: int | None = None
+    rating: int
+    content: str | None = None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class AdminReviewListOut(BaseModel):
+    items: list[AdminReviewOut]
+    total: int
+
+
+class ReviewModerationIn(BaseModel):
+    action: Literal["approve", "reject"]
 
 
 class DbTableListOut(BaseModel):
@@ -823,6 +847,113 @@ def update_risk_user(
     if photographer:
         db.refresh(photographer)
     return _user_to_risk_item(user, photographer)
+
+
+@router.get("/reviews", response_model=AdminReviewListOut)
+def list_reviews(
+    limit: int = Query(default=20, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    status: str | None = Query(default=ReviewStatus.pending.value, description="pending / approved / rejected"),
+    keyword: str | None = Query(default=None, description="按评价内容、客户、摄影师搜索"),
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AdminReviewListOut:
+    _require_admin(me)
+    reviewer = aliased(User)
+    photographer_user = aliased(User)
+    stmt = (
+        select(Review, reviewer, Photographer, photographer_user)
+        .outerjoin(reviewer, reviewer.id == Review.user_id)
+        .join(Photographer, Photographer.id == Review.photographer_id)
+        .outerjoin(photographer_user, photographer_user.id == Photographer.user_id)
+    )
+    count_stmt = (
+        select(func.count(Review.id))
+        .outerjoin(reviewer, reviewer.id == Review.user_id)
+        .join(Photographer, Photographer.id == Review.photographer_id)
+        .outerjoin(photographer_user, photographer_user.id == Photographer.user_id)
+    )
+
+    if status:
+        if status not in {item.value for item in ReviewStatus}:
+            raise HTTPException(status_code=400, detail="invalid review status")
+        stmt = stmt.where(Review.status == status)
+        count_stmt = count_stmt.where(Review.status == status)
+    if keyword:
+        like_pattern = f"%{keyword}%"
+        cond = (
+            Review.content.ilike(like_pattern)
+            | reviewer.display_name.ilike(like_pattern)
+            | photographer_user.display_name.ilike(like_pattern)
+        )
+        stmt = stmt.where(cond)
+        count_stmt = count_stmt.where(cond)
+
+    rows = db.execute(
+        stmt.order_by(Review.created_at.desc(), Review.id.desc()).limit(limit).offset(offset)
+    ).all()
+    total = int(db.scalar(count_stmt) or 0)
+    return AdminReviewListOut(
+        items=[
+            AdminReviewOut(
+                id=int(review.id),
+                user_id=int(review.user_id) if review.user_id is not None else None,
+                user_display_name=user.display_name if user else None,
+                photographer_id=int(review.photographer_id),
+                photographer_display_name=photographer_user_row.display_name if photographer_user_row else None,
+                appointment_request_id=(
+                    int(review.appointment_request_id) if review.appointment_request_id is not None else None
+                ),
+                rating=int(review.rating),
+                content=review.content,
+                status=review.status,
+                created_at=review.created_at,
+                updated_at=review.updated_at,
+            )
+            for review, user, _photographer, photographer_user_row in rows
+        ],
+        total=total,
+    )
+
+
+@router.post("/reviews/{review_id}/moderate", response_model=AdminReviewOut)
+def moderate_review(
+    review_id: int,
+    payload: ReviewModerationIn,
+    me: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AdminReviewOut:
+    _require_admin(me)
+    review = db.scalar(select(Review).where(Review.id == review_id))
+    if not review:
+        raise HTTPException(status_code=404, detail="review not found")
+
+    review.status = ReviewStatus.approved.value if payload.action == "approve" else ReviewStatus.rejected.value
+    db.commit()
+
+    reviewer = aliased(User)
+    photographer_user = aliased(User)
+    row = db.execute(
+        select(Review, reviewer, Photographer, photographer_user)
+        .outerjoin(reviewer, reviewer.id == Review.user_id)
+        .join(Photographer, Photographer.id == Review.photographer_id)
+        .outerjoin(photographer_user, photographer_user.id == Photographer.user_id)
+        .where(Review.id == review_id)
+    ).one()
+    review, user, _photographer, photographer_user_row = row
+    return AdminReviewOut(
+        id=int(review.id),
+        user_id=int(review.user_id) if review.user_id is not None else None,
+        user_display_name=user.display_name if user else None,
+        photographer_id=int(review.photographer_id),
+        photographer_display_name=photographer_user_row.display_name if photographer_user_row else None,
+        appointment_request_id=int(review.appointment_request_id) if review.appointment_request_id is not None else None,
+        rating=int(review.rating),
+        content=review.content,
+        status=review.status,
+        created_at=review.created_at,
+        updated_at=review.updated_at,
+    )
 
 
 @router.get("/db/tables", response_model=DbTableListOut)

@@ -5,6 +5,8 @@ const {
   requestCustomerAppointmentAcceptedSubscription
 } = require("../../../utils/subscribe");
 
+const CUSTOMER_CONTACT_CACHE_KEY = "appointment_customer_contact_cache_v1";
+
 function buildDefaultDate() {
   const now = new Date();
   now.setDate(now.getDate() + 1);
@@ -70,6 +72,32 @@ function openSettingAsync() {
   });
 }
 
+function loadCachedCustomerContact() {
+  try {
+    const cached = wx.getStorageSync(CUSTOMER_CONTACT_CACHE_KEY) || {};
+    return {
+      contactName: (cached.contactName || "").slice(0, 64),
+      contactPhone: (cached.contactPhone || "").slice(0, 20)
+    };
+  } catch (_e) {
+    return {
+      contactName: "",
+      contactPhone: ""
+    };
+  }
+}
+
+function saveCustomerContactCache(contactName, contactPhone) {
+  try {
+    wx.setStorageSync(CUSTOMER_CONTACT_CACHE_KEY, {
+      contactName: (contactName || "").slice(0, 64),
+      contactPhone: (contactPhone || "").slice(0, 20)
+    });
+  } catch (_e) {
+    // Storage failure should not block appointment submission.
+  }
+}
+
 Page({
   data: {
     photographerId: null,
@@ -81,6 +109,8 @@ Page({
       date: buildDefaultDate(),
       time: "10:00",
       locationText: "",
+      contactName: "",
+      contactPhone: "",
       participantCount: "1",
       note: ""
     }
@@ -92,7 +122,12 @@ Page({
       wx.showToast({ title: "缺少摄影师信息", icon: "none" });
       return;
     }
-    this.setData({ photographerId });
+    const cachedContact = loadCachedCustomerContact();
+    this.setData({
+      photographerId,
+      "form.contactName": cachedContact.contactName,
+      "form.contactPhone": cachedContact.contactPhone
+    });
     this.prepareAppointmentSubscriptions();
     await this.loadPhotographer();
   },
@@ -203,9 +238,15 @@ Page({
   },
 
   async submit() {
-    const { date, time, locationText, participantCount, note } = this.data.form;
+    const { date, time, locationText, contactName, contactPhone, participantCount, note } = this.data.form;
+    const normalizedContactName = (contactName || "").trim();
+    const normalizedContactPhone = (contactPhone || "").trim();
     if (!locationText.trim()) {
       wx.showToast({ title: "请填写拍摄地点", icon: "none" });
+      return;
+    }
+    if (normalizedContactPhone && normalizedContactPhone.length < 5) {
+      wx.showToast({ title: "请填写有效联系方式", icon: "none" });
       return;
     }
     this.setData({ submitting: true });
@@ -222,10 +263,13 @@ Page({
           package_id: packageOption.id,
           scheduled_at: `${date}T${time}:00+08:00`,
           location_text: locationText.trim(),
+          contact_name: normalizedContactName,
+          contact_phone: normalizedContactPhone,
           participant_count: Number(participantCount || 1),
           note: note.trim()
         }
       });
+      saveCustomerContactCache(normalizedContactName, normalizedContactPhone);
       wx.showModal({
         title: "预约已提交",
         content: "你可以在“我的 -> 预约中心”里查看这条预约记录。",

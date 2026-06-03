@@ -99,8 +99,14 @@
       <view wx:if="{{item.status === 'accepted_pending_customer' && activeTab === 'mine'}}" class="appointment-tip">
         摄影师已同意，等待你确认后解锁双方联系方式
       </view>
+      <view wx:if="{{item.status === 'accepted_pending_customer' && activeTab === 'assigned'}}" class="appointment-tip">
+        你已同意，等待客户最终确认后解锁双方联系方式
+      </view>
       <view wx:if="{{item.status === 'confirmed' && activeTab === 'mine' && item.photographer_completed_at}}" class="appointment-tip">
-        摄影师已标记拍摄完成，进入详情确认后即可评价
+        摄影师已标记拍摄完成，进入详情确认完成并评价
+      </view>
+      <view wx:if="{{item.status === 'completed' && activeTab === 'mine' && item.can_review}}" class="appointment-tip">
+        订单已完成，进入详情评价本次服务
       </view>
       <view wx:if="{{item.status === 'pending' && activeTab === 'assigned'}}" class="appointment-tip">
         处理后会通知客户，客户确认预约后才会展示双方联系方式

@@ -6,6 +6,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.common import ORMModel, TimestampOut
+from app.schemas.review import ReviewOut
 
 
 class PortfolioItemOut(TimestampOut):
@@ -111,6 +112,7 @@ class PhotographerDetailOut(PhotographerOut):
     is_favorited: bool = Field(default=False, description="当前登录用户是否已收藏该摄影师")
     portfolio_items: list[PortfolioItemOut]
     packages: list[PackageOut]
+    reviews: list[ReviewOut] = Field(default_factory=list)
 
 
 class NearbyQuery(BaseModel):

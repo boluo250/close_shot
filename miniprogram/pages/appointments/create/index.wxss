@@ -107,6 +107,27 @@
   color: #94a3b8;
 }
 
+.contact-card {
+  margin-top: 26rpx;
+  padding: 22rpx 24rpx 24rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1rpx solid rgba(191, 232, 74, 0.14);
+}
+
+.contact-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.contact-desc {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  line-height: 1.7;
+  color: #aeb9c9;
+}
+
 .draft-card {
   margin-top: 28rpx;
   padding: 22rpx 24rpx;

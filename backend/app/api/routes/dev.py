@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import hash_password
-from app.db.models import Package, Photographer, PortfolioItem, Review, User, UserRole
+from app.db.models import Package, Photographer, PortfolioItem, Review, ReviewStatus, User, UserRole
 from app.db.session import get_db
 
 router = APIRouter()
@@ -260,7 +260,15 @@ def seed(
             rating = 5 if r < 0.65 else 4 if r < 0.93 else 3
             content = rng.choice(review_contents) if rng.random() < 0.8 else None
             reviewer = rng.choice(customers)
-            reviews.append(Review(user_id=reviewer.id, photographer_id=p.id, rating=rating, content=content))
+            reviews.append(
+                Review(
+                    user_id=reviewer.id,
+                    photographer_id=p.id,
+                    rating=rating,
+                    content=content,
+                    status=ReviewStatus.approved.value,
+                )
+            )
         if reviews:
             db.add_all(reviews)
         created += 1

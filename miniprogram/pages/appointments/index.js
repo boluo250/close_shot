@@ -1,14 +1,21 @@
 const { ensureLogin } = require("../../utils/auth");
 const { request } = require("../../utils/request");
 
-function formatStatus(status) {
+function formatStatus(item, tab = "mine") {
+  const status = item?.status;
+  if (status === "confirmed" && item?.photographer_completed_at && !item?.customer_completed_at) {
+    return tab === "assigned" ? "已完成订单" : "待评价";
+  }
+  if (tab === "mine" && status === "completed" && item?.can_review) {
+    return "待评价";
+  }
   return (
     {
       pending: "待摄影师确认",
-      accepted_pending_customer: "待你确认预约",
+      accepted_pending_customer: tab === "assigned" ? "待客户最终确认" : "待你确认预约",
       confirmed: "已确认预约",
       rejected: "已拒绝",
-      completed: "已完成",
+      completed: "已完成订单",
       cancelled: "已取消"
     }[status] || status || "未知状态"
   );
@@ -104,7 +111,7 @@ Page({
     if (!Array.isArray(items)) return [];
     return items.map((item) => ({
       ...item,
-      statusLabel: formatStatus(item.status),
+      statusLabel: formatStatus(item, tab),
       scheduledText: formatTime(item.scheduled_at),
       counterpartyName:
         tab === "assigned"

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_user
 from app.core.config import settings
-from app.db.models import Favorite, Package, Photographer, PhotographerStatus, PortfolioItem, User, UserRole
+from app.db.models import Favorite, Package, Photographer, PhotographerStatus, PortfolioItem, Review, ReviewStatus, User, UserRole
 from app.db.session import get_db
 from app.schemas.me import MeIdentityOut
 from app.schemas.photographer import (
@@ -20,6 +20,7 @@ from app.schemas.photographer import (
     PackageOut,
     PortfolioItemOut,
 )
+from app.schemas.review import ReviewOut
 from app.services.geo import haversine_distance_m
 from app.services.media_url import object_key_to_url
 from app.services.membership import can_view_contact
@@ -414,6 +415,32 @@ def get_detail(
         payload["watermark_url"] = object_key_to_url(item.watermark_object_key) or item.watermark_url
         portfolio_out.append(PortfolioItemOut(**payload))
 
+    review_rows = db.execute(
+        select(Review, User)
+        .outerjoin(User, User.id == Review.user_id)
+        .where(
+            Review.photographer_id == photographer_id,
+            Review.status == ReviewStatus.approved.value,
+        )
+        .order_by(Review.created_at.desc(), Review.id.desc())
+        .limit(20)
+    ).all()
+    reviews = [
+        ReviewOut(
+            id=int(review.id),
+            user_id=int(review.user_id) if review.user_id is not None else None,
+            photographer_id=int(review.photographer_id),
+            rating=int(review.rating),
+            content=review.content,
+            status=review.status,
+            user_display_name=user.display_name if user else None,
+            user_avatar_url=user.avatar_url if user else None,
+            created_at=review.created_at,
+            updated_at=review.updated_at,
+        )
+        for review, user in review_rows
+    ]
+
     return PhotographerDetailOut(
         **PhotographerOut.model_validate(p).model_dump(
             exclude={
@@ -442,6 +469,7 @@ def get_detail(
         is_favorited=is_favorited,
         portfolio_items=portfolio_out,
         packages=[PackageOut.model_validate(i) for i in packages],
+        reviews=reviews,
     )
 
 
@@ -471,4 +499,3 @@ def favorite_remove(
     )
     db.commit()
     return {"ok": True}
-

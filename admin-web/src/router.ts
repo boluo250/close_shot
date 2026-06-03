@@ -15,6 +15,7 @@ import AdminRiskUsersView from "./views/AdminRiskUsersView.vue";
 import AdminAnalyticsView from "./views/AdminAnalyticsView.vue";
 import AdminDbView from "./views/AdminDbView.vue";
 import AdminAppointmentsView from "./views/AdminAppointmentsView.vue";
+import AdminReviewsView from "./views/AdminReviewsView.vue";
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -34,6 +35,7 @@ export const router = createRouter({
         { path: "admin/risk-users", component: AdminRiskUsersView },
         { path: "admin/analytics", component: AdminAnalyticsView },
         { path: "admin/appointments", component: AdminAppointmentsView },
+        { path: "admin/reviews", component: AdminReviewsView },
         {
           path: "admin/system-monitor",
           component: () => import("./views/AdminSystemMonitorView.vue")

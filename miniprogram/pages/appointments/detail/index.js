@@ -5,14 +5,21 @@ const {
   requestTemplates
 } = require("../../../utils/subscribe");
 
-function formatStatus(status) {
+function formatStatus(item, mode = "mine") {
+  const status = item?.status;
+  if (status === "confirmed" && item?.photographer_completed_at && !item?.customer_completed_at) {
+    return mode === "assigned" ? "已完成订单" : "待评价";
+  }
+  if (mode === "mine" && status === "completed" && item?.can_review) {
+    return "待评价";
+  }
   return (
     {
       pending: "待摄影师确认",
-      accepted_pending_customer: "待你确认预约",
+      accepted_pending_customer: mode === "assigned" ? "待客户最终确认" : "待你确认预约",
       confirmed: "已确认预约",
       rejected: "已拒绝",
-      completed: "已完成",
+      completed: "已完成订单",
       cancelled: "已取消"
     }[status] || status || "未知状态"
   );
@@ -59,7 +66,7 @@ Page({
       const item = await request(`/appointments/${this.data.id}`, { auth: true });
       const viewItem = {
         ...item,
-        statusLabel: formatStatus(item.status),
+        statusLabel: formatStatus(item, this.data.mode),
         scheduledText: formatTime(item.scheduled_at)
       };
       this.setData({ item: viewItem });
@@ -147,6 +154,17 @@ Page({
     this.postAction(`/appointments/${this.data.id}/complete`, "状态已更新");
   },
 
+  async handleCustomerComplete() {
+    try {
+      await request(`/appointments/${this.data.id}/complete`, { method: "POST", auth: true, data: {} });
+      wx.showToast({ title: "已确认完成", icon: "none" });
+      this.load();
+      this.handleReview();
+    } catch (err) {
+      wx.showToast({ title: err?.message || "操作失败", icon: "none" });
+    }
+  },
+
   handleReview() {
     const options = ["5 分", "4 分", "3 分", "2 分", "1 分"];
     wx.showActionSheet({
@@ -168,7 +186,7 @@ Page({
                   content: res.content || ""
                 }
               });
-              wx.showToast({ title: "评价已提交", icon: "none" });
+              wx.showToast({ title: "评价已提交，审核通过后展示", icon: "none" });
               this.load();
             } catch (err) {
               wx.showToast({ title: err?.message || "提交失败", icon: "none" });

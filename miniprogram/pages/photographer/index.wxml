@@ -94,6 +94,25 @@
     </view>
   </view>
 
+  <!-- 用户评价：仅展示后台审核通过的评价 -->
+  <view class="cs-card" wx:if="{{reviews.length > 0}}">
+    <view class="section-header">
+      <text class="section-title">用户评价</text>
+      <text class="section-count">{{reviews.length}} 条</text>
+    </view>
+    <view wx:for="{{reviews}}" wx:key="id" class="review-card">
+      <image class="review-avatar" mode="aspectFill" src="{{item.user_avatar_url || ''}}" />
+      <view class="review-main">
+        <view class="review-head">
+          <text class="review-name">{{item.userName}}</text>
+          <text class="review-date">{{item.dateText}}</text>
+        </view>
+        <view class="review-stars">{{item.stars}}</view>
+        <view wx:if="{{item.content}}" class="review-content">{{item.content}}</view>
+      </view>
+    </view>
+  </view>
+
   <!-- 底部操作栏 -->
   <view class="bottom-bar">
     <button wx:if="{{isOwnerPhotographer}}" class="contact-btn" bindtap="goEditProfile">编辑我的主页</button>

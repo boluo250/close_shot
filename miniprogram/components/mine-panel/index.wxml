@@ -49,12 +49,7 @@
       >
         <view class="mine-cell-main">
           <text class="mine-cell-title">预约中心</text>
-          <text class="mine-cell-desc">
-            {{identityState === 'verified_photographer' ? '统一查看我发起的预约和收到的预约' : '查看预约状态、完成确认和评价入口'}}
-            <block wx:if="{{appointmentSummary.centerPendingTotal}}">
-              （待处理 {{appointmentSummary.centerPendingTotal}}）
-            </block>
-          </text>
+          <text class="mine-cell-desc">{{identityState === 'verified_photographer' ? '统一查看我发起的预约和收到的预约' : '查看预约状态、完成确认和评价入口'}}<block wx:if="{{appointmentSummary.centerPendingTotal}}">（待处理 {{appointmentSummary.centerPendingTotal}}）</block></text>
         </view>
         <text class="mine-cell-arrow">›</text>
       </button>
