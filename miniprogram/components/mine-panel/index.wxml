@@ -119,4 +119,11 @@
   <view wx:if="{{identityState !== 'guest' && identityState !== 'unknown'}}" class="mine-logout-link" bindtap="logout">
     {{uiText.logoutTitle}}
   </view>
+
+  <view class="mine-version-wrap" bindtap="copyVersionInfo">
+    <view class="mine-version-line">
+      <text class="mine-version-value">{{versionInfo.appName}} {{versionInfo.versionText}}</text>
+    </view>
+    <view wx:if="{{versionInfo.showBuildMeta}}" class="mine-version-meta">{{versionInfo.channelLabel}} · {{versionInfo.buildText}}</view>
+  </view>
 </view>

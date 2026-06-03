@@ -1,5 +1,6 @@
 const theme = require("./utils/theme");
 const env = require("./env");
+const { resolveVersionInfo } = require("./utils/version");
 
 function resolveApiBaseUrl() {
   // 优先使用 env 中配置的线上地址，确保默认直连部署后端
@@ -13,10 +14,12 @@ function resolveApiBaseUrl() {
 App({
   globalData: {
     apiBaseUrl: resolveApiBaseUrl(),
-    theme: "soda"
+    theme: "soda",
+    versionInfo: resolveVersionInfo()
   },
   onLaunch() {
     this.globalData.theme = theme.getTheme();
+    this.globalData.versionInfo = resolveVersionInfo();
     theme.applySystemUI();
   }
 });

@@ -1,5 +1,6 @@
 const { getToken, clearAuthState, ensureLogin } = require("../../utils/auth");
 const { request } = require("../../utils/request");
+const { resolveVersionInfo } = require("../../utils/version");
 const {
   warmAppointmentSubscribeConfig,
   requestPhotographerAppointmentSubscriptions,
@@ -11,6 +12,7 @@ const {
 const IDENTITY_CACHE_KEY = "mine_identity_cache_v1";
 const APPOINTMENT_PROMPT_CACHE_KEY = "mine_appointment_prompt_cache_v1";
 const PHOTOGRAPHER_NOTIFY_PROMPT_KEY = "photographer_notify_prompt_v1";
+const DEFAULT_VERSION_INFO = resolveVersionInfo();
 
 Component({
   data: {
@@ -79,10 +81,15 @@ Component({
       roleLabel: "未登录",
       certLabel: "未认证",
       studioDesc: "登录后可申请成为摄影师"
-    }
+    },
+    versionInfo: DEFAULT_VERSION_INFO
   },
   lifetimes: {
     attached() {
+      const app = getApp();
+      this.setData({
+        versionInfo: (app && app.globalData && app.globalData.versionInfo) || DEFAULT_VERSION_INFO
+      });
       this.refresh();
     }
   },
@@ -428,6 +435,17 @@ Component({
       });
       this.syncViewState();
       wx.showToast({ title: "已退出", icon: "none" });
+    },
+
+    copyVersionInfo() {
+      const fullText = this.data.versionInfo && this.data.versionInfo.fullText;
+      if (!fullText) return;
+      wx.setClipboardData({
+        data: fullText,
+        success: () => {
+          wx.showToast({ title: "版本信息已复制", icon: "none" });
+        }
+      });
     },
 
     async goAppointmentCenter() {

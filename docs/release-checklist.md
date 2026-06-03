@@ -26,6 +26,7 @@
 
 ## Mini Program
 
+- 确认 `miniprogram/env.js` 中 `APP_VERSION_NAME`、`APP_BUILD_NO`、`RELEASE_CHANNEL` 已按本次发版更新。
 - 微信登录成功，首页、地图页、摄影师详情页可正常加载。
 - 首次进入时，隐私协议/授权链路可正常完成。
 - 摄影师入驻申请可正常提交，资料字段、图片和联系方式都能保存。
