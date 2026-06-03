@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -310,6 +311,7 @@ class MembershipOrder(TimestampMixin, Base):
 
 class AdminOperationLog(TimestampMixin, Base):
     __tablename__ = "admin_operation_logs"
+    __table_args__ = (Index("ix_admin_operation_logs_created_at", "created_at"),)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     admin_user_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), index=True)
@@ -325,6 +327,7 @@ class AdminOperationLog(TimestampMixin, Base):
 
 class UserOperationLog(TimestampMixin, Base):
     __tablename__ = "user_operation_logs"
+    __table_args__ = (Index("ix_user_operation_logs_created_at", "created_at"),)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     user_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), index=True)

@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     analytics_report_timezone: str = "Asia/Shanghai"
     analytics_daily_report_webhook_url: str | None = None
     analytics_daily_report_webhook_secret: str | None = None
+    admin_operation_log_retention_days: int = 180
+    user_operation_log_retention_days: int = 90
+    operation_log_cleanup_batch_size: int = 1000
 
     monitor_docker_socket: str | None = "/var/run/docker.sock"
     monitor_container_names: str = "close-shot-api,close-shot-db,close-shot-admin-web,close-shot-nginx"

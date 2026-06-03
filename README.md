@@ -111,6 +111,7 @@ module.exports = {
   sudo apt-get install -y awscli
   ```
   或使用部署脚本一键安装：`./infra/deploy.sh install-backup-deps`
+- **操作日志回收（可选）**：若线上 `admin_operation_logs` / `user_operation_logs` 增长较快，可按 [操作日志回收](backend/scripts/README-OPERATION-LOG-CLEANUP.md) 配置保留天数并加入 `cron`
 
 部署步骤（服务器）：
 
