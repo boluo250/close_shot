@@ -1,5 +1,10 @@
 const { request } = require("../../utils/request");
 const { getToken, ensureLogin } = require("../../utils/auth");
+const {
+  enableShareMenu,
+  getPhotographerShareConfig,
+  getPhotographerTimelineConfig
+} = require("../../utils/share");
 
 Page({
   data: {
@@ -24,6 +29,8 @@ Page({
   },
 
   async onLoad(query) {
+    enableShareMenu();
+
     const id = Number(query.id);
     this.setData({
       id,
@@ -223,5 +230,18 @@ Page({
 
   goEditProfile() {
     wx.navigateTo({ url: "/pages/studio/index" });
+  },
+
+  onShareAppMessage() {
+    return getPhotographerShareConfig(this.data.p, {
+      id: this.data.id,
+      from: this.data.fromSource || "share"
+    });
+  },
+
+  onShareTimeline() {
+    return getPhotographerTimelineConfig(this.data.p, {
+      id: this.data.id
+    });
   }
 });

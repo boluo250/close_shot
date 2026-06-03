@@ -1,3 +1,5 @@
+const { enableShareMenu, getHomeShareConfig, getHomeTimelineConfig } = require("../../utils/share");
+
 Page({
   data: {
     activeTab: "nearby",
@@ -5,6 +7,8 @@ Page({
   },
 
   onLoad(query) {
+    enableShareMenu();
+
     // 首页固定为汽水风格
     this.setData({ themeClass: "cs-theme-soda" });
 
@@ -40,6 +44,18 @@ Page({
     this._maybeRefreshActive();
   },
 
+  onShareAppMessage() {
+    return getHomeShareConfig({
+      query: { tab: this.data.activeTab || "nearby" }
+    });
+  },
+
+  onShareTimeline() {
+    return getHomeTimelineConfig({
+      query: { tab: this.data.activeTab || "nearby" }
+    });
+  },
+
   async _maybeRefreshActive(force = false) {
     const tab = this.data.activeTab;
     if (tab === "nearby") {
@@ -59,4 +75,3 @@ Page({
     }
   }
 });
-

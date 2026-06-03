@@ -117,6 +117,7 @@
   <view class="bottom-bar">
     <button wx:if="{{isOwnerPhotographer}}" class="contact-btn" bindtap="goEditProfile">编辑我的主页</button>
     <view wx:else class="bottom-bar-actions">
+      <button class="share-btn" open-type="share">分享</button>
       <button class="contact-btn appointment-soda-btn" bindtap="goCreateAppointment">发起预约</button>
     </view>
   </view>

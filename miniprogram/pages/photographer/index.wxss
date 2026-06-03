@@ -510,11 +510,14 @@
 
 .bottom-bar-actions {
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 16rpx;
 }
 
 .appointment-btn,
-.contact-btn {
+.contact-btn,
+.share-btn {
   height: 88rpx;
   line-height: 88rpx;
   border-radius: 44rpx;
@@ -525,9 +528,17 @@
 }
 
 .contact-btn {
-  width: 100%;
+  flex: 1;
   background: var(--cs-gradient-primary);
   color: #0b0d12;
+}
+
+.share-btn {
+  width: 168rpx;
+  flex-shrink: 0;
+  background: var(--cs-color-surface-2);
+  color: var(--cs-color-text);
+  border: 1rpx solid var(--cs-color-border);
 }
 
 .appointment-btn {
@@ -538,12 +549,13 @@
 }
 
 .appointment-soda-btn {
-  width: 100%;
+  min-width: 0;
   max-width: 520rpx;
 }
 
 .appointment-btn::after,
-.contact-btn::after {
+.contact-btn::after,
+.share-btn::after {
   border: none;
 }
 
@@ -554,5 +566,10 @@
 
 .contact-btn:active {
   background: var(--cs-gradient-primary-press);
+  transform: translateY(1rpx);
+}
+
+.share-btn:active {
+  background: var(--cs-color-border);
   transform: translateY(1rpx);
 }
