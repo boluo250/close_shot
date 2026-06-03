@@ -1,7 +1,7 @@
 """add review moderation status
 
 Revision ID: 20260603_0001
-Revises: 20260601_0001
+Revises: 20260602_0001
 Create Date: 2026-06-03
 
 """
@@ -12,7 +12,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "20260603_0001"
-down_revision = "20260601_0001"
+down_revision = "20260602_0001"
 branch_labels = None
 depends_on = None
 
