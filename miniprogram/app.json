@@ -20,7 +20,8 @@
     }
   },
   "requiredPrivateInfos": [
-    "getLocation"
+    "getLocation",
+    "chooseLocation"
   ],
   "window": {
     "navigationBarTitleText": "Close Shot",

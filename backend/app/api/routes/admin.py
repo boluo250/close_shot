@@ -435,6 +435,7 @@ def _photographer_to_detail(
     )
     data["has_pending_changes"] = has_pending_changes
     data["pending_review_submitted_at"] = getattr(p, "pending_submission_submitted_at", None)
+    data["pending_reject_reason"] = getattr(p, "pending_reject_reason", None)
     return CertificationDetailOut(**data)
 
 

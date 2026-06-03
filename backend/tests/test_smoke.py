@@ -726,6 +726,53 @@ def test_admin_detail_keeps_approved_status_when_has_pending_changes():
     assert detail.packages[0].name == "待审套餐"
 
 
+def test_admin_detail_exposes_pending_reject_reason_for_rejected_changes():
+    photographer = SimpleNamespace(
+        id=21,
+        user_id=21,
+        user=SimpleNamespace(
+            display_name="阿青",
+            avatar_url="https://example.com/avatar.jpg",
+            trust_score=75,
+            risk_level="low",
+            blacklist_status="normal",
+        ),
+        status="approved",
+        is_accepting_orders=True,
+        reject_reason=None,
+        pending_reject_reason="服务范围描述不清，请补充拍摄城市和半径。",
+        certification_level=1,
+        quality_score=7.0,
+        sort_score=55.0,
+        real_name=None,
+        id_card_number=None,
+        id_card_front_url=None,
+        id_card_back_url=None,
+        experience_years=None,
+        portfolio_link=None,
+        phone="13800138000",
+        wechat_id="aqing-photo",
+        city="上海",
+        price_range=None,
+        bio="正式版简介",
+        equipment_list="Sony A7M4",
+        drone_models="DJI Air 3",
+        service_center_lat=31.2304,
+        service_center_lng=121.4737,
+        service_radius_m=5000,
+        pending_submission_json=None,
+        pending_submission_submitted_at=None,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+
+    detail = admin_routes._photographer_to_detail(photographer, portfolio_preview_map={21: []})
+
+    assert detail.status == "approved"
+    assert detail.pending_reject_reason == "服务范围描述不清，请补充拍摄城市和半径。"
+    assert detail.reject_reason is None
+
+
 def test_apply_photographer_persists_display_name():
     from app.api.routes import me as me_routes
 

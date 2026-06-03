@@ -1,6 +1,6 @@
 # 操作日志回收
 
-任务入口：`python -m app.jobs.cleanup_operation_logs`
+默认任务入口：`docker compose -f docker-compose.deploy.yml exec api python -m app.jobs.cleanup_operation_logs`
 
 用于定期清理以下两张表中过期的线上操作日志，避免持续膨胀：
 
@@ -33,17 +33,22 @@ OPERATION_LOG_CLEANUP_BATCH_SIZE=1000
 先执行数据库迁移，给日志表补 `created_at` 索引：
 
 ```bash
-cd /path/to/close_shot/backend
-alembic upgrade head
+cd /path/to/close_shot/infra
+docker compose -f docker-compose.deploy.yml exec api alembic upgrade head
 ```
+
+说明：
+
+- 如果你是 Docker 部署，推荐始终在 `api` 容器里执行，避免宿主机 Python 缺依赖
+- 只有在宿主机已经准备好完整后端虚拟环境时，才建议直接在宿主机跑 `python -m ...`
 
 ## 手动演练
 
 先看会删多少，不实际删除：
 
 ```bash
-cd /path/to/close_shot/backend
-python -m app.jobs.cleanup_operation_logs --dry-run
+cd /path/to/close_shot/infra
+docker compose -f docker-compose.deploy.yml exec api python -m app.jobs.cleanup_operation_logs --dry-run
 ```
 
 返回示例：
@@ -70,17 +75,24 @@ python -m app.jobs.cleanup_operation_logs --dry-run
 确认数量合理后，再正式执行：
 
 ```bash
-cd /path/to/close_shot/backend
-python -m app.jobs.cleanup_operation_logs
+cd /path/to/close_shot/infra
+docker compose -f docker-compose.deploy.yml exec api python -m app.jobs.cleanup_operation_logs
 ```
 
 如果想临时覆盖策略：
 
 ```bash
-python -m app.jobs.cleanup_operation_logs \
+docker compose -f docker-compose.deploy.yml exec api python -m app.jobs.cleanup_operation_logs \
   --admin-retention-days 365 \
   --user-retention-days 120 \
   --batch-size 2000
+```
+
+如果你确认宿主机环境已经装好后端依赖，也可以备用这样执行：
+
+```bash
+cd /path/to/close_shot/backend
+python3 -m app.jobs.cleanup_operation_logs --dry-run
 ```
 
 ## cron 示例
@@ -100,24 +112,25 @@ crontab -e
 每天凌晨 4:20 执行一次：
 
 ```cron
-20 4 * * * cd /path/to/close_shot/backend && /usr/bin/python3 -m app.jobs.cleanup_operation_logs >> /var/log/close_shot_operation_log_cleanup.log 2>&1
-```
-
-如果你的生产环境使用虚拟环境，可改成：
-
-```cron
-20 4 * * * cd /path/to/close_shot/backend && /path/to/close_shot/backend/.venv/bin/python -m app.jobs.cleanup_operation_logs >> /var/log/close_shot_operation_log_cleanup.log 2>&1
+20 4 * * * cd /path/to/close_shot/infra && docker compose -f docker-compose.deploy.yml exec -T api python -m app.jobs.cleanup_operation_logs >> /var/log/close_shot_operation_log_cleanup.log 2>&1
 ```
 
 如果希望先连续观察几天，只做演练：
 
 ```cron
-20 4 * * * cd /path/to/close_shot/backend && /usr/bin/python3 -m app.jobs.cleanup_operation_logs --dry-run >> /var/log/close_shot_operation_log_cleanup.log 2>&1
+20 4 * * * cd /path/to/close_shot/infra && docker compose -f docker-compose.deploy.yml exec -T api python -m app.jobs.cleanup_operation_logs --dry-run >> /var/log/close_shot_operation_log_cleanup.log 2>&1
+```
+
+如果你不是 Docker 部署，或者明确要走宿主机虚拟环境，可改成：
+
+```cron
+20 4 * * * cd /path/to/close_shot/backend && /path/to/close_shot/backend/.venv/bin/python -m app.jobs.cleanup_operation_logs >> /var/log/close_shot_operation_log_cleanup.log 2>&1
 ```
 
 ## 线上建议
 
 - 初次正式执行建议放在低峰时段
+- `cron` 里对容器执行要加 `exec -T`，避免因为没有 TTY 导致任务失败
 - 如果历史日志量已经非常大，可以先临时把 `--batch-size` 调小，例如 `500`
 - 如果一次运行删除量仍然很大，可以一天跑多次，逐步削峰
 - PostgreSQL 大量删除后，表空间不会立刻完全回收；如果后续仍觉得膨胀明显，再结合业务低峰安排 `VACUUM (ANALYZE)` 或更进一步的维护

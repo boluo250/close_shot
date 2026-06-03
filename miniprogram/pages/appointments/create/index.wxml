@@ -1,7 +1,7 @@
 <view class="cs-page appointment-create-page">
   <view class="create-card">
     <view class="create-title">预约 {{photographerName}}</view>
-    <view class="create-desc">先提交时间和地点，摄影师确认后这次撮合就有了可追踪的记录。</view>
+    <view class="create-desc">先提交时间、地点和人数，摄影师确认后你就能在平台内查看对方联系方式并主动联系。</view>
     <view class="create-subscribe-tip">提交时会申请“预约处理结果提醒”，方便你及时收到接单通知。</view>
 
     <view class="field">
@@ -26,23 +26,12 @@
     </view>
 
     <view class="field">
-      <text class="field-label">拍摄地点</text>
-      <input class="field-input" maxlength="255" placeholder="例如：上海静安寺 / 某咖啡馆" value="{{form.locationText}}" data-field="locationText" bindinput="bindInput" bindblur="bindInput" />
-    </view>
-
-    <view class="field">
-      <text class="field-label">联系人</text>
-      <input class="field-input" maxlength="64" placeholder="填写称呼，方便摄影师确认" value="{{form.contactName}}" data-field="contactName" bindinput="bindInput" bindblur="bindInput" />
-    </view>
-
-    <view class="field">
-      <text class="field-label">联系电话</text>
-      <input class="field-input" type="number" maxlength="20" placeholder="便于临时沟通" value="{{form.contactPhone}}" data-field="contactPhone" bindinput="bindInput" bindblur="bindInput" />
-    </view>
-
-    <view class="field">
-      <text class="field-label">拍摄类型</text>
-      <input class="field-input" maxlength="64" placeholder="例如：人像 / 亲子 / 活动跟拍" value="{{form.shootingType}}" data-field="shootingType" bindinput="bindInput" bindblur="bindInput" />
+      <text class="field-label"><text class="field-required">*</text>拍摄地点</text>
+      <view class="field-inline-actions">
+        <input class="field-input field-input-location" maxlength="255" placeholder="必填，可手动填写，例如：上海静安寺 / 某咖啡馆" value="{{form.locationText}}" data-field="locationText" bindinput="bindInput" bindblur="bindInput" />
+        <button class="field-action-btn" bindtap="pickLocation">地图选点</button>
+      </view>
+      <view class="field-help">建议填写到商圈、景点、街道或门店，方便摄影师判断是否可接单。</view>
     </view>
 
     <view class="field">
@@ -59,9 +48,8 @@
       <view class="draft-title">当前预约摘要</view>
       <view class="draft-row">时间：{{form.date}} {{form.time}}</view>
       <view class="draft-row">地点：{{form.locationText || '未填写'}}</view>
-      <view class="draft-row">联系人：{{form.contactName || '未填写'}} {{form.contactPhone || ''}}</view>
-      <view class="draft-row">类型：{{form.shootingType || '未填写'}}</view>
       <view class="draft-row">人数：{{form.participantCount || '1'}} 人</view>
+      <view class="draft-row">说明：{{form.note || '未填写'}}</view>
     </view>
   </view>
 

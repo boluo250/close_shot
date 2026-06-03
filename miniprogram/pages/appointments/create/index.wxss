@@ -43,6 +43,17 @@
   color: #cbd5e1;
 }
 
+.field-required {
+  margin-right: 6rpx;
+  color: #f97316;
+}
+
+.field-inline-actions {
+  display: flex;
+  gap: 14rpx;
+  align-items: stretch;
+}
+
 .field-input,
 .field-picker,
 .field-textarea {
@@ -59,6 +70,10 @@
   font-size: 28rpx;
 }
 
+.field-input-location {
+  flex: 1;
+}
+
 .field-picker {
   min-height: 82rpx;
 }
@@ -66,6 +81,30 @@
 .field-textarea {
   min-height: 180rpx;
   line-height: 1.7;
+}
+
+.field-action-btn {
+  flex-shrink: 0;
+  min-width: 170rpx;
+  min-height: 82rpx;
+  padding: 0 26rpx;
+  border-radius: 20rpx;
+  border: 1rpx solid rgba(191, 232, 74, 0.2);
+  background: rgba(191, 232, 74, 0.1);
+  color: #d9f99d;
+  font-size: 26rpx;
+  line-height: 82rpx;
+}
+
+.field-action-btn::after {
+  border: none;
+}
+
+.field-help {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  line-height: 1.7;
+  color: #94a3b8;
 }
 
 .draft-card {

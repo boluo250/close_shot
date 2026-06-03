@@ -134,6 +134,7 @@ class CertificationDetailOut(TimestampOut):
     status: str
     is_accepting_orders: bool = False
     reject_reason: str | None = None
+    pending_reject_reason: str | None = None
     certification_level: int = 0
     quality_score: float = 5.0
     sort_score: float = 50.0

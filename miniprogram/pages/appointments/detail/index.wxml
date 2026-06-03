@@ -29,6 +29,11 @@
       <view wx:if="{{item.can_view_customer_contact && item.customer_contact_phone}}" class="detail-row">客户电话：{{item.customer_contact_phone}}</view>
     </view>
 
+    <view class="detail-card" wx:if="{{mode === 'assigned' && item.status === 'confirmed' && !item.customer_contact_name && !item.customer_contact_phone}}">
+      <view class="detail-section-title">联系说明</view>
+      <view class="detail-note">客户未在预约单里留联系方式。预约确认后，客户会看到你的联系方式并主动联系你。</view>
+    </view>
+
     <view class="detail-card" wx:if="{{item.status === 'confirmed'}}">
       <view class="detail-section-title">完成确认</view>
       <view wx:if="{{!item.photographer_completed_at}}" class="detail-note">拍摄结束后，请先由摄影师标记“拍摄已完成”。</view>

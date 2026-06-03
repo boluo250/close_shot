@@ -81,6 +81,14 @@
           <span v-else style="color: #999">-</span>
         </template>
       </el-table-column>
+      <el-table-column label="驳回原因" min-width="220">
+        <template #default="{ row }">
+          <span v-if="displayRejectReason(row)">
+            {{ displayRejectReason(row) }}
+          </span>
+          <span v-else style="color: #999">-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="接单" width="100">
         <template #default="{ row }">
           <el-tag v-if="row.status === 'approved'" :type="availabilityType(row)" size="small">
@@ -329,8 +337,12 @@
         <span style="font-size: 12px; color: #999">当前排序分：{{ Number(currentItem.sort_score || 0).toFixed(1) }}</span>
       </div>
 
-      <div v-if="currentItem.reject_reason" style="margin-top: 16px">
-        <el-alert :title="`驳回原因：${currentItem.reject_reason}`" type="error" :closable="false" />
+      <div v-if="displayRejectReason(currentItem)" style="margin-top: 16px">
+        <el-alert
+          :title="`${rejectReasonLabel(currentItem)}：${displayRejectReason(currentItem)}`"
+          type="error"
+          :closable="false"
+        />
       </div>
 
       <div style="margin-top: 16px; text-align: right">
@@ -406,6 +418,7 @@ type CertificationItem = {
   status: string;
   is_accepting_orders: boolean;
   reject_reason: string | null;
+  pending_reject_reason: string | null;
   certification_level: number;
   quality_score: number;
   sort_score: number;
@@ -654,7 +667,10 @@ async function handleReject() {
     );
     const idx = items.value.findIndex((x) => x.id === rejectTarget.value!.id);
     if (idx >= 0) items.value[idx] = data;
+    if (currentItem.value?.id === data.id) currentItem.value = data;
     rejectVisible.value = false;
+    rejectTarget.value = null;
+    rejectReason.value = "";
     ElMessage.success("已驳回");
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.detail || "操作失败");
@@ -682,6 +698,16 @@ function availabilityLabel(row: CertificationItem) {
 
 function availabilityType(row: CertificationItem) {
   return (row.is_accepting_orders ? "success" : "info") as any;
+}
+
+function displayRejectReason(row: CertificationItem | null) {
+  if (!row) return "";
+  return row.pending_reject_reason || row.reject_reason || "";
+}
+
+function rejectReasonLabel(row: CertificationItem | null) {
+  if (!row) return "驳回原因";
+  return row.pending_reject_reason ? "修改驳回原因" : "驳回原因";
 }
 
 function riskLabel(level?: string | null) {

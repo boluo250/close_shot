@@ -11,6 +11,65 @@ function buildDefaultDate() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
+function normalizeLocationText(choice) {
+  const name = (choice?.name || "").trim();
+  const address = (choice?.address || "").trim();
+  if (name && address && address.includes(name)) {
+    return address.slice(0, 255);
+  }
+  if (name && address) {
+    return `${name} ${address}`.slice(0, 255);
+  }
+  return (name || address || "").slice(0, 255);
+}
+
+function getSettingAsync() {
+  if (typeof wx.getSetting !== "function") {
+    return Promise.resolve({});
+  }
+  return new Promise((resolve, reject) => {
+    wx.getSetting({
+      success: resolve,
+      fail: reject
+    });
+  });
+}
+
+function authorizeAsync(scope) {
+  if (typeof wx.authorize !== "function") {
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    wx.authorize({
+      scope,
+      success: resolve,
+      fail: reject
+    });
+  });
+}
+
+function showModalAsync(options) {
+  return new Promise((resolve) => {
+    wx.showModal({
+      ...options,
+      success: resolve,
+      fail: () => resolve({ confirm: false, cancel: true })
+    });
+  });
+}
+
+function openSettingAsync() {
+  if (typeof wx.openSetting !== "function") {
+    return Promise.resolve({});
+  }
+  return new Promise((resolve, reject) => {
+    wx.openSetting({
+      success: resolve,
+      fail: reject
+    });
+  });
+}
+
 Page({
   data: {
     photographerId: null,
@@ -22,9 +81,6 @@ Page({
       date: buildDefaultDate(),
       time: "10:00",
       locationText: "",
-      contactName: "",
-      contactPhone: "",
-      shootingType: "",
       participantCount: "1",
       note: ""
     }
@@ -83,8 +139,71 @@ Page({
     this.setData({ packageIndex: Number(e.detail.value || 0) });
   },
 
+  async ensureLocationPermission() {
+    try {
+      const setting = await getSettingAsync();
+      const authSetting = setting?.authSetting || {};
+      const scopeState = authSetting["scope.userLocation"];
+      if (scopeState === true) {
+        return true;
+      }
+      if (scopeState === false) {
+        const modal = await showModalAsync({
+          title: "需要定位权限",
+          content: "地图选点需要使用定位权限，请先在设置中打开后再继续。",
+          confirmText: "去设置",
+          cancelText: "手动填写"
+        });
+        if (!modal.confirm) return false;
+        const result = await openSettingAsync();
+        return !!result?.authSetting?.["scope.userLocation"];
+      }
+      await authorizeAsync("scope.userLocation");
+      return true;
+    } catch (err) {
+      console.warn("ensureLocationPermission failed", err);
+      const message = err?.errMsg || "";
+      if (message.includes("auth deny") || message.includes("auth denied")) {
+        wx.showToast({ title: "未开启定位权限，请手动填写", icon: "none" });
+        return false;
+      }
+      wx.showToast({ title: "定位权限获取失败", icon: "none" });
+      return false;
+    }
+  },
+
+  async pickLocation() {
+    if (typeof wx.chooseLocation !== "function") {
+      wx.showToast({ title: "当前微信版本暂不支持地图选点", icon: "none" });
+      return;
+    }
+    const hasPermission = await this.ensureLocationPermission();
+    if (!hasPermission) return;
+    wx.chooseLocation({
+      success: (res) => {
+        const locationText = normalizeLocationText(res);
+        if (!locationText) return;
+        this.setData({ "form.locationText": locationText });
+      },
+      fail: (err) => {
+        console.warn("chooseLocation failed", err);
+        const message = err?.errMsg || "";
+        if (message.includes("cancel")) return;
+        if (message.includes("auth deny") || message.includes("auth denied")) {
+          wx.showToast({ title: "请允许地图定位后再选点", icon: "none" });
+          return;
+        }
+        if (message.includes("system permission denied") || message.includes("system permission is denied")) {
+          wx.showToast({ title: "请打开系统定位后重试", icon: "none" });
+          return;
+        }
+        wx.showToast({ title: "地图选点失败，请手动填写", icon: "none" });
+      }
+    });
+  },
+
   async submit() {
-    const { date, time, locationText, contactName, contactPhone, shootingType, participantCount, note } = this.data.form;
+    const { date, time, locationText, participantCount, note } = this.data.form;
     if (!locationText.trim()) {
       wx.showToast({ title: "请填写拍摄地点", icon: "none" });
       return;
@@ -103,9 +222,6 @@ Page({
           package_id: packageOption.id,
           scheduled_at: `${date}T${time}:00+08:00`,
           location_text: locationText.trim(),
-          contact_name: contactName.trim(),
-          contact_phone: contactPhone.trim(),
-          shooting_type: shootingType.trim(),
           participant_count: Number(participantCount || 1),
           note: note.trim()
         }
